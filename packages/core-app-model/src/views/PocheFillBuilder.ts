@@ -92,6 +92,32 @@ export type PochePlane =
     /** Vertical, looking along +x — reduce (z, y). A section/elevation cut facing x. */
     | 'zy';
 
+/**
+ * The plane a view's CUT geometry lies in, from the view's own published plane frame.
+ *
+ * §POCHE-KNOWS-ITS-PLANE — L-13269 built the capability, L-13276 wired it.
+ *
+ * ⭐ THE RULE IS STATED ONCE, HERE, BESIDE THE TYPE IT PRODUCES. `PlanViewCanvas` already
+ * publishes `viewPlaneFrame()` precisely so consumers stop re-deriving the plane from
+ * `viewType` and getting it wrong — its header records a tag-drag bug caused by exactly
+ * that. This is the same discipline for poché: one home for the rule, so a second surface
+ * that needs it calls this instead of growing a copy.
+ *
+ *   · horizontal cut (plan / ceiling plan / detail) → world (x, z) → `xz`
+ *   · vertical cut, horizontal axis is world x       → world (x, y) → `xy`
+ *   · vertical cut, horizontal axis is world z       → world (z, y) → `zy`
+ *
+ * ⚠ WHY THE VERTICAL CASE IS THE WHOLE POINT. Parsing a section's segments as `xz` reads
+ * the single DEPTH coordinate for BOTH axes, so every segment collapses to a point and the
+ * hatch comes out a 2-vertex degenerate enclosing no area — a section that could not hatch.
+ */
+export function pochePlaneForFrame(
+    frame: { readonly isVertical: boolean; readonly hWorldAxis: 'x' | 'z' },
+): PochePlane {
+    if (!frame.isVertical) return 'xz';
+    return frame.hWorldAxis === 'x' ? 'xy' : 'zy';
+}
+
 /** The component offsets, within one XYZ triple, that a plane reduces onto. */
 const PLANE_OFFSETS: Readonly<Record<PochePlane, readonly [number, number]>> = {
     xz: [0, 2],

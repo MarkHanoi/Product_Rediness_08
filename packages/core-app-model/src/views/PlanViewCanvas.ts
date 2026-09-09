@@ -2,7 +2,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { viewTechnicalDrawingCache } from './ViewTechnicalDrawingCache';
 import { planViewAnnotationRenderer } from './PlanViewAnnotationRenderer';
 import { annotationStore } from '../annotations/AnnotationStore.js';
-import { PocheFillBuilder, type PochePolygon } from './PocheFillBuilder';
+import { PocheFillBuilder, pochePlaneForFrame, type PochePolygon, type PochePlane } from './PocheFillBuilder';
 import { RoomColourSystem } from '@pryzm/room-topology';
 // A-1: DrawingSelectionIndex — primary UUID resolution path for hitTest
 import { lookupElementUUID } from './DrawingSelectionIndex';
@@ -333,6 +333,35 @@ export class PlanViewCanvas {
             hWorldAxis: this._hWorldAxis,
             hSign: this._hWorldSign,
         };
+    }
+
+    /**
+     * §POCHE-KNOWS-ITS-PLANE, part 2 (founder 2026-09-09 · L-13276 · C09 §4.6)
+     *
+     * Which world plane this view's CUT geometry lies in — the argument
+     * `PocheFillBuilder.fromGeometry` has taken since L-13269 and that nothing has ever
+     * passed.
+     *
+     * ⭐ L-13269 LANDED THE CAPABILITY AND NOT THE WIRING, which is
+     * [[authored-but-unwired-is-the-bottleneck]] committed by my own hand: the builder learned
+     * to parse `xy` and `zy`, every caller kept taking the `xz` default, and a section's
+     * hatch stayed exactly as broken as before. A parameter no caller passes is a parameter
+     * that does not exist.
+     *
+     * The answer is DERIVED from `viewPlaneFrame()`, this class's own published frame, rather
+     * than re-tested from `_viewType` — that frame exists precisely so consumers stop
+     * re-deriving the plane and getting it wrong, and its header says so.
+     *
+     *   · plan-like  → the cut is horizontal, drawn in world (x, z)  → `xz`
+     *   · vertical, h = world x → the cut is drawn in world (x, y)   → `xy`
+     *   · vertical, h = world z → the cut is drawn in world (z, y)   → `zy`
+     *
+     * ⚠ The vertical case is why a section hatched as a 2-vertex degenerate: parsing a
+     * vertical wall's segments in (x, z) reads the ONE depth coordinate twice and every
+     * segment collapses to a point.
+     */
+    private _pochePlane(): PochePlane {
+        return pochePlaneForFrame(this.viewPlaneFrame());
     }
 
     private _vertexToHV(v: THREE.Vector3): { h: number; vert: number } {
@@ -2700,7 +2729,11 @@ export class PlanViewCanvas {
             const opacity = intentFillOpacity ?? vgOpacity;
             if (opacity <= 0) return;
 
-            const built = PocheFillBuilder.fromGeometry(child.geometry, fill, opacity);
+            // §POCHE-KNOWS-ITS-PLANE (L-13276) — the default `xz` is correct for a plan and
+            // WRONG for every section and elevation. See `_pochePlane`.
+            const built = PocheFillBuilder.fromGeometry(
+                child.geometry, fill, opacity, undefined, this._pochePlane(),
+            );
             const fillPattern = intentFillPattern ?? resolved?.fillPattern;
             if (fillPattern && fillPattern !== 'solid') {
                 for (const poly of built) {

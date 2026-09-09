@@ -67,11 +67,20 @@ describe('§EXPECTATION-IS-DERIVED-FROM-THE-LEDGER — the two lists cannot drif
 
     it('⭐ EVERY persisted family in the ledger is audited, or is named as derived', () => {
         // THE ARM THAT WOULD HAVE CAUGHT `spaceEnvelopes` — and that catches the seventh.
+        // ⚠ A family counts as audited if the LEDGER LOOP covers it, OR if it is still
+        // hand-listed. Both, deliberately — so deleting the loop does not silently pass this
+        // arm on the strength of the loop's own existence. An earlier draft of this arm did
+        // exactly that: its last predicate ignored the row entirely and was vacuously true
+        // for every family, which is a green that measures nothing.
+        const ledgerLoopPresent =
+            /for\s*\(\s*const\s+\w+\s+of\s+SNAPSHOT_FAMILY_COVERAGE\s*\)/.test(LOADER_CODE)
+            && LOADER_CODE.includes('__pushIds(s[row.snapshotKey]);');
         const missed = SNAPSHOT_FAMILY_COVERAGE
             .filter((r) => r.snapshotKey !== null)
             .filter((r) => !(DERIVED_NOT_AUDITED as readonly string[]).includes(r.snapshotKey!))
-            .filter((r) => !LOADER_CODE.includes('SNAPSHOT_FAMILY_COVERAGE'));
-        expect(missed, 'the ledger loop must cover these').toEqual([]);
+            .filter((r) => !(ledgerLoopPresent || LOADER_CODE.includes(`__pushIds(s.${r.snapshotKey})`)))
+            .map((r) => r.snapshotKey);
+        expect(missed, 'these persisted families would be reported as FOREIGN').toEqual([]);
     });
 
     it('⛔ `spaceEnvelopes` specifically — the family that cried wolf — is in the audited set', () => {

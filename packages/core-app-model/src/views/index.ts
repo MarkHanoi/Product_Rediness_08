@@ -248,7 +248,7 @@ export { DrawingEditorService } from './DrawingEditorService.js';
 
 // ── Sprint AI (2026-05-12) — PocheFillBuilder ─────────────────────────────────
 export type { PochePolygon } from './PocheFillBuilder.js';
-export { PocheFillBuilder } from './PocheFillBuilder.js';
+export { PocheFillBuilder, pochePlaneForFrame } from './PocheFillBuilder.js';
 
 // §SHEET-PAPER-IS-THE-SHEETS (L-10684) — the ONE resolver of how big a sheet is
 // and where its title-block fields land. Consumers must call these instead of

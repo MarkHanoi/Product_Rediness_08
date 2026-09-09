@@ -1054,7 +1054,7 @@ export { drawingEditorService, DrawingEditorService, ANNOTATION_TOOL_IDS } from 
 
 // ── Sprint AI (2026-05-12) — PocheFillBuilder ────────────────────────────────
 export type { PochePolygon } from './views/PocheFillBuilder.js';
-export { PocheFillBuilder } from './views/PocheFillBuilder.js';
+export { PocheFillBuilder, pochePlaneForFrame } from './views/PocheFillBuilder.js';
 
 // ── Sprint AJ (2026-05-12) — Monetization layer ───────────────────────────────
 export {
