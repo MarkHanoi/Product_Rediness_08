@@ -104,7 +104,26 @@ export interface IntendedLevelArea {
      * the same records the areas are — never from a second pass over the store.
      */
     readonly heightM: number | null;
-    /** The lowest LEVEL envelope's `baseOffset` on this storey (metres above the level datum). */
+    /**
+     * The lowest LEVEL envelope's `baseOffset` on this storey, in metres **above the PROJECT
+     * datum** — an ABSOLUTE seat, not an offset from `elevation`.
+     *
+     * ⛔ §BASE-OFFSET-IS-ABSOLUTE (L-13286). This line used to read *"metres above the level
+     * datum"*, and that one wrong word cost the founder a false refusal: `intentAgainstCeiling`
+     * believed it and computed `elevation + baseOffset + height`, printing **39.0 m** for a
+     * 7-storey stack whose top storey sits at 18 m and is 3 m tall — a true height of 21.0 m,
+     * comfortably inside its 22.4 m ceiling. The panel then told him to reduce a building that
+     * already fitted.
+     *
+     * ⭐ THE CONVENTION IS MEASURED, NOT ASSUMED — see the four-consumer audit at
+     * `envelopeAuthoringPlan.ts:183-197`. The producer writes `baseOffset: level.elevation`
+     * (`:658`) and the renderer reads `baseY = prism.baseOffset` with nothing added
+     * (`SpaceEnvelopeMeshBuilder.ts:449`).
+     *
+     * ⚠ So `elevation` and this field carry the SAME quantity whenever the storey holds a level
+     * envelope. They are kept separate because their SOURCES differ — `elevation` comes from the
+     * BIM level store and survives when no envelope exists — never because they add.
+     */
     readonly baseOffsetM: number | null;
     /** §RESI-STAGE-G — the room envelopes seated on this storey, largest first, then by name. */
     readonly rooms: readonly IntendedRoomArea[];

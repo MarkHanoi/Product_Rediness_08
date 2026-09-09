@@ -29,12 +29,31 @@ function envelope(over: Record<string, unknown> = {}): never {
 const law = (over: Record<string, unknown> = {}) =>
     buildParcelLawModel({ parcelRing: RECT, edgeClassifications: undefined, identity: null, envelope: envelope(over) });
 
-function snapshot(levels: readonly { id: string; name: string; elevation: number | null; areaM2: number; heightM: number | null }[]): IntendedAreaSnapshot {
+/**
+ * ⛔⛔ §BASE-OFFSET-IS-ABSOLUTE (L-13286) — `baseOffsetM` DEFAULTS TO THE STOREY'S ELEVATION,
+ * because that is literally what the production producer writes:
+ * `baseOffset: level.elevation` (`envelopeAuthoringPlan.ts:658`).
+ *
+ * ⭐ THIS LINE USED TO BE A HARD-CODED `baseOffsetM: 0`, AND THAT IS WHY EVERY TEST BELOW WAS
+ * GREEN WHILE THE PANEL PRINTED 39.0 m FOR A 21 m BUILDING. A fixture that seats every storey at
+ * zero cannot tell `elevation + baseOffset` apart from `baseOffset`: the two expressions agree
+ * for exactly the one value the real system never produces. The suite was not measuring the
+ * production frame — it was measuring a frame invented by its own helper
+ * ([[fake-more-capable-than-real]]).
+ *
+ * `baseOffsetM` may still be overridden per level to cover the storey-with-no-envelope arm.
+ */
+function snapshot(levels: readonly {
+    id: string; name: string; elevation: number | null; areaM2: number; heightM: number | null;
+    baseOffsetM?: number | null;
+}[]): IntendedAreaSnapshot {
     return {
         readable: true,
         byLevel: levels.map((l) => ({
             levelId: l.id, name: l.name, elevation: l.elevation, levelEnvelopeCount: 1,
-            intendedAreaM2: l.areaM2, heightM: l.heightM, baseOffsetM: 0, rooms: [], roomsSubtotalM2: 0,
+            intendedAreaM2: l.areaM2, heightM: l.heightM,
+            baseOffsetM: l.baseOffsetM === undefined ? l.elevation : l.baseOffsetM,
+            rooms: [], roomsSubtotalM2: 0,
         })),
         roomEnvelopeCount: 0, roomsOnStoreysWithoutLevel: 0, skippedCount: 0,
         totalIntendedM2: levels.length === 0 ? null : levels.reduce((s, l) => s + l.areaM2, 0),
@@ -175,5 +194,77 @@ describe('§26.6.3 — 3.2 areas: ground beside Maximum implantation area, per l
     it('an unreadable store is an ADMISSION about PRYZM, forwarded verbatim', () => {
         const m = buildIntentAgainstCeiling({ readable: false, reason: 'no-store', text: 'NO STORE' }, law());
         expect(m).toEqual({ readable: false, reason: 'no-store', text: 'NO STORE' });
+    });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// §BASE-OFFSET-IS-ABSOLUTE (L-13286) — the founder's Barcelona repro, pinned by its own numbers
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// FOUNDER, 2026-09-09, on a real Eixample parcel:
+//   > "THE ENVELOPE SHOULD BE CORRECT? OR THE DATA ON THE PANEL IS CORRECT? WHAT DETERMINES THE
+//   >  HEIGHT? … THE LEVELS TO BE BUILT ENVELOPES BY LEVEL FIT ON THE BUILDABLE PURPLE ENVELOPE
+//   >  HOWEVER ON THE CARD … IT SAYS 24 METERS"
+//
+// His screen: 7 storeys seated at 0/3/6/9/12/15/18 m, 3.0 m each, ceiling 22.4 m / 6 storeys.
+// The panel printed **Total height 39.0 m** and refused. The true height is **21.0 m** and it
+// FITS. The envelope was right; the panel was wrong — and the geometry was the honest witness.
+const BCN_STACK = [0, 3, 6, 9, 12, 15, 18].map((elevation, i) => ({
+    id: i === 0 ? 'L0' : `L${i}`,
+    name: i === 0 ? 'Ground' : `Level ${i}`,
+    elevation,
+    areaM2: 322,
+    heightM: 3,
+}));
+
+describe('§BASE-OFFSET-IS-ABSOLUTE (L-13286) — the storey elevation is counted ONCE', () => {
+    const bcnLaw = () => law({ maxHeight_m: 22.4, maxFloors: 6 });
+
+    it('⭐ the founder\'s stack measures 21.0 m, NOT 39.0 m — top-of-highest minus base-of-lowest', () => {
+        const m = buildIntentAgainstCeiling(snapshot(BCN_STACK), bcnLaw());
+        if (!m.readable) throw new Error('readable expected');
+        // 18 m seat + 3 m storey = 21 m top; lowest base 0 m. NOT 18 + 18 + 3 = 39.
+        expect(m.totalHeight.intent).toBe(21);
+        expect(m.totalHeight.intent).not.toBe(39);
+    });
+
+    it('⛔ and therefore it does NOT refuse on height — 21.0 m fits inside 22.4 m with 1.4 m in hand', () => {
+        const m = buildIntentAgainstCeiling(snapshot(BCN_STACK), bcnLaw());
+        if (!m.readable) throw new Error('readable expected');
+        expect(m.totalHeight.verdict.kind).toBe('within');
+        // ⛔ The exact sentence he was shown must be gone. A refusal computed from a wrong number
+        // is worse than silence: it tells a user to shrink a building that already complies.
+        expect(m.totalHeight.verdict.sentence).not.toContain('less than you asked for');
+    });
+
+    it('⚠ the STOREY refusal beside it is REAL and survives — 7 declared against a 6-storey cap', () => {
+        const m = buildIntentAgainstCeiling(snapshot(BCN_STACK), bcnLaw());
+        if (!m.readable) throw new Error('readable expected');
+        expect(m.levels.intent).toBe(7);
+        expect(m.levels.verdict.kind).toBe('exceeds');
+        expect(m.levels.verdict.sentence).toContain('you asked for 7 storeys');
+        expect(m.levels.verdict.sentence).toContain('which is 6 storeys');
+    });
+
+    it('⭐ CROSS-MODEL AGREEMENT — the measured height equals what the RENDERER seats and extrudes', () => {
+        // The renderer's frame, transcribed from `SpaceEnvelopeMeshBuilder.ts:449-450`:
+        //     const baseY = prism.baseOffset;  const topY = prism.baseOffset + prism.height;
+        // ⛔ No `elevation` term. If this expression and the panel ever disagree again, ONE of
+        // them has changed coordinate frames — which is the entire defect this suite now guards.
+        const rendererTop = Math.max(...BCN_STACK.map((l) => l.elevation + l.heightM));
+        const rendererBase = Math.min(...BCN_STACK.map((l) => l.elevation));
+        const m = buildIntentAgainstCeiling(snapshot(BCN_STACK), bcnLaw());
+        if (!m.readable) throw new Error('readable expected');
+        expect(m.totalHeight.intent).toBe(rendererTop - rendererBase);
+    });
+
+    it('a storey whose envelope carries NO base falls back to the storey elevation, never to 0', () => {
+        // baseOffsetM explicitly null = no level envelope seated a base on this storey.
+        const m = buildIntentAgainstCeiling(snapshot([
+            { id: 'L0', name: 'Ground', elevation: 0, areaM2: 300, heightM: 3, baseOffsetM: null },
+            { id: 'L1', name: 'First', elevation: 3, areaM2: 300, heightM: 3, baseOffsetM: null },
+        ]), law());
+        if (!m.readable) throw new Error('readable expected');
+        expect(m.totalHeight.intent).toBe(6);
+        expect(m.totalHeightBasis).toContain('top of the highest');
     });
 });

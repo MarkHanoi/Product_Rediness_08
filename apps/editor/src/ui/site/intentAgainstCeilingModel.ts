@@ -182,19 +182,54 @@ export function buildIntentAgainstCeiling(
         );
 
         // ── 3.1 TOTAL HEIGHT — measured from the declared envelopes, and the basis is STATED. ──
+        //
+        // ⛔⛔ §BASE-OFFSET-IS-ABSOLUTE (founder 2026-09-09 · L-13286) — DO NOT ADD `elevation`.
+        //
+        // FOUNDER, on a 7-storey stack seated at 0/3/6/9/12/15/18 m with 3 m storeys:
+        //   > "THE ENVELOPE SHOULD BE CORRECT? OR THE DATA ON THE PANEL IS CORRECT? … THE LEVELS
+        //   >  TO BE BUILT ENVELOPES BY LEVEL FIT ON THE BUILDABLE PURPLE ENVELOPE HOWEVER ON THE
+        //   >  CARD … IT SAYS 24 METERS"
+        //
+        // He was right, and the geometry was the honest witness. This block read
+        // `elevation + baseOffset + height` and printed **39.0 m** against a 22.4 m ceiling,
+        // raising a REFUSAL telling him to reduce a building that already fits. The top storey
+        // sits at 18 m and is 3 m tall, so the true total is **21.0 m** — inside the ceiling.
+        // `18 + 18 + 3 = 39` is the whole defect: the storey elevation counted TWICE.
+        //
+        // ⭐ `baseOffset` IS ALREADY ABSOLUTE — above the PROJECT datum, not above the level's.
+        // That is not an inference; it is the measured convention, recorded in
+        // `envelopeAuthoringPlan.ts:183-197` after auditing every consumer:
+        //   · the PRODUCER writes `baseOffset: level.elevation` (`envelopeAuthoringPlan.ts:658`);
+        //   · the RENDERER reads `const baseY = prism.baseOffset` with NO level elevation added
+        //     (`SpaceEnvelopeMeshBuilder.ts:449`) — which is exactly why the founder's 3D view is
+        //     correct while this panel's number was not.
+        // ⛔ `IntendedLevelArea.baseOffsetM`'s doc comment used to say *"metres above the level
+        // datum"*. That sentence was FALSE and it is what licensed this arithmetic; it has been
+        // corrected at the declaration. If you are about to re-add `elevation` here, read that
+        // field's doc and the four-consumer audit FIRST.
+        //
+        // ⚠ THE STOREY-COUNT REFUSAL BESIDE THIS ONE IS REAL AND IS NOT TOUCHED: 7 declared
+        // storeys against a 6-storey maximum is a genuine exceedance. Only the HEIGHT row was
+        // lying, and a panel that refuses on a number it computed wrongly is worse than one that
+        // says nothing ([[refusing-half-needs-its-escape-hatch]]).
         let totalHeight: number | null = null;
         let basis: string | null = null;
         if (anyDeclared) {
             const allHeights = declared.every((l) => l.heightM !== null);
-            const allElev = declared.every((l) => l.elevation !== null);
-            if (allHeights && allElev) {
-                const tops = declared.map((l) => l.elevation! + (l.baseOffsetM ?? 0) + l.heightM!);
-                const bases = declared.map((l) => l.elevation! + (l.baseOffsetM ?? 0));
+            // The envelope's OWN seat. `elevation` is the fallback only when no level envelope on
+            // the storey carried a base — then the storey datum is the best seat PRYZM holds, and
+            // it is the same quantity the producer would have written.
+            const seatOf = (l: typeof declared[number]): number | null =>
+                l.baseOffsetM ?? l.elevation;
+            const allSeats = declared.every((l) => seatOf(l) !== null);
+            if (allHeights && allSeats) {
+                const tops = declared.map((l) => seatOf(l)! + l.heightM!);
+                const bases = declared.map((l) => seatOf(l)!);
                 totalHeight = Math.max(...tops) - Math.min(...bases);
-                basis = 'From the top of the highest declared level envelope to the base of the lowest, using each storey\'s recorded elevation.';
+                basis = 'From the top of the highest declared level envelope to the base of the lowest, using each envelope\'s own seat above the project datum.';
             } else if (allHeights) {
                 totalHeight = declared.reduce((s, l) => s + l.heightM!, 0);
-                basis = 'The declared level heights added up, because at least one storey carries no recorded elevation — an assumption that the storeys stack without gaps.';
+                basis = 'The declared level heights added up, because at least one storey carries no recorded seat — an assumption that the storeys stack without gaps.';
             }
         }
         const totalHeightPair = pair(
