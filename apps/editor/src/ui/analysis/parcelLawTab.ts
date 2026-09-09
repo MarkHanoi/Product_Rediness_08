@@ -268,6 +268,23 @@ import {
   mountMassingGroupSection,
   type MassingGroupSectionHandle,
 } from '../site/massingGroupSection';
+// ⭐ ADR-0383 S3 + S5 (lane MP-WIRE, 2026-09-09) — THE MASTER-PLAN CREATE PATH, MOUNTED.
+//
+// ⛔ THIS IS THE WIRE, AND IT IS THE WHOLE DEFECT. `buildMasterPlanAuthoringPlan` and
+// `getDrawnEnvelopeProfiles` shipped on 2026-09-09 with ZERO callers outside their own specs, so
+// the founder's *"when can I create multiple profiles?"* had exactly one honest answer: never, on
+// any surface. The section that closes it draws its every judgement from those two producers and
+// makes none of its own — see `masterPlanSection.ts`'s header.
+//
+// ⛔ AND IT SITS IN QUESTION 2, beside the single-building create and above the group roster, for
+// the same reason S7 does: question 2 is where you ACT on the parcel (C115 §2.2 / §6). Drawing N
+// profiles, creating N blocks and then re-storeying one of them is ONE journey, and splitting it
+// across two questions is what §ENVELOPE-CREATE-DEADEND already cost once.
+import {
+  defaultMasterPlanSectionDeps,
+  mountMasterPlanSection,
+  type MasterPlanSectionHandle,
+} from '../site/masterPlanSection';
 
 const _tracer = trace.getTracer('pryzm.analysis.parcelLawTab');
 
@@ -603,6 +620,13 @@ export interface ParcelLawTabDeps {
    */
   readonly mountMassingGroups?: (host: HTMLElement) => MassingGroupSectionHandle;
   /**
+   * ADR-0383 S3 + S5 — Production: `mountMasterPlanSection` with `defaultMasterPlanSectionDeps`.
+   * ⚠ OPTIONAL for the same reason as its siblings: every spec literal written before this seam
+   * existed keeps compiling, and omitting it takes the production mount, which resolves the live
+   * runtime itself and renders its own honest sentences on a runtime with no stores.
+   */
+  readonly mountMasterPlan?: (host: HTMLElement) => MasterPlanSectionHandle;
+  /**
    * §26.6 rule 3 — Production: `mountParcelLawIntentAgainstCeiling` with its production deps.
    * ⚠ OPTIONAL for the same reason as its siblings: spec literals written before this seam
    * existed are complete and must keep compiling. Omitting it yields the production mount, which
@@ -635,6 +659,9 @@ export function defaultParcelLawTabDeps(): ParcelLawTabDeps {
     // window.runtime`), so the null-by-design boot prop cannot make it print "unavailable"
     // (§L-12916). `w.runtime` is handed in as the PREFERRED source, never the only one.
     mountIntent: (h) => mountParcelLawIntentAgainstCeiling(h, defaultParcelLawIntentDeps()),
+    // ADR-0383 S3 + S5 — like its siblings the section resolves the LIVE runtime itself, so the
+    // null-by-design boot prop cannot make it print "unavailable" (§L-12916).
+    mountMasterPlan: (h) => mountMasterPlanSection(h, defaultMasterPlanSectionDeps(w.runtime ?? null)),
     mountRoomProgramme: (h) => mountRoomProgrammePanel(
       h, defaultRoomProgrammePanelDeps(w.runtime as unknown as RoomProgrammeHostRuntime | null)),
   };
@@ -679,6 +706,8 @@ export function mountParcelLawTab(
   /** §PL-ROOM-PROGRAMME — the re-hosted ROOM PROGRAMME panel's handle. */
   let roomProgramme: RoomProgrammePanelHandle | null = null;
   let massingGroups: MassingGroupSectionHandle | null = null;
+  /** ADR-0383 S3 + S5 — the master-planning (N profiles → N buildings) section's handle. */
+  let masterPlan: MasterPlanSectionHandle | null = null;
   /** §ROOMS-PER-LEVEL — the per-storey rooms section's handle. */
   let roomsPerLevel: RoomsPerLevelHandle | null = null;
   let unsub: (() => void) | null = null;
@@ -1180,6 +1209,13 @@ export function mountParcelLawTab(
     // question 3's scopes twice on 2026-09-07 (C115 §2.2 / §6) and this is squarely question 2's.
     // ⛔ AND NOT A CARD SECTION: the card registry repaints via `panel.innerHTML = …`, which
     // destroys a typed storey count on every store event. See massingGroupSection.ts's header.
+    // ⭐ ADR-0383 S3 + S5 — MASTER PLANNING (draw N profiles → create N blocks in ONE command),
+    // ABOVE the group roster: you author the blocks, then you read and re-storey them. Two slots,
+    // two sections, one question — and neither is a card section, for the reason below.
+    const masterPlanSlot = document.createElement('div');
+    masterPlanSlot.className = 'anl-parcel-law-master-plan-host';
+    bodyOf('law').appendChild(masterPlanSlot);
+
     const massingGroupSlot = document.createElement('div');
     massingGroupSlot.className = 'anl-parcel-law-massing-groups-host';
     bodyOf('law').appendChild(massingGroupSlot);
@@ -1355,6 +1391,15 @@ export function mountParcelLawTab(
     }
     // ADR-0383 S7 — mounted through the tab's deps pattern so a spec can inject a double, with a
     // production default. Non-fatal: a section that cannot mount must not take the tab down.
+    // ADR-0383 S3 + S5 — mounted through the tab's deps pattern so a spec can inject a double,
+    // with a production default. Non-fatal: a section that cannot mount must not take the tab down.
+    try {
+      const mountMP = deps.mountMasterPlan
+        ?? ((h: HTMLElement) => mountMasterPlanSection(h, defaultMasterPlanSectionDeps(deps.runtime ?? null)));
+      masterPlan = mountMP(masterPlanSlot);
+    } catch (e) {
+      console.warn('[analysis][parcel-law] master-plan section mount failed (non-fatal):', e);
+    }
     try {
       const mountMG = deps.mountMassingGroups
         ?? ((h: HTMLElement) => mountMassingGroupSection(h, defaultMassingGroupSectionDeps(deps.runtime ?? null)));
@@ -1453,6 +1498,7 @@ export function mountParcelLawTab(
       try { roomProgramme?.refresh(); } catch { /* same */ }
       try { roomsPerLevel?.refresh(); } catch { /* same */ }
       try { massingGroups?.refresh(); } catch { /* same */ }
+      try { masterPlan?.refresh(); } catch { /* same */ }
       wireStrip();
       wireHighlights();
       // §PLOT-DISPLAY-CONTROLS-HOST / §STAGE-01-DENSITY — the two pieces of question-1 chrome this
@@ -1508,6 +1554,11 @@ export function mountParcelLawTab(
       // a listener that outlived this body would repaint a detached tree on every 3D click.
       try { massingGroups?.dispose(); } catch { /* teardown is best-effort */ }
       massingGroups = null;
+      // ADR-0383 S3 + S5 — it holds the drawn-profile roster channel AND the draw-status channel;
+      // either one left connected to a detached body repaints a tree nobody is looking at every
+      // time the user clicks a corner on a site view.
+      try { masterPlan?.dispose(); } catch { /* teardown is best-effort */ }
+      masterPlan = null;
       try { roomsPerLevel?.dispose(); } catch { /* teardown is best-effort */ }
       roomsPerLevel = null;
       try { roomProgramme?.dispose(); } catch { /* teardown is best-effort */ }
