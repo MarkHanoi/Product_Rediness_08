@@ -159,6 +159,33 @@ import { getLastBuildableEnvelope } from '../site/siteDispatch.js';
 // hue here: the §TOBE-ENVELOPE ruling deliberately moved the level envelope OFF the confident
 // violet C58 §1.2 reserves for a determination, and a second copy would drift from that.
 import { resolveSpaceEnvelopeAppearance } from '../../engine/spaceEnvelopeAppearance.js';
+// ADR-0383 S8 (D6) — the ONE group-selection channel, shared with the site panel and the 3D scene.
+// ⛔ This map does NOT own a selection of its own: C59 §2.10 rules one owner per view region, and
+// [[view-region-one-owner]] measured what the alternative costs (six writers of one property,
+// oscillating). It reads the predicate and writes through the one setter.
+import {
+    setMassingGroupSelection,
+    subscribeMassingGroupSelection,
+    getSelectedMassingGroupId,
+} from '../site/massingGroupSelectionState';
+// ⛔ AND IT PARSES NO `group` OF ITS OWN — `readMassingGroupRef` is the one reader (the same one
+// the panel's roster uses), so the map and the panel cannot disagree about which block a prism is
+// in (C84 EI-9). A second `raw.group` projection here is the dominant defect in miniature.
+import { readMassingGroupRef } from '../site/massingGroupRoster';
+// ⛔ THE ONE COMPOSER for the two emphasis channels — see that file's header for what applying
+// `SITE_HIGHLIGHT_RECEDE_FACTOR` twice would cost (0.0484 of authored alpha: a solid the user drew,
+// vanishing because they clicked a number on a card).
+import {
+    massingGroupAlphaFactors,
+    MASSING_GROUP_OUTLINE_WEIGHT,
+    MASSING_GROUP_SELECTED_OUTLINE_WEIGHT,
+} from '../site/massingGroupEmphasis';
+// ⛔ THE ARMING REGISTRY, not `envelopeDrawMode` — they are DIFFERENT FACTS and this file holds
+// both. `envelopeDrawMode(axes)` says WHICH envelope solid the visibility axes ask for;
+// `isEnvelopeDrawArmed()` says whether the PERIMETER TOOL currently owns the pointer. The group
+// hit-test must yield to the second, and reading the first would have silently yielded on the
+// wrong condition — the [[same-rule-two-implementations]] shape wearing a near-miss name.
+import { isEnvelopeDrawArmed } from '../site/siteEnvelopeDrawArming';
 import type { DirtySpaceEnvelopeStore } from '../../engine/attachSpaceEnvelopeRender.js';
 import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation, dispatchSiteTrueNorth, dispatchClearParcelBoundary, canCommitParcelBoundary } from '../site/siteDispatch.js';
 // §L-536-THETA-RESET — the SAME pure derivation `dispatchParcelBoundary` uses, so the θ this
@@ -2094,6 +2121,58 @@ export function mountSiteBoundaryMap2D(
             const proposal = k('proposal');
             set(PROPOSED_PLATE_FILL_LAYER, 'fill-opacity', TO_BE_BUILT_GROUND_FILL_ALPHA * proposal);
             set(PROPOSED_PLATE_LINE_LAYER, 'line-opacity', 0.95 * proposal);
+
+            // ══════════════════════════════════════════════════════════════════════════════════
+            // ⭐ ADR-0383 S8 — THE AUTHORED PRISMS, WHICH THIS FUNCTION NEVER TOUCHED UNTIL NOW
+            // ══════════════════════════════════════════════════════════════════════════════════
+            // ⚠ MEASURED GAP, AND IT IS A DEFECT INDEPENDENT OF MASSING GROUPS: every other figure
+            // on this map recedes when a card figure is highlighted, and the authored space
+            // envelopes did not — they were the one thing that stayed at full weight over receded
+            // surfaces. Fixed here because this function is the ONE emphasis writer and adding a
+            // second one for groups is exactly the defect this file is careful about elsewhere.
+            //
+            // ⛔ TWO CHANNELS, ONE MULTIPLICATION POINT. `getSiteHighlight()` (a card figure is the
+            // subject) and `getSelectedMassingGroupId()` (a block is the subject) both want to
+            // lower alpha on these two layers. Applying `SITE_HIGHLIGHT_RECEDE_FACTOR` twice
+            // independently would render a non-member during a highlight at 0.048 of its authored
+            // alpha — effectively invisible, and a second implementation of one rule. So the two
+            // compose HERE, once, and `envelopeGroupFactor` is the only place it happens.
+            //
+            // ⛔ AND IT IS EMPHASIS, NEVER HUE. `envelopeRenderStyle.ts` spends colour on
+            // CONFIDENCE (confident violet · provisional grey · suggested amber · study teal) and
+            // `siteGeometryHighlight.ts` rules the consequence: *"DIM WHAT IS NOT THE SUBJECT;
+            // NEVER BRIGHTEN THE SUBJECT, AND NEVER CHANGE ITS HUE"* — a recoloured solid makes an
+            // estimate read as a determination (§L-616). A per-group tint would launder a study
+            // into a permit one colour at a time, so the group is carried by DIMMING NON-MEMBERS
+            // and by OUTLINE WEIGHT, which cost no honesty.
+            const authored = k('envelope-volume');
+            const selectedGroup = getSelectedMassingGroupId();
+            // ⭐ THE TWO FACTORS COME FROM THE ONE COMPOSER — this file does NOT multiply them.
+            // MapLibre paints from a GPU-evaluated data expression, so it needs the two NUMBERS
+            // rather than a per-prism answer; `massingGroupAlphaFactors` derives both from the same
+            // `composeMassingGroupEmphasis` the 3D scene calls per entity. Writing
+            // `authored * SITE_HIGHLIGHT_RECEDE_FACTOR` inline here is precisely the second
+            // implementation that file exists to prevent.
+            const gf = massingGroupAlphaFactors(authored, selectedGroup);
+            /** Branch per feature on membership; a plain number while nothing is selected. */
+            const perFeature = (member: number, other: number): number | unknown[] =>
+                selectedGroup === null
+                    ? member
+                    : ['case', ['==', ['get', 'groupId'], selectedGroup], member, other];
+            const envFill = perFeature(gf.member, gf.other);
+            set(SPACE_ENVELOPE_FILL_LAYER, 'fill-opacity',
+                typeof envFill === 'number' && envFill === 1
+                    ? ['get', 'fillAlpha']
+                    : ['*', ['get', 'fillAlpha'], envFill]);
+            set(SPACE_ENVELOPE_LINE_LAYER, 'line-opacity', perFeature(gf.member, gf.other));
+            // ⭐ THE SELECTED BLOCK GAINS WEIGHT, NOT COLOUR — the one channel hue is not already
+            // spending (`massingGroupSelectionState.ts:56-66` names it). ⛔ No `fill-color` and no
+            // `line-color` is written anywhere in this block, deliberately.
+            set(SPACE_ENVELOPE_LINE_LAYER, 'line-width',
+                selectedGroup === null
+                    ? MASSING_GROUP_OUTLINE_WEIGHT
+                    : ['case', ['==', ['get', 'groupId'], selectedGroup],
+                        MASSING_GROUP_SELECTED_OUTLINE_WEIGHT, MASSING_GROUP_OUTLINE_WEIGHT]);
         } catch (e) {
             console.warn('[gis] map2d §PARCEL-VISIBLE-EVERYWHERE emphasis failed (non-fatal):', e);
         }
@@ -2342,6 +2421,11 @@ export function mountSiteBoundaryMap2D(
                         // no space-envelope knowledge.
                         hue: appearance.colour,
                         fillAlpha: appearance.opacity,
+                        // ADR-0383 S8 — WHICH BLOCK this prism belongs to, read through the ONE
+                        // reader. `null` ⇒ ungrouped, which is every envelope written before
+                        // ADR-0383 and every envelope on a single-building project.
+                        groupId: readMassingGroupRef(rec)?.id ?? null,
+                        groupLabel: readMassingGroupRef(rec)?.label ?? null,
                     },
                 });
             } catch (e) {
@@ -2356,6 +2440,40 @@ export function mountSiteBoundaryMap2D(
             + `θ=${(thetaRad * 180 / Math.PI).toFixed(2)}°.`,
         );
         return { type: 'FeatureCollection', features };
+    }
+
+    /**
+     * ADR-0383 S8 — which BLOCK, if any, is under this click?
+     *
+     * ⛔ QUERIES THE SPACE-ENVELOPE FILL LAYER ONLY. Widening it to every layer would let a click
+     * on the parcel fill select a block that merely happens to sit behind it.
+     *
+     * ⛔ AND THE UNGROUPED BUCKET IS NOT SELECTABLE. Its `groupId` is `null`, which no group verb
+     * can address and which `setMassingGroupSelection` refuses at the other end of the channel —
+     * a selection that looks like it works and points at nothing. Returning `null` here lets the
+     * click fall through to parcel selection instead, which is what the user meant.
+     *
+     * Never throws — a failed pick is a missed selection, never a broken map.
+     */
+    function pickMassingGroupAt(e: MapMouseEvent): { groupId: string; label: string } | null {
+        try {
+            if (!map.getLayer(SPACE_ENVELOPE_FILL_LAYER)) return null;
+            const hits = map.queryRenderedFeatures(e.point, { layers: [SPACE_ENVELOPE_FILL_LAYER] });
+            for (const f of hits) {
+                const gid = f.properties?.['groupId'];
+                if (typeof gid === 'string' && gid.trim().length > 0) {
+                    // ⛔ THE LABEL IS FOR A SENTENCE, NEVER FOR A LOOKUP (the channel says so). The
+                    // roster reader remains the authority on labels and reports a drift rather than
+                    // papering over it, so a stale spelling here can never select the wrong block.
+                    const name = f.properties?.['groupLabel'];
+                    return { groupId: gid, label: typeof name === 'string' && name.length > 0 ? name : gid };
+                }
+            }
+            return null;
+        } catch (e2) {
+            console.warn('[gis] map2d ADR-0383 S8 group pick failed (non-fatal):', e2);
+            return null;
+        }
     }
 
     /** Push the authored envelope footprint(s) — or the honest empty — into the map source. */
@@ -3314,6 +3432,33 @@ export function mountSiteBoundaryMap2D(
         // captured its points. The overlay's own map-click listener still fires and records
         // the points; we simply don't add vertices / commit here for the duration.
         if (overlayController?.isCalibrating?.()) return;
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        // ⭐ ADR-0383 S8 — CLICKING A BLOCK SELECTS THE WHOLE BLOCK, ACROSS ALL ITS LEVELS
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        // The founder's unit of selection: *"select the envelopes AS A GROUP FOR ALL THE LEVELS …
+        // this in 2d site / 3d site / site panel"*. One press here lights the block in all three.
+        //
+        // ⛔ PLACED HERE, AND THE ORDER IS LOAD-BEARING. It sits AFTER the calibration yield (that
+        // gesture owns its two clicks outright) and BEFORE the `'select'` branch, because after a
+        // commit the mode IS `'select'` and `committed` returns before every draw path — so a
+        // branch below `'select'` could never run on the surface where the authored prisms are
+        // actually visible.
+        // ⛔ AND IT YIELDS WHILE THE PERIMETER TOOL IS ARMED. `SiteEnvelopeDrawMap2D` attaches its
+        // own handlers on `arm()` and drops them on `disarm()`, out of band with this one; a click
+        // meant to place a vertex must never be eaten as a selection.
+        // ⛔ ON A MISS IT FALLS THROUGH UNTOUCHED — parcel selection and every draw path keep the
+        // exact behaviour they had. Only a HIT returns.
+        if (!isEnvelopeDrawArmed()) {
+            const hitGroup = pickMassingGroupAt(e);
+            if (hitGroup !== null) {
+                setMassingGroupSelection({
+                    groupId: hitGroup.groupId,
+                    label: hitGroup.label,
+                    source: 'site-map-2d',
+                });
+                return;
+            }
+        }
         // §PARCEL-SELECT (L-380 P1) — in SELECT mode a click fetches the real parcel
         // instead of adding a draw vertex. The draw tools below never run in this mode.
         if (interactionMode === 'select') { handleParcelSelectClick(e); return; }
@@ -4235,6 +4380,9 @@ export function mountSiteBoundaryMap2D(
         // §SPACE-ENVELOPE-ON-2D-MAP — drop the store's dirty listener. One left behind would hold
         // this whole closure (and its dead map) alive and repaint into a removed source.
         try { spaceEnvelopeSub?.(); } catch { /* ignore */ }
+        // ADR-0383 S8 — released with its sibling. A selection listener that outlived this map
+        // would repaint a disposed style on the next click in the site panel or the 3D scene.
+        try { massingGroupSelectionSub?.(); } catch { /* ignore */ }
         spaceEnvelopeSub = null;
         // §ENVELOPE-TOOL-ON-THE-SITE-VIEWS — the panel lives INSIDE this overlay, so a dispose that
         // left it open would take its DOM away while the singleton still believed it was mounted,
@@ -4435,6 +4583,22 @@ export function mountSiteBoundaryMap2D(
         }
     } catch (e) {
         console.warn('[gis] map2d §SPACE-ENVELOPE-ON-2D-MAP: could not subscribe to the space-envelope store (non-fatal):', e);
+    }
+
+    // ADR-0383 S8 / D6 — repaint the emphasis when the SELECTED BLOCK changes, wherever it changed.
+    // ⭐ This is what makes the three surfaces one: pressing a row in the site panel, or a prism in
+    // the 3D scene, dims the non-members here without either of them knowing this map exists.
+    // ⛔ EMPHASIS ONLY — it does NOT call `refreshSpaceEnvelopes()`, because no geometry changed and
+    // rebuilding the whole feature collection to restyle it would be a second, slower answer to a
+    // question `applySiteHighlightEmphasis` already answers.
+    let massingGroupSelectionSub: (() => void) | null = null;
+    try {
+        massingGroupSelectionSub = subscribeMassingGroupSelection(() => {
+            if (disposed) return;
+            try { applySiteHighlightEmphasis(); } catch { /* style may be mid-swap */ }
+        });
+    } catch (e) {
+        console.warn('[gis] map2d ADR-0383 S8: could not subscribe to the group-selection channel (non-fatal):', e);
     }
 
     map.on('load', () => {
