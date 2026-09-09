@@ -575,3 +575,133 @@ describe('buildAdoptProposalPlan — unchanged by the extraction', () => {
         expect(r.statement).toContain("the storey's own recorded floor-to-floor");
     });
 });
+
+// ───────────────────────────────────────────────────────────────────────────────────────
+// ⭐⭐ §MASSING-GROUPS (ADR-0383 D1/D3 · C114 §6e clause 3) — THE ONE ARGUMENT THAT MAKES A
+// MASTER PLAN POSSIBLE. Every arm below fails if `input.group` stops reaching the resolver's third
+// parameter, and the FIRST of them is the whole reason the parameter exists: without it, creating
+// the second tower computes the FIRST tower's ids into `supersedes` and deletes it, in the same
+// `produceCommand`, with a sentence claiming it replaced "the level envelope already on this
+// storey". Nothing else in this file can see that.
+// ───────────────────────────────────────────────────────────────────────────────────────
+const BLOCK_A = { id: 'mg_a', label: 'Block A' } as const;
+const BLOCK_B = { id: 'mg_b', label: 'Block B' } as const;
+
+describe('§MASSING-GROUPS — supersession is scoped to the block being built', () => {
+    it('a gesture that names NO group emits `group: null` on every spec — today\u2019s behaviour, unchanged', () => {
+        const r = buildEnvelopeAuthoringPlan(input({ requestedStoreys: 3 }));
+        if (!r.ok) throw new Error(r.statement);
+        expect(r.payload.envelopes).toHaveLength(3);
+        for (const e of r.payload.envelopes) expect(e.group).toBeNull();
+    });
+
+    it('a gesture that names a group stamps it on EVERY storey — one gesture is one building', () => {
+        const r = buildEnvelopeAuthoringPlan(input({ requestedStoreys: 3, group: BLOCK_A }));
+        if (!r.ok) throw new Error(r.statement);
+        expect(r.payload.envelopes.map((e) => e.group?.id)).toEqual(['mg_a', 'mg_a', 'mg_a']);
+        expect(r.payload.envelopes.map((e) => e.group?.label)).toEqual(['Block A', 'Block A', 'Block A']);
+    });
+
+    it('⭐⭐ BUILDING BLOCK B TOUCHES NEITHER BLOCK A NOR THE LEGACY UNGROUPED ENVELOPE BESIDE IT', () => {
+        // ⛔⛔ READ THE THIRD ROW BEFORE EDITING THIS CASE — IT IS WHAT MAKES THE ARM BIND.
+        //
+        // The obvious version of this test (Block A alone on the storey, build Block B, assert
+        // `supersedes` is empty) PASSES EVEN WITH THE GROUP ARGUMENT DELETED. Measured, by running
+        // the scramble control: with no third argument the resolver falls back to the UNGROUPED
+        // bucket, Block A's row is not in it, and the answer is `none` — the right answer, reached
+        // by luck. A test that green-lights the broken code is worse than no test
+        // ([[gate-blind-on-the-wrong-axis]]), so the fixture carries a LEGACY UNGROUPED envelope
+        // as well, which is also the realistic state: a single-building project the user then
+        // splits into blocks. Under the scramble, THAT row is superseded — and a grouped gesture
+        // silently deleting the ungrouped bucket is the real data-loss direction of this defect.
+        const r = buildEnvelopeAuthoringPlan(input({
+            requestedStoreys: 1,
+            group: BLOCK_B,
+            existing: readable([
+                existingRow({ id: 'blockA-ground', levelId: 'lvl-0', group: BLOCK_A }),
+                existingRow({ id: 'legacy-ground', levelId: 'lvl-0' }),
+            ]),
+        }));
+        if (!r.ok) throw new Error(r.statement);
+        // ⛔ THE LOAD-BEARING ASSERTION OF THIS ENTIRE LANE.
+        expect(r.payload.supersedes).toEqual([]);
+        expect(r.replaces).toEqual([]);
+        expect(r.intent).toBe('create');
+    });
+
+    it('… and it DOES supersede its OWN earlier storey — peers are spared, rivals are not', () => {
+        const r = buildEnvelopeAuthoringPlan(input({
+            requestedStoreys: 1,
+            group: BLOCK_B,
+            existing: readable([
+                existingRow({ id: 'blockA-ground', levelId: 'lvl-0', group: BLOCK_A }),
+                existingRow({ id: 'blockB-ground', levelId: 'lvl-0', group: BLOCK_B }),
+            ]),
+        }));
+        if (!r.ok) throw new Error(r.statement);
+        expect(r.payload.supersedes).toEqual(['blockB-ground']);
+        expect(r.intent).toBe('replace');
+        // ⭐ The sentence NAMES the block, because on a master plan "on this storey" is ambiguous,
+        // and says the peer is untouched — a user must be able to read WHICH building is going away.
+        expect(r.replaces.map((e) => e.id)).toEqual(['blockB-ground']);
+    });
+
+    it('an UNGROUPED gesture does not supersede a GROUPED envelope — `null` is a bucket, not a wildcard', () => {
+        const r = buildEnvelopeAuthoringPlan(input({
+            requestedStoreys: 1,
+            existing: readable([
+                existingRow({ id: 'blockA-ground', levelId: 'lvl-0', group: BLOCK_A }),
+            ]),
+        }));
+        if (!r.ok) throw new Error(r.statement);
+        expect(r.payload.supersedes).toEqual([]);
+    });
+
+    it('a GROUPED gesture does not supersede an UNGROUPED envelope — the bucket rule is symmetric', () => {
+        const r = buildEnvelopeAuthoringPlan(input({
+            requestedStoreys: 1,
+            group: BLOCK_A,
+            existing: readable([existingRow({ id: 'legacy-ground', levelId: 'lvl-0' })]),
+        }));
+        if (!r.ok) throw new Error(r.statement);
+        expect(r.payload.supersedes).toEqual([]);
+    });
+
+    it('⛔ a PEER block whose provenance is not replaceable does NOT block this block\u2019s create', () => {
+        // A `systemProvenance` envelope in ANOTHER group would refuse the whole gesture if the
+        // resolver saw it — `rival-envelope-not-authored`. It is a peer; it is not this block's.
+        const r = buildEnvelopeAuthoringPlan(input({
+            requestedStoreys: 1,
+            group: BLOCK_B,
+            existing: readable([
+                existingRow({
+                    id: 'blockA-generated',
+                    levelId: 'lvl-0',
+                    group: BLOCK_A,
+                    provenance: systemProvenance('computed', 'fitted by the massing solver'),
+                }),
+            ]),
+        }));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.payload.supersedes).toEqual([]);
+    });
+
+    it('… while the SAME unreplaceable provenance INSIDE this block still refuses (the rule is unchanged, only its scope)', () => {
+        const r = buildEnvelopeAuthoringPlan(input({
+            requestedStoreys: 1,
+            group: BLOCK_B,
+            existing: readable([
+                existingRow({
+                    id: 'blockB-generated',
+                    levelId: 'lvl-0',
+                    group: BLOCK_B,
+                    provenance: systemProvenance('computed', 'fitted by the massing solver'),
+                }),
+            ]),
+        }));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.reason).toBe('rival-envelope-not-authored');
+    });
+});

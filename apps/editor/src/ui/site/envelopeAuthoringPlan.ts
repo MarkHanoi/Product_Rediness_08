@@ -86,7 +86,7 @@
 // second time). Never throws. Deterministic.
 
 import { trace } from '@opentelemetry/api';
-import type { Pt } from '@pryzm/schemas';
+import type { Pt, SpaceEnvelopeGroup } from '@pryzm/schemas';
 import { authoredProvenance, type ValueProvenance } from '@pryzm/schemas/provenance';
 import {
     OWN_AUTHORING_RULE,
@@ -229,6 +229,17 @@ export interface AuthoredEnvelopeSpec {
      * make the next generated massing option free to sweep the user's drawing away.
      */
     readonly provenance: ValueProvenance;
+    /**
+     * ⭐ ADR-0383 / C114 §6d clause 6 — WHICH BUILDING this storey belongs to, echoed verbatim
+     * from `EnvelopeAuthoringInput.group`. `null` on every single-building gesture, which is every
+     * gesture that predates ADR-0383 and every one where the user has not named a block.
+     *
+     * ⛔ IT IS EMITTED ON EVERY SPEC, INCLUDING WHEN IT IS `null`, and that is deliberate. A field
+     * present-but-null says *"this planner considered the question and the answer is the ungrouped
+     * bucket"*; a field sometimes-absent would make the spec shape depend on the input, and the one
+     * consumer (`CreateSpaceEnvelopeSpec.group?`) distinguishes absent from null by design.
+     */
+    readonly group: SpaceEnvelopeGroup | null;
 }
 
 /** One storey of the plan, so a surface can list what it is about to create BEFORE the click. */
@@ -349,6 +360,30 @@ export interface EnvelopeAuthoringInput {
      * building on a different floor than the user pointed at and says nothing.
      */
     readonly startStoreyId?: string | null;
+    /**
+     * ⭐⭐ §MASSING-GROUPS (ADR-0383 D1/D3 · C114 §6e) — WHICH BUILDING THIS GESTURE IS BUILDING.
+     *
+     * A parcel may hold several independent buildings. Omitted or `null` ⇒ the UNGROUPED bucket,
+     * which is **byte-identical to the behaviour that predates ADR-0383** — every existing caller
+     * and every existing spec is unaffected, by construction rather than by care.
+     *
+     * ⛔⛔ THIS ARGUMENT IS THE WHOLE OF THE MULTI-PROFILE CORRECTNESS, AND IT IS ONE LINE.
+     * It is forwarded to `resolveLevelEnvelopeSupersession`'s third parameter, which is what scopes
+     * the supersession to THIS block. Without it, building Block B on a storey that already carries
+     * Block A computes **Block A's ids into `supersedes`** — so creating the second tower DELETES
+     * the first, in the same `produceCommand`, silently, with a sentence that says it replaced "the
+     * level envelope already on this storey". That is precisely the defect ADR-0383 §2 exists to
+     * end, and it is invisible to every gate.
+     *
+     * ⛔ AND THE FIX COULD NOT BE APPLIED DOWNSTREAM. Post-processing this planner's `supersedes`
+     * in a caller would require re-running the group rule there — a SECOND implementation of the
+     * one rule, which is this repository's dominant defect (the fix lands in the copy nobody is
+     * looking at, and the guarding test stays green because it measured the other one). The bucket
+     * is decided in exactly one place, inside the resolver; this field is how the decision reaches
+     * it. Ownership of this file for this edit was granted by ORCHESTRATOR RULING 2026-09-09,
+     * ADR-0383 §4b, for that reason.
+     */
+    readonly group?: SpaceEnvelopeGroup | null;
 }
 
 const isWholePositive = (n: number): boolean => Number.isFinite(n) && n > 0 && Number.isInteger(n);
@@ -570,9 +605,17 @@ export function buildEnvelopeAuthoringPlan(
         const replaces: ExistingLevelEnvelope[] = [];
         const replacedCountByLevel = new Map<string, number>();
         const blockedSentences: string[] = [];
+        // ⭐⭐ §MASSING-GROUPS — THE BUCKET THIS GESTURE SUPERSEDES WITHIN. See `input.group`: this
+        // one expression is what stops creating Block B from deleting Block A. `null` is the
+        // UNGROUPED bucket and is the default, so every pre-ADR-0383 caller is unchanged.
+        const groupId = input.group?.id ?? null;
         for (const level of used) {
             const onStorey = input.existing.rows.filter((e) => e.levelId === level.id);
-            const s = resolveLevelEnvelopeSupersession(onStorey, OWN_AUTHORING_RULE);
+            // ⛔ THE ROWS ARE NOT PRE-FILTERED BY GROUP HERE, ON PURPOSE. The resolver takes the
+            // whole storey and buckets INSIDE (C114 §6e clause 3) — filtering here would be the
+            // second implementation of the group rule, and it would also cost the resolver the
+            // peer count it needs to say "the 2 other blocks on this storey are untouched".
+            const s = resolveLevelEnvelopeSupersession(onStorey, OWN_AUTHORING_RULE, groupId);
             if (s.kind === 'blocked') {
                 blockedSentences.push(`On ${labelOf(level)} — ${s.sentence}`);
             } else if (s.kind === 'replace') {
@@ -664,6 +707,8 @@ export function buildEnvelopeAuthoringPlan(
                 name: heightSource === 'assumed-3m'
                     ? `Level envelope · ${label} · ${footprintAreaM2.toFixed(0)} m² · height assumed`
                     : `Level envelope · ${label} · ${footprintAreaM2.toFixed(0)} m²`,
+                // ⭐ ADR-0383 — echoed, never derived. Every storey of one gesture is one building.
+                group: input.group ?? null,
                 // ⭐ C58 §1.19 clause 3 — ALWAYS the user's. See `AuthoredEnvelopeSpec.provenance`.
                 provenance: authoredProvenance(
                     (replacedCountByLevel.get(level.id) ?? 0) > 0
