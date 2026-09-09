@@ -67,9 +67,47 @@ export interface PochePolygon {
 // Internal types
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * §SECTION-POCHE-HAS-A-PLANE (founder 2026-09-09 · L-13269 · C09 §4.6)
+ *
+ * WHICH TWO WORLD AXES the cut ring is flattened onto before it is stitched into a loop.
+ *
+ * ⛔ THIS EXISTS BECAUSE THE BUILDER HARD-CODED `xz` AND SECTIONS COULD THEREFORE NEVER HATCH.
+ * A PLAN cut ring is horizontal — it varies in x and z at a constant y — so reading
+ * `positions[i]` and `positions[i+2]` is exactly right, and that is what the old comment
+ * ("XZ plane only — Y is ignored (plan view geometry is flat)") correctly described.
+ *
+ * ⭐ A SECTION CUT RING IS VERTICAL. `buildMeshPlaneIntersectionGeometry` emits a ring that is
+ * COPLANAR WITH THE SECTION DEPTH PLANE: it varies in y and in ONE horizontal axis, and is
+ * CONSTANT in the other. Flattened onto xz, every vertex of a vertical wall face collapses to
+ * the same point — `aKey === bKey` — so every segment is dropped as degenerate, the loop
+ * stitcher receives an empty array, and the function returns `[]`. Not a faint poché: NO
+ * poché, silently, for every section and elevation this product has ever drawn.
+ */
+export type PochePlane =
+    /** Horizontal — the PLAN cut. Reduce (x, z); ignore y. The default, unchanged. */
+    | 'xz'
+    /** Vertical, looking along +z — reduce (x, y). A section/elevation cut facing z. */
+    | 'xy'
+    /** Vertical, looking along +x — reduce (z, y). A section/elevation cut facing x. */
+    | 'zy';
+
+/** The component offsets, within one XYZ triple, that a plane reduces onto. */
+const PLANE_OFFSETS: Readonly<Record<PochePlane, readonly [number, number]>> = {
+    xz: [0, 2],
+    xy: [0, 1],
+    zy: [2, 1],
+};
+
+/**
+ * A point on the chosen plane. ⚠ `u` / `v` are the two IN-PLANE axes, NOT world x / world z —
+ * they were named `x` / `z` until L-13269, which is precisely how the hard-coded plane went
+ * unnoticed: a variable that means "world x" in one reading and "first in-plane axis" in
+ * another is the shape this repo keeps paying for.
+ */
 interface Vertex {
-    x: number;
-    z: number;
+    u: number;
+    v: number;
 }
 
 interface Segment {
@@ -100,12 +138,13 @@ export class PocheFillBuilder {
         fill: string,
         opacity: number,
         toleranceM = 0.002,
+        plane: PochePlane = 'xz',
     ): PochePolygon[] {
         const posAttr = geometry.getAttribute('position');
         if (!posAttr) return [];
 
         const arr = posAttr.array as Float32Array;
-        return PocheFillBuilder._fromRawBuffer(arr, fill, opacity, toleranceM);
+        return PocheFillBuilder._fromRawBuffer(arr, fill, opacity, toleranceM, plane);
     }
 
     /**
@@ -118,8 +157,9 @@ export class PocheFillBuilder {
         fill: string,
         opacity: number,
         toleranceM = 0.002,
+        plane: PochePlane = 'xz',
     ): PochePolygon[] {
-        return PocheFillBuilder._fromRawBuffer(positions, fill, opacity, toleranceM);
+        return PocheFillBuilder._fromRawBuffer(positions, fill, opacity, toleranceM, plane);
     }
 
     // ── Private implementation ─────────────────────────────────────────────
@@ -129,45 +169,51 @@ export class PocheFillBuilder {
         fill: string,
         opacity: number,
         toleranceM: number,
+        plane: PochePlane = 'xz',
     ): PochePolygon[] {
-        const segments = PocheFillBuilder._parseSegments(positions, toleranceM);
+        const segments = PocheFillBuilder._parseSegments(positions, toleranceM, plane);
         if (segments.length === 0) return [];
 
         const closedLoops = PocheFillBuilder._stitchClosedLoops(segments);
         return closedLoops.map(loop => ({
-            points: loop.map(v => `${v.x.toFixed(4)},${v.z.toFixed(4)}`).join(' '),
+            points: loop.map(pt => `${pt.u.toFixed(4)},${pt.v.toFixed(4)}`).join(' '),
             fill,
             opacity,
         }));
     }
 
     /**
-     * Parse interleaved XYZ buffer into deduplicated Segment objects.
-     * XZ plane only — Y is ignored (plan view geometry is flat).
+     * Parse an interleaved XYZ buffer into deduplicated Segment objects, reduced onto `plane`.
+     *
+     * ⚠ A DEGENERATE SEGMENT IS STILL DROPPED, and must be: two coincident points carry no
+     * edge. What changed in L-13269 is WHICH points are coincident — on a vertical ring read as
+     * `xz`, ALL of them were.
      */
     private static _parseSegments(
         positions: ArrayLike<number>,
         toleranceM: number,
+        plane: PochePlane,
     ): Segment[] {
         const segments: Segment[] = [];
         const quantise = (v: number) => {
             const factor = 1 / toleranceM;
             return Math.round(v * factor) / factor;
         };
-        const key = (x: number, z: number) => `${x.toFixed(4)}|${z.toFixed(4)}`;
+        const key = (u: number, v: number) => `${u.toFixed(4)}|${v.toFixed(4)}`;
+        const [o0, o1] = PLANE_OFFSETS[plane];
 
         for (let i = 0; i + 5 < positions.length; i += 6) {
-            const ax = quantise(positions[i]!);
-            const az = quantise(positions[i + 2]!);
-            const bx = quantise(positions[i + 3]!);
-            const bz = quantise(positions[i + 5]!);
+            const au = quantise(positions[i + o0]!);
+            const av = quantise(positions[i + o1]!);
+            const bu = quantise(positions[i + 3 + o0]!);
+            const bv = quantise(positions[i + 3 + o1]!);
 
-            const aKey = key(ax, az);
-            const bKey = key(bx, bz);
+            const aKey = key(au, av);
+            const bKey = key(bu, bv);
 
             if (aKey === bKey) continue;
 
-            segments.push({ a: { x: ax, z: az }, b: { x: bx, z: bz }, aKey, bKey });
+            segments.push({ a: { u: au, v: av }, b: { u: bu, v: bv }, aKey, bKey });
         }
         return segments;
     }

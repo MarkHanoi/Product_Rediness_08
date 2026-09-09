@@ -187,6 +187,42 @@ const MAX_AUTO_RECOVERY_ATTEMPTS = 2;
 const MAX_CASTER_RELEASE_PAUSED_FRAMES = 8;
 
 /**
+ * §SUBMIT-PAUSE-IS-BOUNDED (founder 2026-09-09 · L-13270 · C04 §SHADOW rule 7)
+ *
+ * ⛔ HOW LONG THE SUBMIT PAUSE MAY HOLD THE VIEWPORT DARK, in milliseconds, before it releases
+ * itself and says so.
+ *
+ * ⭐⭐ MEASURED, ON THE FOUNDER'S OWN OPEN: `SHADOW_REBUILD_COMPLETE elapsed=16011.5ms`. For all
+ * SIXTEEN SECONDS `render()` returned at the `shadowRebuildPaused` gate, so NOTHING repainted —
+ * while the chunked loader beside it was yielding three times specifically so *"the user sees a
+ * progressive build"*. It painted nothing for 16 of its 17 s.
+ *
+ * ⛔ AND THE PAUSE ITSELF IS CORRECT AND MUST STAY. It exists to close the exact crash the
+ * founder hit — *"a shadow depth texture (ShadowDepthTexture) was released while the GPU was
+ * still drawing with it"* — by guaranteeing no submit references the outgoing project's shadow
+ * texture while the pipeline is recomposed (L-231, ADR-0111). Deleting the pause to recover the
+ * 16 s would trade a frozen viewport for a dead one.
+ *
+ * ⭐ SO THE FIX IS A CEILING, NOT A DELETION — and the precedent is twenty lines below, in this
+ * same file: the sibling caster-release guard is capped at
+ * {@link MAX_CASTER_RELEASE_PAUSED_FRAMES} *because* **"an unbounded window is a frozen
+ * viewport — the L-663 shape"** and **"a bounded guard that degrades is worth more than an
+ * unbounded one that blanks the screen."** That reasoning was written for the derived guard and
+ * is just as true of the primary one; it simply never acquired the cap.
+ *
+ * ⚠ WHY TIME AND NOT FRAMES. The sibling counts FRAMES because it closes at a frame boundary.
+ * This window is held across an `await` whose continuation is not serviced while the main thread
+ * runs a multi-second hydrate — there are no frames to count. A wall-clock ceiling is the only
+ * unit that can bound it.
+ *
+ * ⚠ 2000 ms IS A CEILING, NOT A TARGET. A healthy rebuild on this path is single-digit
+ * milliseconds (the founder's own empty-project open logs `SHADOW_REBUILD_COMPLETE elapsed=6.0ms`).
+ * Anything approaching this bound is already pathological; the number only decides how long the
+ * screen may stay dark before the guard admits it has lost.
+ */
+const MAX_SUBMIT_PAUSE_MS = 2000;
+
+/**
  * §GPU-RESOURCE-LIFETIME (ADR-0297) — coalescing window for destroyed-resource
  * reports. WebGPU validation errors arrive as FLOODS (a single shadow-map rebuild
  * produced 500 "Destroyed texture … used in a submit" in the founder's log), so
@@ -1254,7 +1290,15 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // trigger) is what destroyed the `ShadowDepthTexture` mid-submit → device loss.
         // The last-rendered frame stays on screen for the rebuild's duration (mirrors the
         // `_fullRebuild` plan-view path's `_hasPipelineError` pause). C04 §SHADOW rule 7.
-        if (this._shadowRebuildPaused) return this._skipFrame('shadowRebuildPaused');
+        // §SUBMIT-PAUSE-IS-BOUNDED (L-13270) — the pause above is correct, and it must not be
+        // able to hold the screen dark without limit. The founder measured 16,011 ms of it on
+        // one project open, during which the chunked loader's whole reason for existing — a
+        // progressive build the user can watch — produced nothing. Past the ceiling the pause
+        // releases and the viewport paints; the realloc freeze that prevents the device loss
+        // stays on.
+        if (this._shadowRebuildPaused && !this._submitPauseHasOverstayed()) {
+            return this._skipFrame('shadowRebuildPaused');
+        }
 
         // Skip expensive post-FX passes while suspended (e.g. during IFC geometry streaming).
         if (this._suspended) return this._skipFrame('suspended');
@@ -1735,10 +1779,57 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * shadow rebuild: pause WebGPU submits AND freeze the shadow map (now per-light-effective,
      * see {@link _applyShadowFreezeState}). Balanced by {@link _endShadowRebuildGuard}.
      */
+    /**
+     * §SUBMIT-PAUSE-IS-BOUNDED (L-13270) — when the OUTERMOST pause opened. `null` ⇒ not paused.
+     * Read by `render()`'s gate, which is the one place that runs often enough to notice a
+     * window that has overstayed.
+     */
+    private _submitPauseOpenedAtMs: number | null = null;
+    /** True once this window has already reported itself over the ceiling — report ONCE. */
+    private _submitPauseCapReported = false;
+
     private _beginShadowRebuildGuard(): void {
         this._submitPauseDepth++;
         this._shadowRebuildPaused = true;
+        // ⭐ Stamp only on the OUTERMOST open (§L930-SUBMIT-PAUSE-DEPTH): a nested guard must not
+        // restart the clock, or a re-arming inner pause could hold the ceiling off forever —
+        // which is the unbounded case this ceiling exists to end.
+        if (this._submitPauseOpenedAtMs === null) {
+            this._submitPauseOpenedAtMs = performance.now();
+            this._submitPauseCapReported = false;
+        }
         this.setShadowReallocFrozen(true);
+    }
+
+    /**
+     * §SUBMIT-PAUSE-IS-BOUNDED (L-13270) — has the submit pause overstayed its ceiling?
+     *
+     * ⛔ IT DOES NOT CANCEL THE REBUILD. The rebuild is still in flight and still needs its
+     * shadow-realloc freeze; what this releases is only the SUBMIT PAUSE, so the viewport can
+     * paint the scene it already has. The realloc freeze — the half that actually prevents the
+     * `ShadowDepthTexture` crash — is untouched and is released by the rebuild's own completion
+     * path, exactly as before.
+     *
+     * ⚠ A pause that overstays is a DEFECT REPORT, not a routine event: it says the rebuild's
+     * continuation is not being serviced. It is logged once, loudly, with the elapsed time.
+     */
+    private _submitPauseHasOverstayed(): boolean {
+        const openedAt = this._submitPauseOpenedAtMs;
+        if (openedAt === null) return false;
+        const heldMs = performance.now() - openedAt;
+        if (heldMs < MAX_SUBMIT_PAUSE_MS) return false;
+        if (!this._submitPauseCapReported) {
+            this._submitPauseCapReported = true;
+            console.warn(
+                '[RenderPipelineManager] §SUBMIT-PAUSE-IS-BOUNDED (L-13270) — the submit pause has '
+                + `held the viewport dark for ${heldMs.toFixed(0)} ms, past its ${MAX_SUBMIT_PAUSE_MS} ms `
+                + 'ceiling. RELEASING THE PAUSE so the viewport can paint; the shadow-realloc freeze '
+                + 'STAYS, so the device-loss guard (L-231) is intact. A healthy rebuild on this path '
+                + 'is single-digit ms — so the rebuild continuation is not being serviced, '
+                + 'almost always because the main thread is inside a long synchronous load.',
+            );
+        }
+        return true;
     }
 
     /**
@@ -1752,6 +1843,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
     private _endShadowRebuildGuard(): void {
         if (this._submitPauseDepth > 0) this._submitPauseDepth--;
         this._shadowRebuildPaused = this._submitPauseDepth > 0;
+        // §SUBMIT-PAUSE-IS-BOUNDED (L-13270) — the clock belongs to the OUTERMOST window.
+        if (this._submitPauseDepth === 0) {
+            this._submitPauseOpenedAtMs = null;
+            this._submitPauseCapReported = false;
+        }
         setTimeout(() => this.setShadowReallocFrozen(false), 0);
     }
 
