@@ -74,6 +74,34 @@ DIRTY="$(git -C "$TREE" status --porcelain | wc -l)"
 [ "$DIRTY" = "0" ] || die "deploy worktree DIRTY ($DIRTY files) — §6.9.2 forbids shipping it"
 say "worktree clean at $(git -C "$TREE" rev-parse --short HEAD)"
 
+# ── 2b · §STALE-WORKTREE-MODULES — the deploy tree has its OWN node_modules ──
+# Measured 2026-09-09: a lane added the workspace package `@pryzm/plugin-siteworks`
+# and wired it into `apps/editor/src/PluginRegistry.ts`. The MAIN tree resolved it
+# fine; the DEPLOY worktree's node_modules predated the package, so tsc here failed
+# `TS2307: Cannot find module` — a phantom error about correct code.
+#
+# ⭐ THE GATE WAS RIGHT TO STOP, AND STILL REPORTED THE WRONG CAUSE. That is the
+# expensive kind of failure: it names a file the lane just wrote and implies the
+# lane broke it. Syncing first makes the gate's verdict mean what it says.
+#
+# ⛔ `--frozen-lockfile` DELIBERATELY. A deploy must never silently RESOLVE a
+# dependency the committed lockfile does not pin — that would let the shipped tree
+# differ from the one the lockfile describes, which is the whole reason Fly builds
+# with the flag too. If it refuses, the lockfile is genuinely out of sync and that
+# is a real defect to fix in the repo, not to paper over here.
+if ! git -C "$TREE" diff --quiet "HEAD@{1}" HEAD -- pnpm-lock.yaml '**/package.json' 2>/dev/null    || [ ! -d "$TREE/node_modules" ]; then
+  say "manifests moved (or no node_modules) — syncing the deploy worktree"
+else
+  say "syncing the deploy worktree's modules (cheap when already current)"
+fi
+( cd "$TREE" && pnpm install --frozen-lockfile --prefer-offline ) > /tmp/ship-install.log 2>&1
+INST_RC=$?
+if [ "$INST_RC" != "0" ]; then
+  echo "── install failed (first lines) ──" >&2; head -20 /tmp/ship-install.log >&2
+  die "pnpm install RC=$INST_RC in the deploy worktree — the lockfile and the manifests disagree"
+fi
+say "worktree modules in sync"
+
 # ── 3 · the gate cover. CI is red, so this local run is the ONLY gate. ───────
 if [ "${SKIP_TSC:-0}" = "1" ]; then
   say "⚠ SKIP_TSC=1 — type-check cover NOT RUN for this deploy (recorded, not hidden)"
