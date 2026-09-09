@@ -181,7 +181,7 @@ export type SpaceEnvelopeBasis = z.infer<typeof SpaceEnvelopeBasisSchema>;
  *   2. **A test asserts every `group.id` in a store resolves to exactly one
  *      distinct `label`** (`spaceEnvelopeGroups.test.ts`).
  *   3. ⭐ **The READER refuses to paper over a disagreement.** `readMassingGroups`
- *      (`@pryzm/plugin-space-envelope`) takes the label from the lowest-seated
+ *      (`apps/editor/src/ui/site/massingGroupRoster.ts`) takes the label from the lowest-seated
  *      member and, when members disagree, REPORTS the disagreement rather than
  *      silently picking one (§CONTEXT-DATA-HONESTY, L-581/L-616). A drift becomes
  *      visible, not invisible.

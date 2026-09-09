@@ -50,6 +50,7 @@ import {
     MAXIMUM_BUILDABLE_IS_NOT_AUTHORED,
     isAuthorableSpaceEnvelopeRole,
     type SpaceEnvelopeRole,
+    type SpaceEnvelopeGroup,
 } from '@pryzm/plugin-sdk';
 import { recomputeSpaceEnvelopeMetrics } from '@pryzm/geometry-space-envelope';
 import type { SpaceEnvelopeData, SpaceEnvelopesState } from '../store.js';
@@ -92,6 +93,33 @@ export interface CreateSpaceEnvelopeSpec {
      * caller that says nothing has told us nothing.
      */
     readonly provenance?: SpaceEnvelopeData['provenance'];
+    /**
+     * ⭐ WHICH BUILDING (massing group) this envelope belongs to — ADR-0383 D1 / C114 §6d
+     * clause 6 / §6e. A parcel may hold several independent buildings; this is what makes one
+     * distinguishable from another, and it is the field
+     * `resolveLevelEnvelopeSupersession` buckets on so that creating Block B cannot delete
+     * Block A (D3).
+     *
+     * ⛔ IT IS `?`, NOT `| null` ALONE, AND THAT IS THE WHOLE POINT OF THE SHAPE.
+     * "The caller said nothing" and "the caller said explicitly ungrouped" reach the SAME
+     * stored value today — `null`, the ungrouped bucket — but they must reach it by
+     * DIFFERENT ROUTES: omitted lets the schema's own `.default(null)` apply, explicit
+     * `null` is a statement this caller made. §CONTEXT-DATA-HONESTY (L-581 / L-616) is that a
+     * failure-to-state and an emptiness must never share a code path, because the day they
+     * need to differ the distinction has to still exist. Same shape as `provenance` above,
+     * for the same reason.
+     *
+     * ⛔ IT IS NOT `withinId`. `withinId` is CONTAINMENT (a room inside a level envelope) and
+     * is refined to `null` for `role: 'level'`; `group` is IDENTITY, and a `role: 'level'`
+     * record is exactly the one that carries it. Conflating them would make "Block A" mean
+     * "inside Block A's ground floor" (C114 §6e clause 1).
+     *
+     * ⛔ AND IT IS NOT THE CONTAINMENT AUTHORITY. ADR-0385 / ADR-0328: `hierarchyStore`
+     * answers *"which building is this element in"* for the exporter and both trees; `group`
+     * is the massing-stage AUTHORING axis and PROJECTS into it, as `partOf` does. Nothing
+     * downstream may read this field to answer that question.
+     */
+    readonly group?: SpaceEnvelopeGroup | null;
 }
 
 export interface CreateSpaceEnvelopeBatchPayload {
@@ -298,6 +326,13 @@ implements CommandHandler<CreateSpaceEnvelopeBatchPayload, Stores> {
             // downgrades or defaults an origin: C75 §2.2 makes `authored` unrepresentable to a
             // system pass, and a create verb that stamped one would defeat that by hand.
             ...(spec.provenance !== undefined ? { provenance: spec.provenance } : {}),
+            // ⭐ ADR-0383 / C114 §6d clause 6 — carried through UNTOUCHED, and ABSENT when the caller
+            // said nothing, so the schema's own `.default(null)` applies rather than a group this
+            // handler would have had to invent. ⛔ The handler never mints, defaults, upgrades or
+            // INFERS a group: a create verb that guessed which building an envelope belongs to would
+            // be deciding the master plan on the user's behalf, and the supersession rule buckets on
+            // this exact field — a wrong guess here DELETES another block (§6e clause 3).
+            ...(spec.group !== undefined ? { group: spec.group } : {}),
             footprintAreaM2: metrics.footprintAreaM2,
             volumeM3: metrics.volumeM3,
         };
