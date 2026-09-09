@@ -209,6 +209,9 @@ Namespace `spaceEnvelope.*` (C69 §3.6). Lineage bands are C84 §4A's L1–L6.
 | `spaceEnvelope.setParameter` | `height`, `baseOffset`, `name`, `occupancy`, `materialColor` | element store | element store | MUST be | inspector; RAC |
 | `spaceEnvelope.setWithin` | declare/clear membership | element store | element store | MUST be | inspector |
 | `spaceEnvelope.changeLevel` | re-seat on another storey | element store | element store | MUST be | inspector (the C94 §L-1032 storey axis) |
+| `spaceEnvelope.group.setStoreys` | ⭐ **ADR-0383** — grow or shrink one massing group's storey stack. ONE verb BOTH directions (§6e clause 4) | element store | element store | MUST be | group storey control (2D site / 3D site / site panel) |
+| `spaceEnvelope.group.rename` | rewrite `group.label` on EVERY member of one group | element store | element store | MUST be | group roster row |
+| `spaceEnvelope.group.dissolve` | clear `group` on every member — ⛔ **keeps the envelopes** (§6e clause 5) | element store | element store | MUST be | group roster row |
 | `spaceEnvelope.promoteToRoom` | ⛔ **DEFERRED to Stage H** | — | — | — | — |
 
 > ⛔ **§6a — MUST: ONE GESTURE = ONE `*.batch.create`.** C16 §8.6 B-6. ⚠ `batchCoordinator.runBatch`
@@ -256,6 +259,60 @@ Namespace `spaceEnvelope.*` (C69 §3.6). Lineage bands are C84 §4A's L1–L6.
 >    PRYZM cannot establish is not a value PRYZM may act destructively on. The handler itself
 >    stamps nothing: `authored` is unrepresentable to a system pass (C75 §2.2) and a create verb
 >    that defaulted an origin would defeat that by hand.
+> 6. ⭐ **`CreateSpaceEnvelopeSpec.group?`** (ADR-0383) — carried through onto the record
+>    UNTOUCHED, by the same rule and the same code shape as clause 5's `provenance`: present when
+>    the caller stated one, ABSENT when the caller said nothing, so the schema's own
+>    `.default(null)` applies rather than a value this handler invented. ⛔ **"The caller said
+>    nothing" and "the caller said explicitly ungrouped" must not share a code path**
+>    (§CONTEXT-DATA-HONESTY, L-581 / L-616) — they arrive at the same stored value today and that
+>    is fine, but they must arrive by different routes, because the day the two need to differ the
+>    distinction has to still exist. The handler never mints, defaults, upgrades or infers a group.
+
+> ⭐⭐ **§6e — `group` IS IDENTITY, AND IT SCOPES SUPERSESSION** (ADR-0383 D1–D5 / D7, amended
+> same day by [ADR-0385](../adrs/ADR-0385-massing-group-projects-into-the-hierarchy-store.md)).
+>
+> A parcel may hold SEVERAL INDEPENDENT BUILDINGS. `SpaceEnvelope.group` is what makes one
+> distinguishable from another at massing stage. **Normative:**
+>
+> 1. ⛔ **`group` IS NOT `withinId`, AND NO RULE MAY READ ONE FOR THE OTHER.** `withinId` is
+>    CONTAINMENT (a room inside a level envelope) and is refined to `null` for `role: 'level'`;
+>    `group` is IDENTITY (which building), and a `role: 'level'` record is exactly the one that
+>    carries it. A rule that conflated them would make *"Block A"* mean *"inside Block A's ground
+>    floor"*.
+> 2. ⛔ **`group` IS NOT THE CONTAINMENT AUTHORITY.** ADR-0385: `hierarchyStore.BuildingData`
+>    answers *"which building is this element in"* and ADR-0328 rules it the SOLE hierarchy source
+>    of truth. `group` is the massing-stage AUTHORING axis and **PROJECTS** into it, as `partOf`
+>    does. Nothing downstream — exporter, inspect tree, IFC spatial structure — may read `group`
+>    to answer that question.
+> 3. ⭐ **SUPERSESSION IS GROUP-SCOPED, AND THE BUCKET IS DECIDED IN ONE PLACE** (D3). Only
+>    envelopes whose `group.id` equals the one being created are rivals; every other block on that
+>    storey is a PEER and is left completely alone. `null` is the UNGROUPED BUCKET, **not**
+>    "unspecified" — which is why creating ungrouped is byte-identical to the behaviour that
+>    predates ADR-0383, and why the migration is empty: no backfill, no file-format break.
+>    ⛔ The bucket is chosen INSIDE `resolveLevelEnvelopeSupersession`, never by a caller
+>    pre-filtering its own rows — a second implementation of this rule is C84 EI-9 and is this
+>    repository's most-repeated defect.
+> 4. **`spaceEnvelope.group.setStoreys` is ONE verb for BOTH directions**, because the founder's
+>    ask is one control (*"decide ad-hoc if i want to reduce or increase the levels"*). Two verbs
+>    would let a surface spend three Ctrl+Zs going from 3 storeys to 6 (§6a: `runBatch` is
+>    undo-NEUTRAL). ⭐ **The SURFACE resolves which storeys, the handler applies them** — the
+>    payload is `{ groupId, targetStoreys, added: [{ spaceEnvelopeId, levelId, baseOffset, height }] }`
+>    (ADR-0383 §4a). ⛔ Deriving the seat inside the handler would need BIM level elevations, making
+>    it multi-store and costing the one-`produceCommand`/one-Ctrl-Z property §2 exists to protect;
+>    and inventing an elevation the level store did not state is the C58 §1.4 / L-616 fabrication.
+>    `added` is EMPTY on a shrink. A GROWN storey copies the **TOP-seated** member's ring, and
+>    **says so whenever the top ring differs from the ground ring** — disclose only when the
+>    ambiguity is real (§WHOSE-FOOTPRINT-IS-THE-SLAB, L-13296).
+> 5. ⛔ **`dissolve` DOES NOT DELETE.** It clears `group` and keeps every envelope. Deleting is
+>    `spaceEnvelope.delete`, which already exists. A verb whose name says *ungroup* and whose
+>    effect is *destroy three buildings* is the worst kind of irreversible surprise.
+> 6. ⛔ **AN EMPTY GROUP IS NOT REPRESENTABLE, AND THAT IS CORRECT** (D2). A group exists because
+>    its envelopes carry its id; delete every member and the group is gone. A group with no
+>    envelopes is a profile you have not built — that is the transient authoring roster's job
+>    (`apps/editor/src/ui/site/drawnEnvelopeFootprintState.ts`), not the store's. **Every group
+>    verb therefore REFUSES a `groupId` with zero members**, rather than succeeding vacuously.
+> 7. **All three verbs are single-store** (§2) and each is ONE `produceCommand` — renaming a
+>    twelve-storey group is one undo entry, not twelve.
 
 ---
 
@@ -426,6 +483,9 @@ verdict from magnitude.
 | A **room envelope outside its level envelope** | **INADVISABLE / ADVISORY** — reported, never refused | Buildable and internally consistent. It usually means *the level envelope needs to grow*, which is a design act, not an error. Refusing it makes the containment field a cage instead of a relationship |
 | A **level envelope outside the maximum buildable volume** | **INADVISABLE / ADVISORY** — reported, never refused | ⭐ **the decisive one.** The maximum buildable volume is a **STUDY, not a permit** (C58/C74/C75). Refusing an architect's edit on the authority of a study PRYZM computed would tell a professional they may not draw something they may well be entitled to build — and is *"the fastest route to being muted"* (C83 §5) |
 | Envelopes overlapping in space | **FINE** | overlapping study volumes are a normal design state |
+| Two **massing groups** overlapping **on the SAME storey** | **INADVISABLE / ADVISORY** — measured and reported, never refused | ⭐ ADR-0383 D4. The area is MEASURED by the kernel's `intersectPolygons2D` (§C73-POLY-BOOLEAN / GE-05) and stated with BOTH footprints — never estimated, never a proportion PRYZM cannot support. At massing stage an architect deliberately overlaps volumes while studying options, so §12's decisive row applies verbatim. ⛔ A pair PRYZM could **not** measure (no ring, or the boolean refused) is its own arm and its own sentence — *"a failure to measure is NOT a finding that they are clear of each other"* (§CONTEXT-DATA-HONESTY, L-581/L-616) |
+| Two massing groups overlapping on **DIFFERENT storeys** | **FINE — not a finding at all** | A podium with towers on it is a normal master-planning scheme. ⛔ Flagging it would train the user to ignore the warning, which costs the same advisory its power on the storey where it matters |
+
 | `promoteToRoom` | **NOT SUPPORTED (deferred)** | C80's *"may this pass replace this?"* question; Stage H |
 | IFC export | **EXCLUDED** | §1's IFC row is unresolved; an unmapped family is skipped, never approximated |
 
@@ -813,6 +873,45 @@ through the same `readLevelEnvelopes` channel the supersession decision uses.
    Not this lane's to fix; this lane's to name.
 4. **The focus is honoured on both 3-D surfaces and on neither 2-D one** — correct per C115-56, and
    the refusal names the exclusion rather than leaving the user to discover it.
+
+---
+
+### 2026-09-09 · lane MASTER-PLAN — **a parcel may hold SEVERAL BUILDINGS, and the family finally has a word for "which one"**
+
+Founder: *"now i need to be able to do that for multiple envelopes on a single [parcel] for
+masterplanning — define multiple profiles first … then define the levels and create bulk all the
+envelopes for all the profiles — then … select the envelopes (as a group for all the levels) … and
+decide ad-hoc if i want to reduce or increase the levels."*
+
+**What this entry amends, and it is an AMENDMENT IN PLACE, not a derivative doc:** §6's verb table
+gains three rows, §6d gains clause 6, a new §6e states the group rule normatively, and §12 gains the
+two overlap rows. ⛔ **ADR-0383's header has claimed since it was accepted that it "Amends C114 §6a,
+§6d, §12" and nothing had landed here** — `grep -n "ADR-0383" C114-*.md` returned **0** on
+2026-09-09. CLAUDE.md ranks a contract above an ADR, so registering the three verbs against an
+un-amended §6 would have put the code in breach of the document governing it. That gap is what this
+entry closes, and it is worth naming: an ADR that says it amends a contract does not amend it.
+
+⭐ **THE MEASURED FINDING BEHIND THE WHOLE ADR — the geometry was already there; IDENTITY was not.**
+N envelopes from one gesture, one per storey, arbitrary drawn ring, face drag, replace-not-accumulate
+and polygon intersection were all already shipped. The single missing capability was *"which building
+does this envelope belong to?"* — so the change is one nullable field plus a bucket argument, not a
+subsystem.
+
+#### §14i — ⛔ WHAT IS **NOT** TRUE OF THIS ENTRY
+
+1. **`group` is not the containment authority and must never become one** — §6e clause 2 / ADR-0385.
+   The IFC exporter and both trees read `hierarchyStore`. This is stated here because the obvious
+   implementation of the founder's *"each building a distinct IFC building entity"* ask is exactly
+   the one that had to be refused.
+2. **Nothing here is browser-verified** (§14d, unchanged).
+3. **`spaceEnvelope.batch.create` still has no sync disposition** (L-13012) and the three new group
+   verbs are declared `not-synced` for the same two backlog reasons. A master plan is therefore a
+   SINGLE-USER artefact today, and that is a limitation this entry makes larger rather than one it
+   introduces — said plainly rather than left to be discovered.
+4. **`check-command-naming` does not know the `spaceEnvelope` prefix.** It was **already exit 3 for
+   that reason before this lane existed** (7 offending types, none of them added here). Adding the
+   prefix to `CANONICAL_PREFIXES` fixes a pre-existing breach as a side effect; `component.*` remains
+   and is another lane's.
 
 ---
 
