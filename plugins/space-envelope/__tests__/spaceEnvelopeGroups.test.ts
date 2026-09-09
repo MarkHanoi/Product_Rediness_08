@@ -225,3 +225,319 @@ describe('the denormalisation cost the schema names', () => {
         }
     });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ADR-0383 S4 — THE THREE GROUP VERBS.
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+
+const A3 = 'spaceEnvelope_01J00000000000000000000A03';
+const AR = 'spaceEnvelope_01J00000000000000000000AR1';
+const NEW1 = 'spaceEnvelope_01J00000000000000000000N01';
+const NEW2 = 'spaceEnvelope_01J00000000000000000000N02';
+
+/** A level envelope of side `s` at the origin, seated at `baseOffset`. */
+function level(id: string, levelId: string, s: number, baseOffset: number) {
+    return {
+        spaceEnvelopeId: id,
+        levelId,
+        role: 'level' as const,
+        footprint: [
+            { x: 0, y: 0, z: 0 },
+            { x: s, y: 0, z: 0 },
+            { x: s, y: 0, z: s },
+            { x: 0, y: 0, z: s },
+        ],
+        baseOffset,
+        height: 3,
+    };
+}
+
+/**
+ * A SET-BACK block: 20 m on the ground, 10 m on top. ⭐ The two rings DIFFER, which is the whole
+ * point — §4a(b) rules that a grown storey copies the TOP ring, and a fixture whose rings matched
+ * could not tell the two rules apart.
+ */
+async function buildSetBackBlock() {
+    const env = buildEnv();
+    await env.bus.executeCommand('spaceEnvelope.batch.create', {
+        envelopes: [
+            { ...level(A1, 'level-1', 20, 0), group: BLOCK_A },
+            { ...level(A2, 'level-2', 20, 3), group: BLOCK_A },
+            { ...level(A3, 'level-3', 10, 6), group: BLOCK_A },
+        ],
+    });
+    return env;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+describe('spaceEnvelope.group.rename', () => {
+    it('⭐ rewrites the label on EVERY member in ONE undo entry', async () => {
+        const env = await buildSetBackBlock();
+        const before = env.undoStack.size;
+        await env.bus.executeCommand('spaceEnvelope.group.rename', {
+            groupId: 'mg_blockA', label: 'The North Tower',
+        });
+        for (const id of [A1, A2, A3]) {
+            expect(env.spaceEnvelope.get(id)!.group?.label).toBe('The North Tower');
+        }
+        // ⛔ DEPTH, not state: renaming a three-storey block must not cost three Ctrl+Zs.
+        expect(env.undoStack.size).toBe(before + 1);
+    });
+
+    it('⭐⭐ reaches a role:"room" member too — no role filter', async () => {
+        const env = buildEnv();
+        await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [
+                { ...level(A1, 'level-1', 20, 0), group: BLOCK_A },
+                {
+                    spaceEnvelopeId: AR,
+                    levelId: 'level-1',
+                    role: 'room' as const,
+                    withinId: A1,
+                    footprint: [
+                        { x: 1, y: 0, z: 1 },
+                        { x: 5, y: 0, z: 1 },
+                        { x: 5, y: 0, z: 5 },
+                        { x: 1, y: 0, z: 5 },
+                    ],
+                    baseOffset: 0,
+                    height: 2.5,
+                    group: BLOCK_A,
+                },
+            ],
+        });
+        await env.bus.executeCommand('spaceEnvelope.group.rename', {
+            groupId: 'mg_blockA', label: 'The North Tower',
+        });
+        // ⛔ A room left holding the OLD label is the exact drift this verb exists to prevent,
+        // created by the verb itself, and invisible until the reader reports a disagreement.
+        expect(env.spaceEnvelope.get(AR)!.group?.label).toBe('The North Tower');
+    });
+
+    it('does not touch another group', async () => {
+        const env = buildEnv();
+        await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [
+                { ...level(A1, 'level-1', 20, 0), group: BLOCK_A },
+                { ...level(B1, 'level-1', 10, 0), group: BLOCK_B },
+            ],
+        });
+        await env.bus.executeCommand('spaceEnvelope.group.rename', {
+            groupId: 'mg_blockA', label: 'Renamed',
+        });
+        expect(env.spaceEnvelope.get(B1)!.group?.label).toBe('Block B');
+    });
+
+    it('⛔ refuses a blank label', async () => {
+        const env = await buildSetBackBlock();
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.group.rename', { groupId: 'mg_blockA', label: '  ' }),
+        ).rejects.toThrow();
+        expect(env.spaceEnvelope.get(A1)!.group?.label).toBe('Block A');
+    });
+
+    it('⛔ refuses a groupId nothing carries — an empty group is not representable (D2)', async () => {
+        const env = await buildSetBackBlock();
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.group.rename', { groupId: 'mg_nope', label: 'X' }),
+        ).rejects.toThrow();
+    });
+
+    it('⛔ refuses a NO-OP — it would spend the user’s next Ctrl+Z on an edit that never happened', async () => {
+        const env = await buildSetBackBlock();
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.group.rename', { groupId: 'mg_blockA', label: 'Block A' }),
+        ).rejects.toThrow();
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+describe('spaceEnvelope.group.dissolve', () => {
+    it('clears the group on every member', async () => {
+        const env = await buildSetBackBlock();
+        await env.bus.executeCommand('spaceEnvelope.group.dissolve', { groupId: 'mg_blockA' });
+        for (const id of [A1, A2, A3]) expect(env.spaceEnvelope.get(id)!.group).toBeNull();
+    });
+
+    it('⭐⭐ KEEPS THE ENVELOPES — dissolve is not delete', async () => {
+        const env = await buildSetBackBlock();
+        expect(env.spaceEnvelope.getState().size).toBe(3);
+        await env.bus.executeCommand('spaceEnvelope.group.dissolve', { groupId: 'mg_blockA' });
+        // ⛔ "a verb whose name says 'ungroup' and whose effect is 'destroy three buildings' is the
+        // worst kind of irreversible surprise" — ADR-0383 §4.
+        expect(env.spaceEnvelope.getState().size).toBe(3);
+        for (const id of [A1, A2, A3]) expect(env.spaceEnvelope.get(id)).toBeDefined();
+    });
+
+    it('is ONE undo entry', async () => {
+        const env = await buildSetBackBlock();
+        const before = env.undoStack.size;
+        await env.bus.executeCommand('spaceEnvelope.group.dissolve', { groupId: 'mg_blockA' });
+        expect(env.undoStack.size).toBe(before + 1);
+    });
+
+    it('⛔ refuses a groupId nothing carries', async () => {
+        const env = await buildSetBackBlock();
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.group.dissolve', { groupId: 'mg_nope' }),
+        ).rejects.toThrow();
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+describe('spaceEnvelope.group.setStoreys — ONE verb, BOTH directions, ONE undo', () => {
+    it('⭐⭐ GROWS by copying the TOP-seated member’s ring, NOT the ground’s (§4a(b))', async () => {
+        const env = await buildSetBackBlock();   // ground 20 m, top 10 m — a set-back
+        await env.bus.executeCommand('spaceEnvelope.group.setStoreys', {
+            groupId: 'mg_blockA',
+            targetStoreys: 4,
+            added: [{ spaceEnvelopeId: NEW1, levelId: 'level-4', baseOffset: 9, height: 3 }],
+        });
+        const grown = env.spaceEnvelope.get(NEW1)!;
+        // 10 x 10 = 100, the TOP ring. The ground ring would be 20 x 20 = 400 — and copying it
+        // would silently undo the set-back the designer already drew.
+        expect(grown.footprintAreaM2).toBeCloseTo(100, 6);
+        expect(grown.role).toBe('level');
+        expect(grown.baseOffset).toBeCloseTo(9, 6);
+        expect(grown.group?.id).toBe('mg_blockA');
+    });
+
+    it('grows by TWO in ONE undo entry', async () => {
+        const env = await buildSetBackBlock();
+        const before = env.undoStack.size;
+        await env.bus.executeCommand('spaceEnvelope.group.setStoreys', {
+            groupId: 'mg_blockA',
+            targetStoreys: 5,
+            added: [
+                { spaceEnvelopeId: NEW1, levelId: 'level-4', baseOffset: 9, height: 3 },
+                { spaceEnvelopeId: NEW2, levelId: 'level-5', baseOffset: 12, height: 3 },
+            ],
+        });
+        expect(env.spaceEnvelope.getState().size).toBe(5);
+        expect(env.undoStack.size).toBe(before + 1);
+    });
+
+    it('⭐ SHRINKS from the TOP — the lower storeys survive', async () => {
+        const env = await buildSetBackBlock();
+        await env.bus.executeCommand('spaceEnvelope.group.setStoreys', {
+            groupId: 'mg_blockA', targetStoreys: 2, added: [],
+        });
+        expect(env.spaceEnvelope.get(A1)).toBeDefined();
+        expect(env.spaceEnvelope.get(A2)).toBeDefined();
+        // The TOP one (baseOffset 6) is the one removed — never the ground.
+        expect(env.spaceEnvelope.get(A3)).toBeUndefined();
+    });
+
+    it('⭐ a shrink CLEARS a room’s withinId rather than CASCADING it (C114 §8, one implementation)', async () => {
+        const env = buildEnv();
+        await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [
+                { ...level(A1, 'level-1', 20, 0), group: BLOCK_A },
+                { ...level(A2, 'level-2', 20, 3), group: BLOCK_A },
+                {
+                    spaceEnvelopeId: AR,
+                    levelId: 'level-2',
+                    role: 'room' as const,
+                    withinId: A2,
+                    footprint: [
+                        { x: 1, y: 0, z: 1 },
+                        { x: 5, y: 0, z: 1 },
+                        { x: 5, y: 0, z: 5 },
+                        { x: 1, y: 0, z: 5 },
+                    ],
+                    baseOffset: 3,
+                    height: 2.5,
+                },
+            ],
+        });
+        await env.bus.executeCommand('spaceEnvelope.group.setStoreys', {
+            groupId: 'mg_blockA', targetStoreys: 1, added: [],
+        });
+        // ⛔ The room SURVIVES with a cleared parent. Cascading would destroy an architect's room
+        // layout because they reduced the storey count.
+        expect(env.spaceEnvelope.get(AR)).toBeDefined();
+        expect(env.spaceEnvelope.get(AR)!.withinId).toBeNull();
+    });
+
+    it('⛔ refuses a target of 0 — a delete wearing a resize’s name', async () => {
+        const env = await buildSetBackBlock();
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.group.setStoreys', {
+                groupId: 'mg_blockA', targetStoreys: 0, added: [],
+            }),
+        ).rejects.toThrow();
+        expect(env.spaceEnvelope.getState().size).toBe(3);
+    });
+
+    it('⛔ refuses a no-op', async () => {
+        const env = await buildSetBackBlock();
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.group.setStoreys', {
+                groupId: 'mg_blockA', targetStoreys: 3, added: [],
+            }),
+        ).rejects.toThrow();
+    });
+
+    it('⭐⭐ refuses when `added` DISAGREES with `targetStoreys` — the cross-check, with both numbers', async () => {
+        const env = await buildSetBackBlock();
+        // Asked for 5 (needs 2 new) but supplied 1. Trusting either number silently would make the
+        // button's label and the store's contents two different answers.
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.group.setStoreys', {
+                groupId: 'mg_blockA',
+                targetStoreys: 5,
+                added: [{ spaceEnvelopeId: NEW1, levelId: 'level-4', baseOffset: 9, height: 3 }],
+            }),
+        ).rejects.toThrow();
+        expect(env.spaceEnvelope.getState().size).toBe(3);
+    });
+
+    it('⛔ refuses an added id that already exists', async () => {
+        const env = await buildSetBackBlock();
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.group.setStoreys', {
+                groupId: 'mg_blockA',
+                targetStoreys: 4,
+                added: [{ spaceEnvelopeId: A1, levelId: 'level-4', baseOffset: 9, height: 3 }],
+            }),
+        ).rejects.toThrow();
+    });
+
+    it('⛔ refuses a groupId nothing carries', async () => {
+        const env = await buildSetBackBlock();
+        await expect(
+            env.bus.executeCommand('spaceEnvelope.group.setStoreys', {
+                groupId: 'mg_nope', targetStoreys: 2, added: [],
+            }),
+        ).rejects.toThrow();
+    });
+
+    it('leaves a PEER block completely alone', async () => {
+        const env = buildEnv();
+        await env.bus.executeCommand('spaceEnvelope.batch.create', {
+            envelopes: [
+                { ...level(A1, 'level-1', 20, 0), group: BLOCK_A },
+                { ...level(A2, 'level-2', 20, 3), group: BLOCK_A },
+                { ...level(B1, 'level-1', 10, 0), group: BLOCK_B },
+            ],
+        });
+        await env.bus.executeCommand('spaceEnvelope.group.setStoreys', {
+            groupId: 'mg_blockA', targetStoreys: 1, added: [],
+        });
+        expect(env.spaceEnvelope.get(B1)).toBeDefined();
+        expect(env.spaceEnvelope.get(A1)).toBeDefined();
+        expect(env.spaceEnvelope.get(A2)).toBeUndefined();
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+describe('the roster declares exactly what it builds', () => {
+    it('registers all three group verbs', async () => {
+        const { SPACE_ENVELOPE_HANDLER_TYPES, MASSING_GROUP_VERBS } =
+            await import('../src/handlers/index.js');
+        for (const v of MASSING_GROUP_VERBS) {
+            expect(SPACE_ENVELOPE_HANDLER_TYPES).toContain(v);
+        }
+        expect(buildSpaceEnvelopeHandlerSet()).toHaveLength(SPACE_ENVELOPE_HANDLER_TYPES.length);
+    });
+});

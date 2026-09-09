@@ -33,6 +33,7 @@
 
 import { Store } from '@pryzm/plugin-sdk';
 import type { SpaceEnvelope } from '@pryzm/plugin-sdk';
+import { massingGroupMembers } from './groupMembership.js';
 
 /** The element record, as the L0 schema defines it. */
 export type SpaceEnvelopeData = SpaceEnvelope;
@@ -103,10 +104,11 @@ export class SpaceEnvelopeStore extends Store<SpaceEnvelopeData> {
      * implementations, which is this repository's most-repeated defect.
      */
     byGroup(groupId: string | null): readonly SpaceEnvelopeData[] {
-        const out: SpaceEnvelopeData[] = [];
-        for (const e of this.state.values()) {
-            if ((e.group?.id ?? null) === groupId) out.push(e);
-        }
-        return out;
+        // ⛔ THE PREDICATE LIVES IN `groupMembership.ts` AND IS CALLED, NOT RE-TYPED. It was one
+        // expression here until the three `spaceEnvelope.group.*` verbs needed it too and could not
+        // reach this method: a handler receives the plain `SpaceEnvelopesState` record, never this
+        // instance. Re-typing it there would have been exactly the two-implementations defect this
+        // method's own doc warns about, arriving by a route the warning did not anticipate.
+        return massingGroupMembers(this.state.values(), groupId);
     }
 }

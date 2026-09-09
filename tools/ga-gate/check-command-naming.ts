@@ -106,6 +106,34 @@ const CANONICAL_PREFIXES = new Set([
     // the orchestrator ruled the ELEMENT KIND yields because the UI exists. C116 0.1
     // carries the correction; `siteSurface` is a FORBIDDEN spelling for this family.
     'siteworks',
+    // ─── ADDED 2026-09-09 (lane MASTER-PLAN) — ONE GENUINELY NEW DOMAIN ─────────────────
+    //
+    // ⚠ THIS GATE WAS ALREADY EXIT 3 FOR THIS PREFIX BEFORE THE LANE THAT ADDS IT EXISTED.
+    // `spaceEnvelope.*` has shipped SEVEN verbs since §FEAT-SPACE-ENVELOPE (L-12900) and the
+    // prefix was never admitted here, so the gate has been counting them as non-canonical
+    // against a baseline of 0 the whole time. Admitting it FIXES a pre-existing breach; it
+    // does not create one, and ADR-0383 §4b says so explicitly. (`component.*` remains and
+    // is another lane's.)
+    //
+    // Measured for a rival spelling FIRST, because that measurement is the only thing
+    // separating this file's sanctioned move — *"Adding a genuinely new element type means
+    // adding it here"* — from the L-796 defect it exists to catch. Counts as COMMAND-type
+    // prefixes over plugins/ + packages/ + apps/, 2026-09-09:
+    //
+    //   `'space-envelope.` : 0 hits
+    //   `'envelope.`       : 1 hit (unrelated — not this family)
+    //
+    // So this is a NEW DOMAIN, not a second spelling of an existing one.
+    //
+    // camelCase, like `bathroomPod` / `boundaryLine` / `siteworks`, and for the same reason:
+    // C114 §6 declares the namespace NORMATIVELY — *"Namespace `spaceEnvelope.*` (C69 §3.6)"*
+    // — and under CLAUDE.md's conflict order a contract outranks a convention inferred from
+    // one kebab sample. Re-spelling it would be a C114 §6 amendment first and a code change
+    // second, which is the inverse of "when code disagrees with a contract, the code is wrong".
+    //
+    // The domain covers TEN verbs as of ADR-0383 S4: the seven in C114 §6's original table
+    // plus `spaceEnvelope.group.setStoreys` / `.rename` / `.dissolve`.
+    'spaceEnvelope',
 ]);
 
 /**

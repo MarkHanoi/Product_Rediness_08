@@ -12,6 +12,11 @@ import {
     SetSpaceEnvelopeParameterHandler,
     SetSpaceEnvelopeWithinHandler,
 } from './MutateSpaceEnvelope.js';
+import {
+    RenameMassingGroupHandler,
+    DissolveMassingGroupHandler,
+    SetMassingGroupStoreysHandler,
+} from './MassingGroupCommands.js';
 
 /**
  * The verb roster, exactly as C114 §6 declares it.
@@ -34,6 +39,12 @@ export const SPACE_ENVELOPE_HANDLER_TYPES = [
     'spaceEnvelope.setFootprint',
     'spaceEnvelope.setParameter',
     'spaceEnvelope.setWithin',
+    // ─── ADR-0383 S4 / C114 §6 — THE MASSING-GROUP VERBS ────────────────────────────────
+    // ⭐ `setStoreys` is ONE verb for BOTH directions (C114 §6e clause 4): two verbs would let a
+    // surface spend three Ctrl+Zs going from 3 storeys to 6. ⛔ `dissolve` does NOT delete.
+    'spaceEnvelope.group.setStoreys',
+    'spaceEnvelope.group.rename',
+    'spaceEnvelope.group.dissolve',
 ] as const;
 
 export type SpaceEnvelopeHandlerType = (typeof SPACE_ENVELOPE_HANDLER_TYPES)[number];
@@ -48,6 +59,9 @@ export function buildSpaceEnvelopeHandlerSet(): readonly CommandHandler<unknown>
         new SetSpaceEnvelopeFootprintHandler() as unknown as CommandHandler<unknown>,
         new SetSpaceEnvelopeParameterHandler() as unknown as CommandHandler<unknown>,
         new SetSpaceEnvelopeWithinHandler() as unknown as CommandHandler<unknown>,
+        new SetMassingGroupStoreysHandler() as unknown as CommandHandler<unknown>,
+        new RenameMassingGroupHandler() as unknown as CommandHandler<unknown>,
+        new DissolveMassingGroupHandler() as unknown as CommandHandler<unknown>,
     ];
 }
 
@@ -85,3 +99,15 @@ export type {
     SetSpaceEnvelopeParameterPayload,
     SetSpaceEnvelopeWithinPayload,
 } from './MutateSpaceEnvelope.js';
+export {
+    RenameMassingGroupHandler,
+    DissolveMassingGroupHandler,
+    SetMassingGroupStoreysHandler,
+    MASSING_GROUP_VERBS,
+} from './MassingGroupCommands.js';
+export type {
+    RenameMassingGroupPayload,
+    DissolveMassingGroupPayload,
+    SetMassingGroupStoreysPayload,
+    MassingGroupAddedStorey,
+} from './MassingGroupCommands.js';

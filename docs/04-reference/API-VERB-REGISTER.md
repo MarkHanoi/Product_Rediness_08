@@ -15,7 +15,7 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1449 (floor 900) |
+| Handler files read | 1450 (floor 900) |
 | **Verbs** | **379** (floor 250) |
 | LIVE | 168 |
 | REFUSES | 37 |
@@ -24,7 +24,7 @@ change, not a rename — see C69 §2.
 | — of the LIVE, credited by the §L-946 mirror channel | 12 of 12 level-change verb(s) |
 | authoritative store NONE or UNKNOWN | 211 |
 | sync UNDECLARED (property verbs) | 3 |
-| chat UNDECLARED | 4 |
+| chat UNDECLARED | 1 |
 
 These numbers are re-derived on every run. Do not transcribe them anywhere else
 (C64 §2.13) — cite this file.
@@ -322,9 +322,9 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `slab.updateSystemTypeBatch` | plugins/slab | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: set-slab-type |
 | `spaceEnvelope.batch.create` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `spaceEnvelope.delete` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
-| `spaceEnvelope.group.dissolve` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | n/a (not a property verb) | UNDECLARED |
-| `spaceEnvelope.group.rename` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | n/a (not a property verb) | UNDECLARED |
-| `spaceEnvelope.group.setStoreys` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | n/a (not a property verb) | UNDECLARED |
+| `spaceEnvelope.group.dissolve` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `spaceEnvelope.group.rename` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
+| `spaceEnvelope.group.setStoreys` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `spaceEnvelope.move` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `spaceEnvelope.moveFace` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | not-synced (reason declared) | deferred (CHAT_UNAVAILABLE) |
 | `spaceEnvelope.setFootprint` | plugins/space-envelope | LIVE | adopted composed store: spaceEnvelope (§BLSTORE/§BATH102 StoresSlot singleton) | patch-pair → spaceEnvelope | synced via 'spaceEnvelopeId' (disclose) | deferred (CHAT_UNAVAILABLE) |

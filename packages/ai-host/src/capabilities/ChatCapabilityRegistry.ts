@@ -3872,6 +3872,18 @@ export const CHAT_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   ['spaceEnvelope.setFootprint', 'Reshaping an envelope footprint is done in the profile editor with the envelope selected.'],
   ['spaceEnvelope.setParameter', 'Envelope properties (height, base offset, name, programme, colour) are edited in the Properties panel with the envelope selected.'],
   ['spaceEnvelope.setWithin', 'Declaring which level envelope a room envelope belongs to is done in the Properties panel. Note PRYZM reports — and never refuses — a room envelope that sticks out of its level envelope.'],
+  // ─── ADR-0383 S4 · the three massing-group verbs ─────────────────────────────────
+  // ⚠ THESE THREE ARE THE MOST PLAUSIBLE CHAT VERBS THIS FAMILY HAS — *"take Block A to six
+  // storeys"* is exactly how a designer would say it — and they are declared UNAVAILABLE anyway,
+  // for one measured reason: the verb needs a resolved `group.id`, and the group SELECTION
+  // channel (`massingGroupSelectionState.ts`, ADR-0383 D6) is not wired to the AI host. Naming
+  // a building in prose cannot yet reach an id, and a capability that guessed WHICH block the
+  // user meant would resize the wrong one silently. ⭐ This is a WIRING gap with a named fix,
+  // not a decision that chat may not do it — said that way round because the reason is the part
+  // a later lane needs.
+  ['spaceEnvelope.group.setStoreys', 'Growing or shrinking a whole block needs me to know which block you mean, and PRYZM cannot yet turn a building name in a sentence into the group it refers to. Select the block in the site panel and use its storey control — it is one press and one undo in either direction.'],
+  ['spaceEnvelope.group.rename', 'Renaming a block needs me to resolve which block you mean, which PRYZM cannot yet do from a description. Rename it on its row in the site panel; the new name is applied to every storey of that block in one undo.'],
+  ['spaceEnvelope.group.dissolve', 'Ungrouping a block needs me to resolve which block you mean, which PRYZM cannot yet do from a description. Use Dissolve on its row in the site panel — and note it KEEPS every envelope, it only stops them being one named building.'],
   // — SITEWORKS (C116 / ADR-0384) — roads, parking areas, pedestrian areas.
   // Every verb is CHAT_UNAVAILABLE at this commit (C116 §11 item 5), and every
   // refusal names the route back to success rather than stopping at "no".
