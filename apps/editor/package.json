@@ -44,6 +44,7 @@
     "@pryzm/geometry-lift": "workspace:*",
     "@pryzm/geometry-slab": "workspace:*",
     "@pryzm/geometry-space-envelope": "workspace:*",
+    "@pryzm/geometry-siteworks": "workspace:*",
     "@pryzm/geospatial": "workspace:*",
     "@pryzm/keyboard-registry": "workspace:*",
     "@pryzm/persistence-client": "workspace:*",

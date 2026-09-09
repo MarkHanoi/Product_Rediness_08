@@ -998,6 +998,9 @@ importers:
       '@pryzm/geometry-lift':
         specifier: workspace:*
         version: link:../../packages/geometry-lift
+      '@pryzm/geometry-siteworks':
+        specifier: workspace:*
+        version: link:../../packages/geometry-siteworks
       '@pryzm/geometry-slab':
         specifier: workspace:*
         version: link:../../packages/geometry-slab

@@ -35,6 +35,11 @@ import { BeamModePicker } from '../../BeamModePicker';
 import { OpeningModePicker } from '../../OpeningModePicker';
 import { WallDrawingMode } from '@pryzm/geometry-wall';
 import * as PryzmIcons from '../../icons/PryzmIcons';
+import { masterPlanningTools } from './masterPlanningRailRegistry.js';
+import { registerSiteworksRailTools } from './siteworksRailTools.js';
+// ⭐ ADR-0383's half of the SAME category (lane MP-WIRE, 2026-09-09) — see
+// `massingRailTools.ts` for why this is a registry row and not a second rail.
+import { registerMassingRailTools } from './massingRailTools.js';
 import { FurnitureSidePanel } from '../../furniture-carousel/FurnitureSidePanel';
 import { buildLightingPanel } from './CreateRailPanelLighting';
 import { shortcutForTool, formatTooltip } from './creationToolShortcuts';
@@ -129,12 +134,22 @@ export class CreateRailPanel {
 
     private _activeDisciplineId: string = 'architecture';
 
+    /**
+     * ADR-0384 D7 - the siteworks entries are registered ONCE per process, not
+     * once per panel. The rail is rebuilt on every discipline switch, and the
+     * registry is idempotent on `key` anyway, but registering in the constructor
+     * of a class that can be instantiated twice would still be a second writer.
+     */
+    private static _masterPlanningToolsRegistered = false;
+
     private _sectionState: Record<string, SectionState> = {
         architecture: { isOpen: true,  isLocked: false, openedAt: Date.now() },
         structure:    { isOpen: false, isLocked: false, openedAt: 0 },
         services:     { isOpen: false, isLocked: false, openedAt: 0 },
         interiors:    { isOpen: false, isLocked: false, openedAt: 0 },
         landscape:    { isOpen: false, isLocked: false, openedAt: 0 },
+        // ADR-0384 D7 / C116.
+        masterplanning: { isOpen: false, isLocked: false, openedAt: 0 },
     };
 
     private static _shortcutListenerInstalled = false;
@@ -149,6 +164,26 @@ export class CreateRailPanel {
         runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null,
     ) {
         this.runtime = runtime;
+
+        // ADR-0384 D7 / C116 — put THIS family's three entries into the shared
+        // Master planning registry. `getRuntime` is a THUNK, not the value: the
+        // runtime is threaded in at construction and can be null during early boot,
+        // and a captured null would make every button silently dead forever, which
+        // is the exact C82 shape the registry exists to prevent.
+        if (!CreateRailPanel._masterPlanningToolsRegistered) {
+            CreateRailPanel._masterPlanningToolsRegistered = true;
+            registerSiteworksRailTools(
+                () => (CreateRailPanel._activeInstance?.runtime ?? window.runtime) as never,
+            );
+            // ⭐ ADR-0383 — the BUILDINGS half of "Master planning", into the SAME
+            // registry and under the SAME once-guard. `masterPlanningRailRegistry.ts`
+            // measured this row as MISSING and named it as the orchestrator's call;
+            // this is that row. ⛔ It takes no runtime thunk because neither entry
+            // dispatches — the one master-planning mutation is the
+            // `spaceEnvelope.batch.create` the Parcel Law section sends (P6).
+            registerMassingRailTools();
+        }
+
         // F.events.16 — bim-selection-changed migrated to runtime.events typed bus.
         window.runtime?.events?.on('bim-selection-changed', () => {
             this._refreshAll();
@@ -478,7 +513,7 @@ export class CreateRailPanel {
      * single 'CREATE' id.
      */
     private _refreshAll(): void {
-        for (const id of ['CREATE_ARCH', 'CREATE_STRUCT', 'CREATE_SERVICES', 'CREATE_INTERIORS', 'CREATE_LANDSCAPE']) {
+        for (const id of ['CREATE_ARCH', 'CREATE_STRUCT', 'CREATE_SERVICES', 'CREATE_INTERIORS', 'CREATE_LANDSCAPE', 'CREATE_MASTERPLAN']) {
             this._rail.refreshIfActive(id);
         }
     }
@@ -1372,6 +1407,32 @@ export class CreateRailPanel {
                         disabled: () => false,
                     },
                 ],
+            },
+            // ── MASTER PLANNING (ADR-0384 D7 · C116) ──────────────────────
+            //
+            // ⭐ THE TOOLS COME OUT OF A REGISTRY, NOT OUT OF THIS FILE. ADR-0384 D7
+            // rules that "Master planning" is ONE category CO-OWNED with ADR-0383
+            // (massing groups) — laying out a site is placing BUILDINGS and placing
+            // THE GROUND BETWEEN THEM — so the entries are DATA that either lane
+            // registers into `masterPlanningRailRegistry`. Two rails both called
+            // "Master planning" would be C82's 267-of-280 dead-pair census at its
+            // first instant.
+            //
+            // ⚠ ADR-0383 carries NO reciprocal ruling today (measured: no "rail",
+            // "category" or "registry" in that ADR, and its landed code adds no
+            // entry). The registry is built so that lane can join it without
+            // touching this file; the missing obligation is named in
+            // `masterPlanningRailRegistry.ts` rather than assumed.
+            {
+                id:    'masterplanning',
+                label: 'Master planning',
+                icon:  PryzmIcons.pryzmMasterPlanning,
+                tools: masterPlanningTools().map((e) => ({
+                    label:    e.label,
+                    icon:     e.icon,
+                    action:   e.action,
+                    disabled: e.disabled ?? (() => false),
+                })),
             },
         ];
 

@@ -162,6 +162,20 @@ export const CREATION_TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
     'Swimming Pool':        'Alt+Shift+Q',
     'Trees':                'Alt+Shift+P',
     'Potted Plants':        'Alt+Shift+W',
+
+    // --- MASTER PLANNING (ADR-0384 D7 / C116) -------------------------------
+    // Roads, parking and footways. Free combos taken in order; the mnemonic
+    // letters (R, P) were already spoken for, which is the precedent
+    // `Swimming Pool` (Alt+Shift+Q) and `Potted Plants` (Alt+Shift+W) both set --
+    // take the nearest free combo rather than collide.
+    'Road':                 'Alt+Shift+J',
+    'Parking Area':         'Alt+Shift+U',
+    'Pedestrian Area':      'Alt+Shift+X',
+    // ADR-0383's half of the same category (lane MP-WIRE). Alt+Shift+Y / Z are the
+    // last two free combos in this map -- taken in order, per the precedent the
+    // three rows above set rather than colliding with a mnemonic already spoken for.
+    'Building Profile':     'Alt+Shift+Y',
+    'Another Profile':      'Alt+Shift+Z',
 };
 
 /**

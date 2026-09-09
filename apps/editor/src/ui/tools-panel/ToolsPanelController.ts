@@ -85,6 +85,15 @@ export class ToolsPanelController {
                 build:   () => { createPanel.setActiveDiscipline('landscape'); return createPanel.build(); },
             },
             {
+                // ADR-0384 D7 / C116 - the founder's "new masterplanning category",
+                // on the RIGHT-hand rail this controller owns (see this file's header).
+                id:      'CREATE_MASTERPLAN',
+                label:   'Master planning',
+                icon:    '',
+                svgIcon: PryzmIcons.pryzmMasterPlanning,
+                build:   () => { createPanel.setActiveDiscipline('masterplanning'); return createPanel.build(); },
+            },
+            {
                 id:      'CREATE_SERVICES',
                 label:   'Services',
                 icon:    '',

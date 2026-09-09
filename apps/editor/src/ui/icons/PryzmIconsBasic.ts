@@ -796,6 +796,21 @@ export const pryzmLandscape = blk(`
 <line x1="56" y1="50"  x2="60" y2="44" ${BD}/>
 `, '-1 -3 108 108');
 
+/**
+ * Master planning (category icon) — a carriageway in plan: two kerb lines running to
+ * a vanishing pair, with the dashed centre marking between them. ADR-0384 D7 / C116.
+ * Deliberately a ROAD rather than a site plan: the category's first three entries are
+ * roads, parking and footways, and an abstract site outline would read as "Site",
+ * which is a different workspace mode that already exists.
+ */
+export const pryzmMasterPlanning = blk(`
+<line x1="14" y1="94" x2="38" y2="10" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+<line x1="86" y1="94" x2="62" y2="10" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+<line x1="50" y1="88" x2="50" y2="72" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+<line x1="50" y1="58" x2="50" y2="44" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+<line x1="50" y1="32" x2="50" y2="20" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+`, '-4 -4 108 108');
+
 /** Hedge — irregular blob outline plan view */
 export const hedge = blk(`
 <path d="M38,100 Q44,72 62,66 Q76,58 92,66 Q108,58 122,68 Q136,78 132,100 Q136,120 120,128 Q104,138 88,130 Q72,138 56,128 Q40,118 38,100 Z" ${BL}/>

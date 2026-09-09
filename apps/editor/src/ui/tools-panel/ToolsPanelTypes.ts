@@ -74,6 +74,11 @@ export type ToolsSectionId =
     | 'CREATE_SERVICES'
     | 'CREATE_INTERIORS'
     | 'CREATE_LANDSCAPE'
+    // ADR-0384 D7 / C116 - MASTER PLANNING: laying out a site is placing
+    // BUILDINGS (ADR-0383) and placing THE GROUND BETWEEN THEM (ADR-0384). ONE
+    // category, ONE registry, two owners - never two rails with the same name,
+    // which is C82's 267-of-280 failure at its first instant.
+    | 'CREATE_MASTERPLAN'
     | 'LEVELS_GRIDS'
     | 'GRIDS_LEVELS'
     | 'ANNOTATION'

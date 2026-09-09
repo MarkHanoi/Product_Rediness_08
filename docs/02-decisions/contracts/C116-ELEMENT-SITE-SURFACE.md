@@ -473,6 +473,7 @@ THREE, zero DOM, **no OTel span** (a span is I/O).
 | 6 | **Paving build-up (layers)** | C84 EI-8 | must NOT be `Slab`'s `systemTypeId` — §0.3 |
 | 7 | **Junction resolution between crossing roads** | C84 EI-10 | §12 — refused, not deferred silently |
 | 8 | **IFC identity** | C25 | resolve `IfcCourse` vs `IfcPavement` before any export claim |
+| 9 | **Interactive centreline drawing** — the founder's *"linear design, like a wall"* | [[same-rule-two-implementations]] | ⛔ NOT a new `SiteworksPlanToolHandler`. `BoundaryLinePlanToolHandler.ts` (549 lines) already strokes an ortho/curved/looping polyline with snapping; the proof is that BOTH tools call ONE extracted stroke, not that a second one passes its own tests |
 
 ---
 
@@ -649,6 +650,81 @@ whose radius is under half the width but which does not actually cross — that 
 may pinch.
 
 ⛔ **STILL NOT REACHABLE.** No store, no verb, no handler, no plugin, no renderer, no UI.
+
+### 2026-09-09 · lane SITE-SURFACE · **STAGES 4–6 — THE FAMILY IS REACHABLE, PERSISTS, AND HAS A UI.**
+
+#### Stage 4 — the plugin and every register that makes it reachable
+
+`plugins/siteworks`: the store (`super('siteworks')` matching `registration.storeKey`), five
+handlers each wrapped in `withHandlerSpan`, the descriptor with `satisfies`, and the barrel.
+Then — in the SAME commit, because *"registered is not reachable"* cost four days of silent loss
+(L-11530) — `PluginRegistry` (import · `ALL_PLUGINS` · `ELEMENT_PLUGIN_IDS`), `PluginHost`
+(`PLUGIN_CATALOG`), `runtime-composer` (`StoresSlot.siteworks` + **adoption**, never construction,
++ the project-scoped clear list), `performUndoRedo` (`buildUndoStoreMap`), `ProjectSerializer`
+(key + lazy read + the C84 EI-6 count), `restoreCompoundFamilies` (**the COMMON TAIL**, never a
+branch — L-11528), `snapshotFamilyCoverage`, `syncDisposition` (all five verbs),
+`ChatCapabilityRegistry` (five `CHAT_UNAVAILABLE` refusals), `CANONICAL_PREFIXES`, and a
+regenerated `API-VERB-REGISTER.md`.
+
+| Gate | Reading |
+|---|---|
+| `check-otel-spans` | **RC=0. ZONE A 281 / 281 at ZERO TOLERANCE. ZONE B 52 uninstrumented of 90 against baseline 52** — the denominator grew by one and the COUNT DID NOT. ⛔ Zone B had **zero headroom** and its baseline is a NAMED FILE LIST that explicitly includes plugin `src/handlers/index.ts` barrels, so an uninstrumented barrel would have read 53/52 = exit 3, unabsorbable (R7 / L-836). The barrel wraps registration in `withHandlerSpan` |
+| `check-plugin-census-equivalence` | ⭐ **`siteworks` appears in ZERO of the eight arms** — on disk, in the registry, in the catalog, and in `ELEMENT_PLUGIN_IDS`. The gate is still RC=3 (arms B 9/8, E 1/0, F 4/3) and **every breach names `component`**, which predates this lane |
+| `check-snapshot-family-coverage` | **RC=0 · 33 families / 33 rows · sets equal in BOTH directions.** It was RC=1 naming `siteworks` before this commit — the tripwire fired exactly as designed |
+| `check-verb-register` | **RC=0 · 379 verbs**, matching the code both ways |
+| `check-command-naming` | `siteworks` canonical. Rival spellings measured BEFORE admission (the only thing separating the sanctioned move from the L-796 defect): `'road.'` **0**, `'pavement.'` **0**, `'surface.'` **0**, `'paving.'` **0** |
+
+#### Stage 5 — ⭐ THE REACHABILITY PROOF
+
+`apps/editor/__tests__/siteworksReachableThroughComposedRuntime.test.ts` — **17 / 17**. It boots
+the **REAL** `composeRuntime()`, dispatches every verb, reads records back **OUT of
+`rt.stores.siteworks`** (C16 CA-21 — never the handler's return, never a spy), serialises through
+the real `ProjectSerializer`, clears, restores through the real `restoreCompoundFamilies`, reads
+again, and undoes/redoes through the production `applyRingBufferSide` + `buildUndoStoreMap()`.
+`plugins/siteworks/__tests__/siteworksHandlers.test.ts` — **23 / 23** for what the handlers DO.
+
+⚠ **TWO HARNESS DEFECTS WERE FOUND BY RUNNING IT, and both are worth recording** because each
+would have produced a *vacuous* suite: the composed bus exposes `executeCommand(type, payload)`
+and NOT `dispatch({type, …})` — the first draft failed every dispatching arm with *"no handler
+registered for: [object Object]"*; and `RingBufferUndoStack.undo()` returns **void** (it only
+moves the cursor) while `undoPatch()` is the one that hands back the side. ⭐ The verb-registration
+arm was then rewritten to probe **BY DISPATCH** rather than by a descriptor read, because a
+handler can be registered and undispatchable — which is the whole trap.
+
+#### Stage 6 — the `Master planning` rail category (the founder's ask, D7)
+
+Four data sites (`ToolsSectionId` · the `SectionDef` row · `_sectionState` · `_refreshAll`'s id
+list) plus a new discipline section whose tools come from a **REGISTRY**, not from the panel:
+`masterPlanningRailRegistry.ts`. ⭐ That is D7's *"ONE category, backed by a data-driven entry
+registry"*, so ADR-0383's lane adds a ROW rather than a second rail — C82's 267-of-280 dead-pair
+census at its first instant is what the shared registry refuses.
+
+⛔ **C82 IS THE ACCEPTANCE BAR AND IT IS MET BY AN ACTIVATION TEST, NOT A RENDER TEST.**
+`siteworksRailTools.test.ts` — **11 / 11** — PRESSES each entry and reads the surface back out of
+a real store through a real `CommandBus` and the real handlers. A test asserting "the category has
+three entries with the right labels" would have passed on all 267 of those dead pairs too.
+
+⚠ **REPORTED, NOT ASSUMED: ADR-0384 D7 claims the category is "CO-OWNED with ADR-0383 from its
+first commit". ADR-0383 contains no such ruling.** Measured 2026-09-09:
+`grep -n -i "rail\|category\|registry"` over that ADR → **no output**, and its landed code
+(`massingGroupRoster.ts`, `massingGroupSelectionState.ts`) adds no rail entry. The registry is
+built so that lane can join it without touching `CreateRailPanel`; whether ADR-0383 gains the
+reciprocal row, or D7's claim is corrected, is the orchestrator's call and is named in
+`masterPlanningRailRegistry.ts` rather than papered over.
+
+⚠ **WHAT THE RAIL BUTTONS DO NOT DO — stated plainly (§0.2).** They do not let you DRAW the
+centreline yet. Pressing **Road** places a 40 m linear surface at the plan origin on the active
+level at the CITED 7,00 m width; everything after that — width, thickness, role, delete, undo,
+save/reload — is live. ⛔ Interactive polyline authoring is deliberately NOT cloned here:
+`BoundaryLinePlanToolHandler.ts` is **549 lines** and already draws an ortho/curved/looping
+polyline with snapping, so a `SiteworksPlanToolHandler` beside it would be a SECOND polyline
+stroke — [[same-rule-two-implementations]] — and the guarding test would stay green on whichever
+copy it happened to measure. The correct move is to EXTRACT the stroke from that handler so both
+call it, which is a refactor of another lane's live tool. **Added as §11 item 9.**
+
+⛔ **STILL NOT DRAWN IN 3-D.** Nothing subscribes `store.subscribeDirty` at this commit, so a
+siteworks surface is a record you can create, edit, undo, save and reload — and not yet see. §3's
+renderer row stays **ABSENT**.
 
 ---
 
