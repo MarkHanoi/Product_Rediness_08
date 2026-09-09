@@ -19254,6 +19254,12 @@ export class CesiumViewport {
         // prism would — otherwise the comparison would be of two different ground datums.
         sampleGround: (lat, lon, fb) => this.sampleGround(lat, lon, fb),
         contextEntities: () => this.contextBuildingEntities as unknown as import('cesium').Entity[],
+        // ⭐ §BCN-PREVIEW-SAYS-WHERE-IT-COVERS (L-13287) — THE SITE, so the preview can tell the
+        // user whether the disc actually covers THEIR plot. It flew the founder 1.65 km to a
+        // different neighbourhood twice without saying so, and he judged the DATA on a view of
+        // somewhere else. The ONE resolver the rest of this viewport uses; a second one here is
+        // how a guard ends up measuring a different site from the one on screen.
+        siteLocation: () => this.readSiteLocation(),
       },
       this._bcnPreview as unknown as { entities: import('cesium').Entity[]; on: boolean },
     );

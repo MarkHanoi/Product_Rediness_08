@@ -242,11 +242,78 @@ jobs:
         run: |
           set -euo pipefail
           ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          # Tolerated-missing ON THE FIRST PUBLISH ONLY: no manifest is live before the first
-          # §SYNC-SWITCH publish ships one. merge-tiles.mjs says loudly which case it saw.
-          aws s3 cp "s3://pryzm-assets/tiles/tileset-manifest.json" tools/context-bake/out/live-tileset-manifest.json \
-            --endpoint-url "$ENDPOINT" \
-            || echo "::warning::no live tileset-manifest.json — BOOTSTRAP publish (the gate arms on the first publish that ships one)"
+
+          # ══════════════════════════════════════════════════════════════════════════════════════
+          # ⛔⛔ §MANIFEST-ABSENT-IS-NOT-MANIFEST-UNREACHABLE (L-13288 · §CONTEXT-DATA-HONESTY)
+          # ══════════════════════════════════════════════════════════════════════════════════════
+          # THIS STEP USED TO BE ONE LINE ENDING IN `|| echo "::warning::…BOOTSTRAP publish"`, AND
+          # THAT SINGLE `||` WAS A LOADED GUN POINTED AT THE WHOLE LIVE TILESET.
+          #
+          # `||` catches EVERY failure the same way: a genuinely absent key, a transient 503, an
+          # expired credential, a DNS blip, a typo in the bucket name. All of them left no file on
+          # disk — and the Merge step arms the no-loss gate with:
+          #
+          #     if [ -f …/live-tileset-manifest.json ]; then ARGS+=(--live-manifest …); fi
+          #
+          # No file ⇒ no `--live-manifest` ⇒ THE NO-LOSS GATE NEVER ARMS. The merge then writes a
+          # manifest describing only what was STAGED. On a `--layer buildings` publish that is a
+          # manifest naming ONE layer, and the client memoises every unnamed layer as MISSING —
+          # so six live layers vanish for every user while 63 GB of perfectly good bytes sit
+          # untouched on R2. A five-second network hiccup was sufficient to cause it.
+          #
+          # ⭐ THE DEFECT IS THE REPO'S OLDEST ONE, IN INFRASTRUCTURE INSTEAD OF UI: A FAILURE AND
+          # AN EMPTINESS SHARED A VALUE (L-581, L-616). "I could not reach the manifest" and "there
+          # is no manifest yet" are opposite facts and must never produce the same state.
+          #
+          # So EXISTENCE is now asked SEPARATELY from RETRIEVAL:
+          #   · head-object says 404       → genuinely absent → BOOTSTRAP, proceed unarmed, warn.
+          #   · head-object succeeds       → a manifest IS live → the download MUST succeed. If it
+          #                                   does not, HARD FAIL. Publishing unarmed over a known
+          #                                   live tileset is the one outcome worth failing the job.
+          #   · head-object errors (≠404)  → UNKNOWN. Also hard fail. Unknown is not absent, and
+          #                                   guessing "absent" here is precisely the bug.
+          # ══════════════════════════════════════════════════════════════════════════════════════
+          HEAD_ERR="$(mktemp)"
+          set +e
+          aws s3api head-object \
+            --bucket pryzm-assets --key tiles/tileset-manifest.json \
+            --endpoint-url "$ENDPOINT" > /dev/null 2> "$HEAD_ERR"
+          HEAD_RC=$?
+          set -e
+
+          if [ "$HEAD_RC" -eq 0 ]; then
+            echo "A live tileset-manifest.json EXISTS — the no-loss gate MUST arm for this publish."
+            # ⛔ No `||` here, deliberately. `set -e` fails the job if this download fails, which is
+            # the entire point: a manifest we KNOW is live and CANNOT read is a stop condition, not
+            # a warning. Retried three times so a single transient blip does not cost a run.
+            for attempt in 1 2 3; do
+              if aws s3 cp "s3://pryzm-assets/tiles/tileset-manifest.json" \
+                   tools/context-bake/out/live-tileset-manifest.json \
+                   --endpoint-url "$ENDPOINT"; then
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "::error::A live tileset-manifest.json EXISTS on R2 but could not be downloaded after 3 attempts. REFUSING to publish: without it the no-loss gate cannot arm, and an unarmed publish can drop live layers from the manifest and blank them for every user. This is a RETRIEVAL failure, not an empty tileset."
+                exit 1
+              fi
+              echo "::warning::manifest download attempt ${attempt} failed — retrying"
+              sleep $(( attempt * 5 ))
+            done
+            # Belt and braces: a zero-byte or unparseable manifest is as dangerous as a missing one,
+            # because `[ -f ]` would accept it and the merge would arm the gate against nothing.
+            node -e 'const m=require("./tools/context-bake/out/live-tileset-manifest.json"); const r=Object.keys(m.regions||{}); const l=Object.keys(m.layers||{}); if(!r.length) throw new Error("live manifest parsed but names ZERO regions"); console.log(`✓ live manifest: ${r.length} region(s), ${l.length} layer(s) — the no-loss gate will arm against these`)' \
+              || { echo "::error::The live tileset-manifest.json downloaded but is empty or unparseable. REFUSING to publish — arming the gate against a broken manifest is the same as not arming it."; exit 1; }
+
+          elif grep -qiE '404|Not Found' "$HEAD_ERR"; then
+            echo "::warning::No live tileset-manifest.json on R2 (HTTP 404) — this is a genuine BOOTSTRAP publish. The gate arms on the first publish that ships one. VERIFIED ABSENT, not merely unreachable."
+            rm -f tools/context-bake/out/live-tileset-manifest.json
+
+          else
+            echo "::error::Could not determine whether a live tileset-manifest.json exists (head-object exit ${HEAD_RC}, and the error was NOT a 404). REFUSING to publish. UNKNOWN IS NOT ABSENT: treating an unreachable manifest as a missing one is what silently disarms the no-loss gate and can blank live layers for every user."
+            cat "$HEAD_ERR"
+            exit 1
+          fi
+          rm -f "$HEAD_ERR"
 
       # §MERGE-NEEDS-PROJ4-TOO (L-12974) — merge-tiles.mjs imports bake.mjs for its region rows and
       # `allLayers`, and bake.mjs's module graph now reaches footprints/esCatastro.mjs → proj4. Without

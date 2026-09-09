@@ -74,7 +74,26 @@ export interface BcnPreviewDeps {
     readonly sampleGround: (lat: number, lon: number, fallback: number) => number;
     /** The baked context entities to hide while the preview is up. */
     readonly contextEntities: () => readonly CesiumNS.Entity[];
+    /**
+     * ⭐ §BCN-PREVIEW-SAYS-WHERE-IT-COVERS (L-13287) — the project's own site, or `null`.
+     *
+     * The preview flew the founder 1.65 km to Ciutat Vella, twice, without ever saying his plot
+     * was outside the covered disc. He judged the DATASET on a view of a different neighbourhood
+     * and reported "not the level of detail we already had" — a false negative this file caused.
+     * A preview that relocates the user must say so, with the distance, in the same breath.
+     */
+    readonly siteLocation?: () => { lat: number; lon: number } | null;
     readonly fetchJson?: (url: string) => Promise<unknown>;
+}
+
+/** Great-circle metres between two WGS84 points. Small-angle safe; good to a metre at this scale. */
+function metresBetween(aLat: number, aLon: number, bLat: number, bLon: number): number {
+    const R = 6_371_000;
+    const dLat = ((bLat - aLat) * Math.PI) / 180;
+    const dLon = ((bLon - aLon) * Math.PI) / 180;
+    const m = Math.sin(dLat / 2) ** 2
+        + Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(m)));
 }
 
 /**
@@ -182,6 +201,37 @@ export async function toggleBcnVolumesPreview(
     // `Mapa 3D detallat` viewer — is a STREET-LEVEL view, and articulation only reads close up.
     // A preview the user has to go and find is a preview that reports a false negative.
     const c = data.pryzm?.centre;
+
+    // ⛔⛔ §BCN-PREVIEW-SAYS-WHERE-IT-COVERS (L-13287) — SAY IT BEFORE MOVING THE CAMERA.
+    //
+    // The founder tested this twice and reported "is not the same level of detail - is the level
+    // of detail we already had". Both verdicts were reasonable and both were about the WRONG PLACE:
+    // his plot was in Eixample, this disc is centred on Ciutat Vella, and the fly-to silently took
+    // him 1.65 km away to judge his own site by a view of someone else's.
+    //
+    // ⭐ A PREVIEW THAT RELOCATES THE USER MUST SAY SO, WITH THE NUMBER. This is the same rule as
+    // §CONTEXT-DATA-HONESTY one level up: it is not enough to be correct about the data if the
+    // user cannot tell WHICH GROUND they are looking at.
+    let coverage = '';
+    const site = deps.siteLocation?.() ?? null;
+    if (c && site) {
+        const d = metresBetween(site.lat, site.lon, c[1], c[0]);
+        const radius = data.pryzm?.radiusM ?? 0;
+        coverage = d <= radius
+            ? `\n  ✓ YOUR SITE IS INSIDE THIS DISC (${Math.round(d)} m from its centre, radius `
+              + `${Math.round(radius)} m) — what you are about to see is your own ground.`
+            : `\n  ⛔ YOUR SITE IS **OUTSIDE** THIS DISC — ${(d / 1000).toFixed(2)} km from its `
+              + `centre, which has a radius of only ${Math.round(radius)} m. The camera is about to `
+              + `fly you to ${c[1].toFixed(5)}, ${c[0].toFixed(5)}, which is NOT your plot. Judge `
+              + `the DATASET here, not your site. To cut a disc over your own plot instead:\n`
+              + `      python tools/context-bake/footprints/cutPreviewDisc.py bcn_municipal \\\n`
+              + `        <base_alcades.gpkg> public/preview/bcn-volumes.geojson \\\n`
+              + `        --centre ${site.lon.toFixed(5)},${site.lat.toFixed(5)} --radius 450`;
+    } else if (c && !site) {
+        coverage = `\n  ⚠ No site is committed, so PRYZM cannot tell you whether this disc covers `
+            + `your plot. It is centred on ${c[1].toFixed(5)}, ${c[0].toFixed(5)}.`;
+    }
+
     if (c && Array.isArray(c) && c.length === 2) {
         try {
             viewer.camera.flyTo({
@@ -202,6 +252,7 @@ export async function toggleBcnVolumesPreview(
         ` ${Number.isFinite(minH) ? minH.toFixed(1) : '—'}–${maxH.toFixed(1)} m`,
         zeroH ? `, ${zeroH} at height 0 (patios/terraces — drawn flat, NOT given a nominal)` : '',
         `. The baked prisms are hidden so the comparison is of SHAPE. Call again to swap back.`,
+        coverage,
         c ? `
   Flying to ${c[1].toFixed(5)}, ${c[0].toFixed(5)} at 420 m — articulation only`
             + ` reads CLOSE UP; at a 5 km scope this looks like the flat plate it replaces.` : '',
