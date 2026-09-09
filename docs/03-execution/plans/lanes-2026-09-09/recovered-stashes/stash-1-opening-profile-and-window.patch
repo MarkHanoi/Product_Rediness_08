@@ -1,0 +1,1359 @@
+diff --git a/packages/ai-host/src/intents/OpeningShapeFamilies.ts b/packages/ai-host/src/intents/OpeningShapeFamilies.ts
+index 8338c080..2ae79a63 100644
+--- a/packages/ai-host/src/intents/OpeningShapeFamilies.ts
++++ b/packages/ai-host/src/intents/OpeningShapeFamilies.ts
+@@ -59,10 +59,16 @@ import type {
+ import {
+   resolveOpeningShapeRef,
+   openingShapeNames,
+-  openingShapeLegalFor,
++  // §OUTLINE80 (D10) — the CHAT gate, not the bare family gate: `'custom'` is a legal WINDOW
++  // value but is not settable by adjective (see its own header). Composes `openingShapeLegalFor`
++  // internally, so this is a straight replacement, not an addition.
++  openingShapeChatRefusalFor,
+   joinNames,
+   type OpeningFamily,
+ } from './OpeningShapeVocabulary.js';
++// §OUTLINE80 (D10) — the preset ring a NAMED shape word resolves to, so the payload can carry it
++// through to `UpdateOpeningProfileBatchCommand` alongside `openingProfile: 'custom'`.
++import { openingOutlinePreset } from '@pryzm/geometry-wall';
+ import type { ResolverContext, SemanticIntent } from './ZeroTokenResolver.js';
+ 
+ export type OpeningShapeFamilyIntentId = 'set-window-shape' | 'set-door-shape';
+@@ -167,13 +173,22 @@ export function openingShapeFamilySpec(
+         };
+       }
+       // ⛔ §OPENING-PROFILE-BY-FAMILY (L-1251) — a door may not be circular, and
+-      // the refusal NAMES THE RULE rather than dropping the ask.
+-      const illegal = openingShapeLegalFor(family.elementKind, hit.kind);
++      // §OUTLINE80 (D10) — bare "custom" is not settable by adjective either. Both refusals
++      // NAME THE RULE rather than dropping the ask; `openingShapeChatRefusalFor` composes them.
++      const illegal = openingShapeChatRefusalFor(family.elementKind, hit);
+       if (illegal !== null) {
+         return { refusal: { reason: illegal, suggestions: family.suggestions } };
+       }
++      // §OUTLINE80 (D10) — a NAMED PRESET carries its ring alongside the kind, so the batch
++      // command can write both `openingProfile: 'custom'` and `customOutline` in one payload —
++      // "table rows, zero new resolver arms."
++      const customOutline = hit.presetId === undefined ? undefined : openingOutlinePreset(hit.presetId);
+       return {
+-        payload: { elementKind: family.elementKind, openingProfile: hit.kind },
++        payload: {
++          elementKind: family.elementKind,
++          openingProfile: hit.kind,
++          ...(customOutline === undefined ? {} : { customOutline }),
++        },
+         summary: (scopeLabel, notesTail) => `Change ${scopeLabel} to ${hit.label}${notesTail}`,
+       };
+     },
+diff --git a/packages/ai-host/src/intents/OpeningShapeVocabulary.ts b/packages/ai-host/src/intents/OpeningShapeVocabulary.ts
+index 5a7b5b0d..b71f402a 100644
+--- a/packages/ai-host/src/intents/OpeningShapeVocabulary.ts
++++ b/packages/ai-host/src/intents/OpeningShapeVocabulary.ts
+@@ -73,6 +73,11 @@ import {
+   OPENING_PROFILE_LABELS,
+   openingProfilesFor,
+   type OpeningProfileKind,
++  // §OUTLINE80 (D10) — the preset rings a NAMED shape word resolves to. The vocabulary never
++  // invents a ring: it names one of these four, exactly as `resolveOpeningShapeRef` names one of
++  // the four built-in kinds via `OPENING_PROFILE_LABELS`.
++  OPENING_OUTLINE_PRESET_LABELS,
++  type OpeningOutlinePresetId,
+ } from '@pryzm/geometry-wall';
+ 
+ /** The families that can host an opening profile — geometry-wall's own split. */
+@@ -90,6 +95,14 @@ interface ShapeToken {
+   readonly kind: OpeningProfileKind;
+   /** 2 = names exactly one kind. 1 = names a family of kinds. */
+   readonly specificity: 1 | 2;
++  /**
++   * §OUTLINE80 (D10) — present ONLY for a NAMED PRESET word ("triangular", "gothic", …). Such a
++   * token still resolves to `kind: 'custom'` (the axis value that gets WRITTEN), but carries WHICH
++   * preset ring the caller must apply. A bare "custom"/"freeform" token has no `presetId` — it
++   * resolves so the door-family / no-ring refusal can name it (the same reason `resolveOpeningShapeRef`
++   * already resolves "circular" for a door), but there is no ring for it to hand back.
++   */
++  readonly presetId?: OpeningOutlinePresetId;
+ }
+ 
+ /**
+@@ -152,6 +165,23 @@ const SHAPE_TOKENS: Readonly<Record<string, ShapeToken>> = Object.freeze({
+   rose: { kind: 'circular', specificity: 2 },
+   disc: { kind: 'circular', specificity: 2 },
+   disk: { kind: 'circular', specificity: 2 },
++
++  // ── custom (bare) ─────────────────────────────────────────────────────────
++  // §OUTLINE80 (D10) — resolves so the family gate / no-ring refusal can name it, exactly as
++  // "circular" already resolves for a door it is illegal on. NEVER settable by adjective alone —
++  // see `openingShapeChatRefusalFor`.
++  custom: { kind: 'custom', specificity: 2 },
++  freeform: { kind: 'custom', specificity: 2 },
++
++  // ── custom PRESETS — D7/D10: named rings, claimable, zero new resolver arms ────────────────
++  triangular: { kind: 'custom', specificity: 2, presetId: 'triangle' },
++  triangle: { kind: 'custom', specificity: 2, presetId: 'triangle' },
++  trapezoid: { kind: 'custom', specificity: 2, presetId: 'trapezoid' },
++  trapezoidal: { kind: 'custom', specificity: 2, presetId: 'trapezoid' },
++  gable: { kind: 'custom', specificity: 2, presetId: 'gable' },
++  pentagon: { kind: 'custom', specificity: 2, presetId: 'gable' },
++  pentagonal: { kind: 'custom', specificity: 2, presetId: 'gable' },
++  gothic: { kind: 'custom', specificity: 2, presetId: 'gothic' },
+ });
+ 
+ /**
+@@ -210,6 +240,8 @@ const COMPOUND_GLUE: readonly (readonly [RegExp, string])[] = [
+   [/\bfull (arch|arched)\b/g, 'semicircular'],
+   [/\bsquare head(ed)?\b/g, 'square'],
+   [/\bflat head(ed)?\b/g, 'flat'],
++  // §OUTLINE80 (D10) — "free form" / "free-form" (the hyphen is already a space by `normalise`).
++  [/\bfree form\b/g, 'freeform'],
+ ];
+ 
+ function glue(text: string): string {
+@@ -223,6 +255,8 @@ export interface ResolvedOpeningShape {
+   readonly kind: OpeningProfileKind;
+   /** The user-facing name — geometry-wall's own label, never re-spelled. */
+   readonly label: string;
++  /** §OUTLINE80 (D10) — present ONLY when a NAMED PRESET resolved (see {@link ShapeToken}). */
++  readonly presetId?: OpeningOutlinePresetId;
+ }
+ 
+ /**
+@@ -240,15 +274,22 @@ export function resolveOpeningShapeRef(ref: string): ResolvedOpeningShape | null
+ 
+   // Score: the best specificity each kind was argued for at, and how many
+   // distinct tokens argued for it.
+-  const best = new Map<OpeningProfileKind, { specificity: 1 | 2; hits: number }>();
++  const best = new Map<OpeningProfileKind, { specificity: 1 | 2; hits: number; presetId?: OpeningOutlinePresetId }>();
+   let unknownWords = 0;
+   for (const w of words) {
+     const tok = SHAPE_TOKENS[w];
+     if (tok === undefined) { unknownWords += 1; continue; }
+     const prev = best.get(tok.kind);
++    // §OUTLINE80 (D10) — a NAMED preset always wins the slot over a bare "custom" token co-
++    // occurring in the same phrase ("custom triangular" names a real ring; the bare word does
++    // not). Two DIFFERENT presets in one phrase is not a sentence anyone types, so last-wins is
++    // an acceptable, simple tie-break rather than a case worth its own refusal.
++    const presetId = tok.presetId ?? prev?.presetId;
+     best.set(tok.kind, {
+       specificity: prev === undefined ? tok.specificity : (Math.max(prev.specificity, tok.specificity) as 1 | 2),
+       hits: (prev?.hits ?? 0) + 1,
++      // `exactOptionalPropertyTypes` — omit the key entirely rather than set it to `undefined`.
++      ...(presetId === undefined ? {} : { presetId }),
+     });
+   }
+   if (best.size === 0) return null;
+@@ -267,7 +308,7 @@ export function resolveOpeningShapeRef(ref: string): ResolvedOpeningShape | null
+   const maxSpec = Math.max(...[...best.values()].map((v) => v.specificity));
+   const leaders = [...best.entries()].filter(([, v]) => v.specificity === maxSpec);
+ 
+-  if (leaders.length === 1) return described(leaders[0]![0]);
++  if (leaders.length === 1) return described(leaders[0]![0], leaders[0]![1].presetId);
+ 
+   // Two or more kinds argued at the same specificity. ONE English pair is
+   // genuinely common and genuinely unambiguous to a reader: "round arch" —
+@@ -284,8 +325,13 @@ export function resolveOpeningShapeRef(ref: string): ResolvedOpeningShape | null
+   return null;
+ }
+ 
+-function described(kind: OpeningProfileKind): ResolvedOpeningShape {
+-  return { kind, label: OPENING_PROFILE_LABELS[kind] };
++function described(kind: OpeningProfileKind, presetId?: OpeningOutlinePresetId): ResolvedOpeningShape {
++  return presetId === undefined
++    ? { kind, label: OPENING_PROFILE_LABELS[kind] }
++    // §OUTLINE80 (D10) — a preset's user-facing label is ITS OWN name ("Triangular"), never the
++    // bare axis label ("Custom") — the vocabulary's whole job here is to let the user say the
++    // shape they mean and see that name reflected back.
++    : { kind, label: OPENING_OUTLINE_PRESET_LABELS[presetId], presetId };
+ }
+ 
+ /** Every shape name this project offers a family, in the labels the mode bar
+@@ -321,6 +367,36 @@ export function joinNames(names: readonly string[]): string {
+   return `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]!}`;
+ }
+ 
++/**
++ * §OUTLINE80 (D10) — THE CHAT-SPECIFIC GATE, composed IN FRONT of {@link openingShapeLegalFor}.
++ *
++ * `'custom'` is a legal WINDOW value (`openingProfilesFor('window')` includes it) but is NOT
++ * something chat can set by adjective — a free-form outline is DRAWN, not named. A NAMED PRESET
++ * ("triangular", "gothic", …) is different: it resolves to a REAL ring
++ * (`OpeningOutlinePresetId`), so it is exactly as settable as any other named shape.
++ *
++ * ⛔ Every caller that resolves a shape through this axis for a CHAT-DRIVEN write MUST call this
++ * function INSTEAD OF (not in addition to, though it delegates internally) `openingShapeLegalFor` —
++ * calling the family gate alone would let "make the windows custom" through, since `'custom'` IS a
++ * legal window value.
++ */
++export function openingShapeChatRefusalFor(
++  family: OpeningFamily,
++  resolved: ResolvedOpeningShape,
++): string | null {
++  const familyRefusal = openingShapeLegalFor(family, resolved.kind);
++  if (familyRefusal) return familyRefusal;
++  if (resolved.kind === 'custom' && resolved.presetId === undefined) {
++    return (
++      `"Custom" is not a shape I can set directly — a free-form outline is DRAWN, not named. ` +
++      `Open the window type editor's Elevation outline tool to draw one, or ask for a named preset ` +
++      `(${joinNames(Object.values(OPENING_OUTLINE_PRESET_LABELS))}), which I can apply. ` +
++      `Nothing was changed.`
++    );
++  }
++  return null;
++}
++
+ /**
+  * ⚠ §SEGMENTAL-RISE-IS-DECLARED (L-1252, restated here so the chat cannot
+  * quietly promote it). `SEGMENTAL_RISE_RATIO` is a DECLARED constant —
+diff --git a/packages/geometry-door/src/DoorTypes.ts b/packages/geometry-door/src/DoorTypes.ts
+index 13c6b485..fb62a02f 100644
+--- a/packages/geometry-door/src/DoorTypes.ts
++++ b/packages/geometry-door/src/DoorTypes.ts
+@@ -1,4 +1,27 @@
+ import { z } from 'zod';
++// §OUTLINE80 — imported rather than retyped (C84 §8.d): a hand-copied `z.enum([...])` here would
++// be a second list to keep in agreement with `OpeningProfile.OPENING_PROFILE_KINDS`.
++// §OUTLINE80-CYCLE-FIX — the pure './opening-profile' subpath, NOT the bare barrel: the barrel
++// drags in WallTool.ts -> @pryzm/command-registry -> this package -> the barrel again, mid-load
++// (geometry-wall/package.json's exports-note explains the family of bug this dodges).
++import { OPENING_PROFILE_KINDS, type OpeningProfileKind } from '@pryzm/geometry-wall/opening-profile';
++
++/**
++ * §OUTLINE80 (D1, D12) — the `'custom'` kind's companion ring, declared on the door's runtime
++ * record for the SAME reason `circular` is in the enum below despite never being offered to a
++ * door (`openingProfilesFor('door')`): the vocabulary is the OPENING's, shared with windows, and
++ * narrowing a family's SCHEMA rather than its offered CHOICES would mint a second vocabulary.
++ * `openingProfilesFor('door')` is what actually keeps a door from ever holding one in practice —
++ * D5's floor-reaching refusal in `openingProfileShapeRefusal` refuses it independently too, since
++ * a door's `sillHeight` is always at the floor.
++ */
++const CustomOutlineVertexSchema = z.object({
++    u: z.number().finite(),
++    v: z.number().finite(),
++});
++export const CustomOutlineSchema = z.object({
++    vertices: z.array(CustomOutlineVertexSchema),
++});
+ 
+ /**
+  * Finish layer schema — compatible with DoorFinishLayer in DoorSystemTypeStore.
+@@ -61,8 +84,23 @@ export const DoorOpeningSchema = z.object({
+      * `circular` IS in the union but is never offered for a door (`openingProfilesFor('door')`) —
+      * the union is the OPENING's vocabulary, shared with windows, and narrowing it per family
+      * here would mint a second vocabulary, which is the defect this axis was designed to avoid.
++     *
++     * §OUTLINE80 (D1) — `'custom'` joins the union for the identical reason. `openingProfilesFor
++     * ('door')` still never offers it (D12), and D5's floor-reaching refusal in
++     * `openingProfileShapeRefusal` refuses a `'custom'` opening at a floor-level sill independently
++     * — a door's sill is always at the floor, so this is doubly closed, not merely declared shut.
++     */
++    openingProfile: z.enum(
++        OPENING_PROFILE_KINDS as unknown as [OpeningProfileKind, ...OpeningProfileKind[]],
++        { message: `openingProfile must be one of: ${OPENING_PROFILE_KINDS.join(', ')}` },
++    ).optional(),
++
++    /**
++     * §OUTLINE80 (D1) — the companion carrier of `openingProfile === 'custom'`. Declared here so
++     * Zod does not silently strip a ring on a malformed/legacy record; D12 means no live authoring
++     * surface ever WRITES this on a door, so in practice it is always absent.
+      */
+-    openingProfile: z.enum(['rectangular', 'round-arch', 'segmental-arch', 'circular']).optional(),
++    customOutline: CustomOutlineSchema.optional(),
+ 
+     // Frame
+     frameThickness: z.number().positive().default(0.05),
+@@ -112,6 +150,25 @@ export const DoorOpeningSchema = z.object({
+ 
+     // Type system — reference to the DoorSystemType that generated this door's finish defaults
+     systemTypeId:      z.string().optional(),
++}).superRefine((val, ctx) => {
++    // §OUTLINE80 (D1) — the same "one axis, one carrier" rule the host and window schemas
++    // enforce. In practice this never fires for a door in the field (D12), but the schema does
++    // not rely on that being true elsewhere to stay internally consistent.
++    const isCustom = val.openingProfile === 'custom';
++    if (isCustom && !val.customOutline) {
++        ctx.addIssue({
++            code: z.ZodIssueCode.custom,
++            message: "customOutline is required when openingProfile is 'custom'",
++            path: ['customOutline'],
++        });
++    }
++    if (!isCustom && val.customOutline !== undefined) {
++        ctx.addIssue({
++            code: z.ZodIssueCode.custom,
++            message: "customOutline must be absent unless openingProfile is 'custom'",
++            path: ['customOutline'],
++        });
++    }
+ });
+ 
+ export type DoorOpening = z.infer<typeof DoorOpeningSchema>;
+diff --git a/packages/geometry-wall/__tests__/OpeningProfileSlice1.test.ts b/packages/geometry-wall/__tests__/OpeningProfileSlice1.test.ts
+index eb8e38c4..3d77b07e 100644
+--- a/packages/geometry-wall/__tests__/OpeningProfileSlice1.test.ts
++++ b/packages/geometry-wall/__tests__/OpeningProfileSlice1.test.ts
+@@ -191,8 +191,16 @@ describe('§A — the outline: one producer, four profiles', () => {
+     });
+ 
+     it('every profile winds COUNTER-CLOCKWISE — consumers depend on it for hole/reveal winding', () => {
++        // §OUTLINE80 — `custom` has no fixed shape, so it is exercised here with a real ring rather
++        // than skipped: D3 normalises winding on commit, so an apex-up triangle authored CW must
++        // still come out CCW like every other profile.
++        const CUSTOM_TRIANGLE = { vertices: [{ u: 1, v: 0 }, { u: 0.5, v: 1 }, { u: 0, v: 0 }] };
+         for (const kind of OPENING_PROFILE_KINDS) {
+-            const o = openingOutline({ profile: kind, offset: 0, width: 1, height: 1, sillHeight: 0 })!;
++            const o = openingOutline({
++                profile: kind, offset: 0, width: 1, height: 1, sillHeight: 0,
++                ...(kind === 'custom' ? { customOutline: CUSTOM_TRIANGLE } : {}),
++            })!;
++            expect(o, `${kind} must produce an outline`).not.toBeNull();
+             expect(signedArea(o.points), `${kind} must be CCW`).toBeGreaterThan(0);
+         }
+     });
+diff --git a/packages/geometry-wall/package.json b/packages/geometry-wall/package.json
+index 84fbab4d..8f80ce9e 100644
+--- a/packages/geometry-wall/package.json
++++ b/packages/geometry-wall/package.json
+@@ -10,9 +10,10 @@
+     ".": "./src/index.ts",
+     "./store": "./src/WallStore.ts",
+     "./profile": "./src/WallProfile.ts",
+-    "./profile-editor": "./src/WallProfileEditor.ts"
++    "./profile-editor": "./src/WallProfileEditor.ts",
++    "./opening-profile": "./src/OpeningProfile.ts"
+   },
+-  "x-pryzm-exports-note": "§WPE-CHROME-LAYER (L-10200) — './profile' and './profile-editor' are PURE subpaths so an app-layer panel can reach the wall-profile MODEL without pulling the barrel. WallProfile.ts imports only WallArcParam.ts, which imports nothing; WallProfileEditor.ts imports only a type from WallProfile.ts. No THREE, no DOM, no @thatopen at module scope. The barrel drags SlabTool -> @thatopen/ui, which evaluates `class extends HTMLElement` at module scope — that is why this package's vitest.config.ts needs happy-dom. Adding exports entries changes no dependency, so pnpm-lock.yaml is untouched. ⛔ Every key inside `exports` must start with '.': a '//' comment key there is ERR_INVALID_PACKAGE_CONFIG, which is why this note lives at the top level.",
++  "x-pryzm-exports-note": "§WPE-CHROME-LAYER (L-10200) — './profile' and './profile-editor' are PURE subpaths so an app-layer panel can reach the wall-profile MODEL without pulling the barrel. WallProfile.ts imports only WallArcParam.ts, which imports nothing; WallProfileEditor.ts imports only a type from WallProfile.ts. No THREE, no DOM, no @thatopen at module scope. The barrel drags SlabTool -> @thatopen/ui, which evaluates `class extends HTMLElement` at module scope — that is why this package's vitest.config.ts needs happy-dom. §OUTLINE80-CYCLE-FIX (L-11260-series) added './opening-profile' for the SAME reason on a DIFFERENT edge: geometry-door's DoorTypes.ts and geometry-window's WindowTypes.ts need OPENING_PROFILE_KINDS (a runtime value, for their own z.enum) from this package, and the bare barrel drags in WallTool.ts -> @pryzm/command-registry -> geometry-door/geometry-window -> this package's barrel AGAIN, mid-evaluation — the same class of module-load cycle './store' etc. were minted to dodge. OpeningProfile.ts's own transitive imports (CustomOutline.ts, WallProfile.ts, WallArcParam.ts, @pryzm/geometry-kernel, @pryzm/geometry-slab/boundary-arc) touch none of WallTool/command-registry/WallStore/WallDataSchema, so this subpath cannot re-enter the barrel. Adding exports entries changes no dependency, so pnpm-lock.yaml is untouched. ⛔ Every key inside `exports` must start with '.': a '//' comment key there is ERR_INVALID_PACKAGE_CONFIG, which is why this note lives at the top level.",
+   "files": ["src"],
+   "scripts": {
+     "test": "vitest run",
+diff --git a/packages/geometry-wall/src/LayeredWallOpeningBuilder.ts b/packages/geometry-wall/src/LayeredWallOpeningBuilder.ts
+index d3a7d904..6ae4b372 100644
+--- a/packages/geometry-wall/src/LayeredWallOpeningBuilder.ts
++++ b/packages/geometry-wall/src/LayeredWallOpeningBuilder.ts
+@@ -93,6 +93,8 @@ interface OpeningRect {
+      * EXACTLY as it always has, which is the PR-2 byte-identity guarantee for arm C.
+      */
+     profile?: OpeningProfileKind;
++    /** §OUTLINE80 — the `'custom'` kind's companion ring; ignored by every other kind. */
++    customOutline?: unknown;
+ }
+ 
+ function addUniqueBreak(values: number[], value: number): void {
+@@ -111,7 +113,16 @@ function normaliseOpeningRects(openings: Opening[], wallLength: number, wallHeig
+         const bottom = Math.max(0, op.sillHeight ?? 0);
+         const top = Math.min(wallHeight, (op.sillHeight ?? 0) + op.height);
+         if (right - left > 0.001 && top - bottom > 0.001) {
+-            rects.push({ left, right, bottom, top, profile: (op as { openingProfile?: OpeningProfileKind }).openingProfile });
++            rects.push({
++                left, right, bottom, top,
++                profile: (op as { openingProfile?: OpeningProfileKind }).openingProfile,
++                // §OUTLINE80 — threaded alongside `openingProfile` for the identical reason: without
++                // it a `'custom'` window on a LAYERED wall would reach `openingOutline()` with no
++                // ring, get `null` back, and the gasket loop below would silently `continue` —
++                // exactly the "wall cut a circle, frame drew a rectangle" defect this axis exists
++                // to prevent, one level down (a layered wall drawing a bbox instead of a ring).
++                customOutline: (op as { customOutline?: unknown }).customOutline,
++            });
+         }
+     }
+     return rects;
+@@ -398,6 +409,7 @@ function buildContinuousLayerGeometry(
+             width: r.right - r.left,
+             height: r.top - r.bottom,
+             sillHeight: r.bottom,
++            customOutline: r.customOutline,
+         });
+         // yShift 0 — `pushVertex` adds `wallBaseOffset` itself.
+         const gasket = buildOpeningProfileGasket(outline, back, front, 0);
+diff --git a/packages/geometry-wall/src/OpeningProfile.ts b/packages/geometry-wall/src/OpeningProfile.ts
+index b5b9ccbd..cfc7c56e 100644
+--- a/packages/geometry-wall/src/OpeningProfile.ts
++++ b/packages/geometry-wall/src/OpeningProfile.ts
+@@ -36,22 +36,58 @@
+  * gasket for a rectangle is empty and must never be emitted.
+  */
+ 
++// §OUTLINE80 — the `'custom'` kind's companion carrier, validator and presets. A sibling module,
++// not inlined here: `CustomOutline.ts` needs `@pryzm/geometry-kernel` (the fold detector) and
++// `@pryzm/geometry-slab` (the arc tessellator) for the preset rings, and this file states its own
++// header promise to stay "deliberately THREE-free" — importing them HERE would not break that,
++// but keeping the ring/validator/presets together in one file is what lets a reader find "the
++// custom kind's whole story" in one place rather than three.
++import {
++    validateCustomOutline,
++    normaliseCustomOutlineWinding,
++    type CustomOutline,
++    type CustomOutlineVertex,
++} from './CustomOutline';
++export type {
++    CustomOutline,
++    CustomOutlineVertex,
++    CustomOutlineRefusal,
++    CustomOutlineRefusalCode,
++    OpeningOutlinePresetId,
++} from './CustomOutline';
++export {
++    validateCustomOutline,
++    normaliseCustomOutlineWinding,
++    openingOutlinePreset,
++    OPENING_OUTLINE_PRESET_IDS,
++    OPENING_OUTLINE_PRESET_LABELS,
++    CUSTOM_OUTLINE_BBOX_TOL,
++    CUSTOM_OUTLINE_MIN_AREA_FRACTION,
++} from './CustomOutline';
++
+ /**
+  * The void-shape axis. **ORTHOGONAL to the leaf-count axis** (`'single' | 'double'`), and C86 §9
+  * WO-Voc-4 forbids flattening the two into one list: doing so makes `double × round-arch` — an
+  * ordinary door — unexpressible.
++ *
++ * §OUTLINE80 (SPEC-WINDOW-CUSTOM-OUTLINE D1) — `'custom'` is the fifth kind: a free-form ring
++ * authored in elevation, carried on the companion field {@link CustomOutline} rather than derived
++ * from `width`/`height` like the other four. This amends C86 §10.1 PR-7 from "one field" to "one
++ * AXIS: the kind, plus its carrier, which no other kind may populate."
+  */
+ export type OpeningProfileKind =
+     | 'rectangular'
+     | 'round-arch'
+     | 'segmental-arch'
+-    | 'circular';
++    | 'circular'
++    | 'custom';
+ 
+ export const OPENING_PROFILE_KINDS: readonly OpeningProfileKind[] = [
+     'rectangular',
+     'round-arch',
+     'segmental-arch',
+     'circular',
++    'custom',
+ ] as const;
+ 
+ /**
+@@ -94,6 +130,7 @@ export const OPENING_PROFILE_LABELS: Readonly<Record<OpeningProfileKind, string>
+     'round-arch':      'Arched',
+     'segmental-arch':  'Segmental',
+     'circular':        'Circular',
++    'custom':          'Custom',
+ });
+ 
+ /**
+@@ -109,6 +146,12 @@ export const OPENING_PROFILE_LABELS: Readonly<Record<OpeningProfileKind, string>
+  * ⭐ DECLARED HERE, BESIDE THE UNION, so the door mode bar, the window mode bar, the properties
+  * panel and any future validator cannot disagree about what each family may hold. A per-surface
+  * list would be four lists.
++ *
++ * §OUTLINE80 (D12) — `'custom'` is likewise NOT offered for a door: a door is a floor-reaching
++ * NOTCH (`WallHoleBodyBuilder.normaliseWallHoles` classifies it by `sillHeight`, not by profile),
++ * and `notchWalk` assumes two feet at the floor a free-form ring is not guaranteed to have. A
++ * WINDOW may be `'custom'` — it reaches this function through `OPENING_PROFILE_KINDS`, which now
++ * carries the fifth kind, so no second list needed to change for it to appear here.
+  */
+ export function openingProfilesFor(family: 'door' | 'window'): readonly OpeningProfileKind[] {
+     return family === 'door'
+@@ -127,7 +170,14 @@ export function nextOpeningProfileFor(
+     family: 'door' | 'window',
+     current: unknown,
+ ): OpeningProfileKind {
+-    const list = openingProfilesFor(family);
++    // §OUTLINE80 (D7) — `'custom'` needs an AUTHORED RING; a keyboard cycle must always land on a
++    // value it can build with no further input, so `'custom'` is excluded from the cycle even on
++    // a window, where it is otherwise a legal value. Reaching `'custom'` is a TYPE-EDITOR /
++    // preset act, never a keypress.
++    // ⚠ Widened explicitly: TS infers an exclude-type predicate from `k !== 'custom'`, which
++    // would otherwise narrow `list` to the 4-member union and make `cur` (still 5-member) fail
++    // `indexOf`'s type check below.
++    const list: readonly OpeningProfileKind[] = openingProfilesFor(family).filter((k) => k !== 'custom');
+     const cur = resolveOpeningProfile(current);
+     const i = list.indexOf(cur);
+     // An out-of-family value (a door somehow holding `circular`) restarts the cycle rather than
+@@ -145,9 +195,15 @@ export function nextOpeningProfileFor(
+  * `A` (for *Arch*) was measured free and cycles the whole axis; the pills stay individually
+  * clickable for anyone who would rather point at the one they want.
+  */
++// §OUTLINE80 (D7) — the family-agnostic cycle excludes `'custom'` for the identical reason
++// `nextOpeningProfileFor` does: a keyboard cycle must always land on something buildable with no
++// further input.
++const CYCLABLE_OPENING_PROFILE_KINDS: readonly OpeningProfileKind[] =
++    OPENING_PROFILE_KINDS.filter((k) => k !== 'custom');
++
+ export function nextOpeningProfile(current: unknown): OpeningProfileKind {
+-    const i = OPENING_PROFILE_KINDS.indexOf(resolveOpeningProfile(current));
+-    return OPENING_PROFILE_KINDS[(i + 1) % OPENING_PROFILE_KINDS.length]!;
++    const i = CYCLABLE_OPENING_PROFILE_KINDS.indexOf(resolveOpeningProfile(current));
++    return CYCLABLE_OPENING_PROFILE_KINDS[(i + 1) % CYCLABLE_OPENING_PROFILE_KINDS.length]!;
+ }
+ 
+ // ── Tessellation ────────────────────────────────────────────────────────────────────────────
+@@ -252,6 +308,17 @@ export interface OpeningProfileInput {
+     readonly width: number;
+     readonly height: number;
+     readonly sillHeight: number;
++    /**
++     * §OUTLINE80 — the `'custom'` kind's companion ring (D1). Consumed ONLY when
++     * `resolveOpeningProfile(profile) === 'custom'`; every other kind ignores this key entirely,
++     * which is what lets a caller pass it unconditionally (as `OpeningElevationSymbol.ts` and
++     * `WindowPlanSymbolBuilder.ts` already do, reading `Opening.customOutline` by string ahead of
++     * this lane landing) without special-casing the four pre-existing kinds.
++     *
++     * Typed `unknown` at this boundary, matching `profile` — the LOAD path must not throw on a
++     * malformed value from a newer build; `resolveCustomOutlineInput` is the tolerant reader.
++     */
++    readonly customOutline?: unknown;
+ }
+ 
+ function bboxOf(p: OpeningProfileInput): OutlineBBox {
+@@ -259,6 +326,29 @@ function bboxOf(p: OpeningProfileInput): OutlineBBox {
+     return { x0: p.offset, x1: p.offset + p.width, y0, y1: y0 + p.height };
+ }
+ 
++/**
++ * §OUTLINE80 — the tolerant reader for {@link OpeningProfileInput.customOutline}. Structural
++ * checking only (array of `{u, v}` finite-number pairs) — SEMANTIC validity (simple polygon, tight
++ * bbox, area floor) is `validateCustomOutline`'s job, called separately by whichever surface needs
++ * a reason. This function exists so `openingOutline()` — the LOAD-adjacent producer, same rule as
++ * `resolveOpeningProfile` — degrades a malformed value to `null` (⇒ the caller's null-handling,
++ * never a thrown exception) rather than duplicating the shape check inline.
++ */
++export function resolveCustomOutlineInput(v: unknown): CustomOutline | null {
++    if (!v || typeof v !== 'object') return null;
++    const vertices = (v as { vertices?: unknown }).vertices;
++    if (!Array.isArray(vertices) || vertices.length === 0) return null;
++    const out: CustomOutlineVertex[] = [];
++    for (const p of vertices) {
++        if (!p || typeof p !== 'object') return null;
++        const u = (p as { u?: unknown }).u;
++        const vv = (p as { v?: unknown }).v;
++        if (typeof u !== 'number' || typeof vv !== 'number') return null;
++        out.push({ u, v: vv });
++    }
++    return { vertices: out };
++}
++
+ function rectPoints(b: OutlineBBox): OutlinePoint[] {
+     return [
+         { x: b.x0, y: b.y0 },
+@@ -327,8 +417,7 @@ export function openingOutline(p: OpeningProfileInput): OpeningOutline | null {
+         return { kind, points: pts, bbox, isRectangular: false };
+     }
+ 
+-    // 'segmental-arch'
+-    {
++    if (kind === 'segmental-arch') {
+         // Rise, from the declared ratio, clamped so the arch can never eat the whole opening.
+         const rise = segmentalRise(p.width, p.height);
+         if (!(rise > 1e-6)) return null;
+@@ -343,6 +432,26 @@ export function openingOutline(p: OpeningProfileInput): OpeningOutline | null {
+         pts.push(...arcPoints(cx, cy, R, aRight, aLeft));
+         return { kind, points: pts, bbox, isRectangular: false };
+     }
++
++    // 'custom' — §OUTLINE80 (D1, D2). The ring is the AUTHOR'S OWN points, scaled from the unit
++    // bbox to this opening's actual `width × height` and translated to `bbox`'s origin. No arc
++    // maths, no re-derivation — this is the single place PR-1 permits a shape to enter the wall's
++    // one outline producer, and it is a linear map of exactly the ring the type editor drew.
++    //
++    // ⛔ INVALID INPUT RETURNS `null` HERE, THE SAME AS EVERY OTHER REFUSED KIND. This function is
++    // not the authoring gate (see its own header) — `openingProfileShapeRefusal` is, and it calls
++    // `validateCustomOutline` itself so the REASON reaches the user before geometry is asked to
++    // build anything.
++    {
++        const ring = resolveCustomOutlineInput(p.customOutline);
++        if (!ring || validateCustomOutline(ring) !== null) return null;
++        const normalised = normaliseCustomOutlineWinding(ring);
++        const pts: OutlinePoint[] = normalised.vertices.map((vtx) => ({
++            x: bbox.x0 + vtx.u * p.width,
++            y: bbox.y0 + vtx.v * p.height,
++        }));
++        return { kind, points: pts, bbox, isRectangular: false };
++    }
+ }
+ 
+ // ── The refusals — ONE predicate, so no surface can disagree with the builder ────────────────
+@@ -406,6 +515,14 @@ export function openingProfileShapeRefusal(
+      * its exact previous verdict.
+      */
+     sillHeight?: number,
++    /**
++     * §OUTLINE80 — the `'custom'` kind's companion ring (D1, D3). Optional and additive, exactly
++     * like `sillHeight` above: every pre-existing caller that never passes a `'custom'` profile
++     * keeps its exact previous verdict, and a caller that DOES pass `'custom'` without supplying a
++     * ring is refused by `validateCustomOutline`'s own "none were supplied" message rather than
++     * silently accepted.
++     */
++    customOutline?: unknown,
+ ): string | null {
+     const kind = resolveOpeningProfile(profile);
+     if (kind === 'rectangular') return null;
+@@ -443,6 +560,27 @@ export function openingProfileShapeRefusal(
+             );
+         }
+     }
++    // §OUTLINE80 (D5) — a custom-outline WINDOW cannot reach the floor. A free-form ring is built
++    // by arm A as a CLOSED HOLE (`THREE.Path` inside the wall's `Shape`), never as a notch carved
++    // out of the outer boundary; a notch needs two feet at `v = 0` walking the ring the way
++    // `notchWalk` does for the four built-in kinds, and a free-form ring is not guaranteed to have
++    // any horizontal run there at all — D3 requires only that SOME vertex touch each bbox edge, a
++    // vertex, not a run. `openingProfilesFor('door')` already never offers `'custom'` (D12), so
++    // this check only ever fires for a WINDOW whose sill was set to (or edited down to) the floor —
++    // exactly the same shape of check `circular` already has above, and for the same structural
++    // reason (a circle has no jamb feet either).
++    if (kind === 'custom' && sillHeight !== undefined && sillHeight <= 1e-4) {
++        return (
++            `A custom-outline opening cannot reach the floor — a free-form window ring is built as ` +
++            `an interior HOLE in the wall face, not a notch carved from the wall's outer boundary, ` +
++            `and a hole cannot touch the wall's own base. Raise the sill above the floor, or use a ` +
++            `door instead, which is carved as a notch by design.`
++        );
++    }
++    if (kind === 'custom') {
++        const refusal = validateCustomOutline(resolveCustomOutlineInput(customOutline));
++        if (refusal) return `A custom outline is not valid: ${refusal.reason}`;
++    }
+     return null;
+ }
+ 
+@@ -461,9 +599,13 @@ export function openingProfileRefusal(input: {
+     /** Absent ⇒ the floor-reaching check is skipped (see {@link openingProfileShapeRefusal}). */
+     sillHeight?: number;
+     host?: OpeningProfileHost | null;
++    /** §OUTLINE80 — the `'custom'` kind's companion ring (D1, D3). */
++    customOutline?: unknown;
+ }): string | null {
+     return (
+-        openingProfileShapeRefusal(input.profile, input.width, input.height, input.sillHeight) ??
++        openingProfileShapeRefusal(
++            input.profile, input.width, input.height, input.sillHeight, input.customOutline,
++        ) ??
+         openingProfileHostRefusal(input.profile, input.host)
+     );
+ }
+@@ -480,10 +622,21 @@ export function openingProfileRefusal(input: {
+  * nothing at all** — the user flips Rectangular → Circular and the wall keeps its old mesh. That
+  * is the three-invalidation-gates-in-series class (L-813), and it is why this ships in the SAME
+  * slice as the geometry rather than a later one.
++ *
++ * §OUTLINE80 — for `'custom'` the KIND alone is not enough: two custom openings both carry
++ * `kind === 'custom'` but different rings, and a ring EDIT on an otherwise-unchanged opening must
++ * also invalidate — the same L-813 failure one level down (edit the ring, the wall keeps its old
++ * mesh). `customOutline` therefore folds its vertices into the tag, deterministically (no `Map`
++ * iteration order, no object identity) so the hash is stable across reloads.
+  */
+-export function openingProfileTag(profile: unknown): string {
++export function openingProfileTag(profile: unknown, customOutline?: unknown): string {
+     const kind = resolveOpeningProfile(profile);
+-    return kind === 'rectangular' ? '' : `:${kind}`;
++    if (kind === 'rectangular') return '';
++    if (kind !== 'custom') return `:${kind}`;
++    const ring = resolveCustomOutlineInput(customOutline);
++    if (!ring) return ':custom';
++    const digits = ring.vertices.map((p) => `${p.u.toFixed(4)},${p.v.toFixed(4)}`).join('|');
++    return `:custom:${digits}`;
+ }
+ 
+ // ── §OPENING-PROFILE-FRAME (L-1520) — THE FRAME IS THE OUTLINE, INSET ───────────────────────
+@@ -638,6 +791,92 @@ export function insetOutlinePoints(
+     return out;
+ }
+ 
++/** A named reason `insetOutlinePoints` refused, for a caller that must SAY why (C16 CA-18). */
++export interface InsetFailureDiagnosis {
++    /** The vertex index (into the ORIGINAL `points`) whose offset spiked, collapsed or reversed. */
++    readonly vertexIndex: number;
++    readonly reason: 'non-finite' | 'mitre-limit-exceeded' | 'edge-reversed';
++}
++
++/**
++ * §OUTLINE80-INSET-DIAGNOSIS — WHY `insetOutlinePoints` returned `null`, naming the vertex.
++ *
++ * ⚠ **A DIAGNOSTIC TWIN, NOT A SECOND ANSWER.** It does not decide whether the inset is valid —
++ * `insetOutlinePoints` remains the ONE authority on that, and this function is only ever called
++ * AFTER it has already returned `null`, to explain the verdict rather than to reach one. It walks
++ * the identical per-vertex construction so the vertex it blames is the one the real algorithm
++ * actually tripped on, not a plausible-looking guess.
++ *
++ * @returns `null` when the ring itself is degenerate (< 3 vertices, non-CCW, non-finite inset) —
++ *          those cases have no single vertex to blame — else the first offending vertex.
++ */
++export function diagnoseInsetFailure(
++    points: readonly OutlinePoint[],
++    inset: number,
++): InsetFailureDiagnosis | null {
++    const n = points.length;
++    if (n < 3 || !Number.isFinite(inset) || inset <= 1e-9) return null;
++    const area0 = outlineSignedArea(points);
++    if (!(area0 > 0)) return null;
++
++    const dir: ({ x: number; y: number } | null)[] = [];
++    for (let i = 0; i < n; i++) {
++        const p = points[i]!;
++        const q = points[(i + 1) % n]!;
++        const dx = q.x - p.x;
++        const dy = q.y - p.y;
++        const L = Math.hypot(dx, dy);
++        dir.push(L > 1e-12 ? { x: dx / L, y: dy / L } : null);
++    }
++    const seek = (from: number, step: number): { x: number; y: number } | null => {
++        for (let k = 0; k < n; k++) {
++            const d = dir[(((from + step * k) % n) + n) % n];
++            if (d) return d;
++        }
++        return null;
++    };
++
++    const out: OutlinePoint[] = [];
++    for (let i = 0; i < n; i++) {
++        const p = points[i]!;
++        const d0 = seek(i - 1, -1);
++        const d1 = seek(i, +1);
++        if (!d0 || !d1) return { vertexIndex: i, reason: 'non-finite' };
++        const n0 = { x: -d0.y, y: d0.x };
++        const n1 = { x: -d1.y, y: d1.x };
++        const cross = d0.x * d1.y - d0.y * d1.x;
++        let px: number;
++        let py: number;
++        if (Math.abs(cross) < 1e-9) {
++            px = p.x + n1.x * inset;
++            py = p.y + n1.y * inset;
++        } else {
++            const ax = p.x + n0.x * inset;
++            const ay = p.y + n0.y * inset;
++            const bx = p.x + n1.x * inset;
++            const by = p.y + n1.y * inset;
++            const s = ((bx - ax) * d1.y - (by - ay) * d1.x) / cross;
++            px = ax + d0.x * s;
++            py = ay + d0.y * s;
++        }
++        if (!Number.isFinite(px) || !Number.isFinite(py)) return { vertexIndex: i, reason: 'non-finite' };
++        if (Math.hypot(px - p.x, py - p.y) > inset * INSET_MITRE_LIMIT) {
++            return { vertexIndex: i, reason: 'mitre-limit-exceeded' };
++        }
++        out.push({ x: px, y: py });
++    }
++    for (let i = 0; i < n; i++) {
++        const d = dir[i];
++        if (!d) continue;
++        const a = out[i]!;
++        const b = out[(i + 1) % n]!;
++        if ((b.x - a.x) * d.x + (b.y - a.y) * d.y <= 0) return { vertexIndex: i, reason: 'edge-reversed' };
++    }
++    // The per-vertex walk survived; a residual failure is the whole-ring area check, which has
++    // no single vertex to blame — treated the same as the degenerate-ring cases above.
++    return null;
++}
++
+ /**
+  * §OPENING-PROFILE-CLIP — the part of an outline at or ABOVE `yCut`, closed by the chord.
+  *
+@@ -686,8 +925,12 @@ export function openingOutlineLocal(
+     profile: unknown,
+     width: number,
+     height: number,
++    /** §OUTLINE80 — the `'custom'` kind's companion ring; ignored by every other kind. */
++    customOutline?: unknown,
+ ): OpeningOutline | null {
+-    return openingOutline({ profile, offset: -width / 2, width, height, sillHeight: -height / 2 });
++    return openingOutline({
++        profile, offset: -width / 2, width, height, sillHeight: -height / 2, customOutline,
++    });
+ }
+ 
+ /**
+@@ -703,8 +946,10 @@ export function openingOutlineLocal(
+  * shorter than its own head). That is not a fallback — it is the SAME `null` the wall's arms take
+  * their rectangular path on, so frame and void stay identical even when the record is wrong.
+  */
+-export function isProfiledOpening(profile: unknown, width: number, height: number): boolean {
+-    const o = openingOutlineLocal(profile, width, height);
++export function isProfiledOpening(
++    profile: unknown, width: number, height: number, customOutline?: unknown,
++): boolean {
++    const o = openingOutlineLocal(profile, width, height, customOutline);
+     return !!o && !o.isRectangular;
+ }
+ 
+@@ -719,16 +964,52 @@ export function isProfiledOpening(profile: unknown, width: number, height: numbe
+  *
+  * @returns `null` for `circular` — a circle HAS no straight run, and that is the honest answer
+  *          rather than `y0`. (Doors cannot be circular anyway; see {@link openingProfilesFor}.)
++ *          §OUTLINE80: also `null` for `'custom'`, for the identical reason — a free-form ring is
++ *          not guaranteed to have exactly one straight run (it may have several, at different
++ *          heights, or none at all), so there is no single scalar this function could honestly
++ *          report. Never a fake number computed from a formula (e.g. the segmental rise) that does
++ *          not describe the ring actually authored.
+  */
+ export function openingSpringLineYLocal(
+     profile: unknown,
+     width: number,
+     height: number,
++    customOutline?: unknown,
+ ): number | null {
+-    const o = openingOutlineLocal(profile, width, height);
++    const o = openingOutlineLocal(profile, width, height, customOutline);
+     if (!o) return null;
+     if (o.kind === 'rectangular') return o.bbox.y1;
+     if (o.kind === 'circular') return null;
+     if (o.kind === 'round-arch') return o.bbox.y1 - width / 2;
+-    return o.bbox.y1 - segmentalRise(width, height);
++    if (o.kind === 'segmental-arch') return o.bbox.y1 - segmentalRise(width, height);
++    return null; // 'custom'
++}
++
++/**
++ * §OUTLINE80-SILL-RUN (D4) — the ring's lowest HORIZONTAL straight run, where a sill can
++ * physically sit. `null` when the bottom is a vertex or an arc (an apex-down triangle, a circle):
++ * such an opening has no sill, and the caller omits the board rather than drawing one under a
++ * point.
++ *
++ * ⭐ THE ONE PREDICATE, consumed by BOTH the drawing and the 3-D build. `WindowPlanSymbolBuilder`
++ * needs the identical answer for the plan symbol's sill line — two independent derivations of
++ * "does this opening have a sill run" is exactly the C84 EI-9 shape this producer exists to
++ * prevent, so this is declared here, beside the outline it reads, rather than inside either
++ * consumer.
++ */
++export function outlineBaseRun(outline: OpeningOutline): { x0: number; x1: number } | null {
++    const y0 = outline.bbox.y0;
++    const EPS = 1e-9;
++    const pts = outline.points;
++    const n = pts.length;
++    let x0 = Infinity, x1 = -Infinity;
++    for (let i = 0; i < n; i++) {
++        const a = pts[i]!;
++        const b = pts[(i + 1) % n]!;
++        if (Math.abs(a.y - y0) < EPS && Math.abs(b.y - y0) < EPS && Math.abs(b.x - a.x) > EPS) {
++            x0 = Math.min(x0, a.x, b.x);
++            x1 = Math.max(x1, a.x, b.x);
++        }
++    }
++    return x1 > x0 ? { x0, x1 } : null;
+ }
+diff --git a/packages/geometry-wall/src/WallDataSchema.ts b/packages/geometry-wall/src/WallDataSchema.ts
+index 014284fa..e3dc24fa 100644
+--- a/packages/geometry-wall/src/WallDataSchema.ts
++++ b/packages/geometry-wall/src/WallDataSchema.ts
+@@ -28,6 +28,18 @@ import { rakeAuthorability } from './WallRake';
+ import { OPENING_PROFILE_KINDS, type OpeningProfileKind } from './OpeningProfile';
+ import { profileAuthorability } from './WallProfile';
+ 
++// §OUTLINE80 (SPEC-WINDOW-CUSTOM-OUTLINE D1) — the `'custom'` kind's companion ring, as a Zod
++// schema. Structurally identical to `CustomOutline`/`CustomOutlineVertex` in `CustomOutline.ts`
++// (that file stays THREE-free / Zod-free by design — see its own header — so the runtime
++// validation shape lives here, beside every other Opening field's Zod twin).
++const CustomOutlineVertexSchema = z.object({
++    u: z.number().finite({ message: 'opening.customOutline vertex.u must be finite' }),
++    v: z.number().finite({ message: 'opening.customOutline vertex.v must be finite' }),
++});
++export const CustomOutlineSchema = z.object({
++    vertices: z.array(CustomOutlineVertexSchema),
++});
++
+ // ─── §WALL-AUDIT-2026 (RESOLVED 2026-04-24): semantic invariant constants ─────
+ 
+ /**
+@@ -132,6 +144,35 @@ export const OpeningSchema = z.object({
+         OPENING_PROFILE_KINDS as unknown as [OpeningProfileKind, ...OpeningProfileKind[]],
+         { message: `opening.openingProfile must be one of: ${OPENING_PROFILE_KINDS.join(', ')}` },
+     ).optional(),
++    // §OUTLINE80 (D1) — the `'custom'` kind's companion carrier. ADDITIVE AND OPTIONAL, same
++    // C47 §1.2 reasoning as `openingProfile` above: absent on every opening authored before this
++    // field existed, so nothing needs migrating. The `superRefine` below is what enforces "present
++    // IFF openingProfile === 'custom'" — this key alone only declares the SHAPE.
++    customOutline: CustomOutlineSchema.optional(),
++}).superRefine((val, ctx) => {
++    // §OUTLINE80 (D1) — "one AXIS: the kind, plus its carrier, which no other kind may
++    // populate." Neither half may exist without the other: a 'custom' opening with no ring is a
++    // state `openingOutline()` already treats as degenerate (returns null), and a NON-custom
++    // opening carrying a stray ring is exactly the "two fields for one axis" shape C86 §9
++    // WO-Voc-4 forbids — so both directions are refused here, at the ONE gate every store write
++    // passes through (`WallStore.addOpening` calls `OpeningSchema.safeParse`).
++    const isCustom = val.openingProfile === 'custom';
++    if (isCustom && !val.customOutline) {
++        ctx.addIssue({
++            code: z.ZodIssueCode.custom,
++            message: "opening.customOutline is required when opening.openingProfile is 'custom'",
++            path: ['customOutline'],
++        });
++    }
++    if (!isCustom && val.customOutline !== undefined) {
++        ctx.addIssue({
++            code: z.ZodIssueCode.custom,
++            message:
++                "opening.customOutline must be absent unless opening.openingProfile is 'custom' " +
++                `(got openingProfile=${JSON.stringify(val.openingProfile ?? 'rectangular')})`,
++            path: ['customOutline'],
++        });
++    }
+ });
+ 
+ export type OpeningInput = z.infer<typeof OpeningSchema>;
+diff --git a/packages/geometry-wall/src/WallHoleBodyBuilder.ts b/packages/geometry-wall/src/WallHoleBodyBuilder.ts
+index 34b8b804..3dd2d198 100644
+--- a/packages/geometry-wall/src/WallHoleBodyBuilder.ts
++++ b/packages/geometry-wall/src/WallHoleBodyBuilder.ts
+@@ -66,6 +66,16 @@ export interface WallOpeningRect {
+      * works" was the wrong answer to the founder's question.
+      */
+     readonly openingProfile?: OpeningProfileKind;
++    /** §OUTLINE80 — the `'custom'` kind's companion ring; ignored by every other kind. */
++    readonly customOutline?: unknown;
++    /**
++     * §OUTLINE80 (D5) — which family this opening belongs to. Absent ⇒ the pre-existing
++     * classify-by-`sillHeight`-alone behaviour (every caller before this field existed). Present
++     * ONLY so this builder can refuse a `'custom'` WINDOW that has been pushed to the floor — see
++     * `normaliseWallHoles`'s own note on why that refusal lives HERE too, not only at the
++     * authoring gate.
++     */
++    readonly type?: 'window' | 'door';
+ }
+ 
+ export interface WallHoleBodyParams {
+@@ -101,7 +111,11 @@ export interface WallHoleBodyParams {
+ const OPENING_EPS_M = 1e-4;   // C73 §2.3 — 0.1 mm, in wall-local METRES: the margin that keeps a flush opening off the wall ends and stops two merely-touching rects reading as overlapping.
+ 
+ /** A validated opening rectangle in wall-local metres, classified by kind. */
+-export interface NormRect { x0: number; x1: number; y0: number; y1: number; floorNotch: boolean; profile?: OpeningProfileKind }
++export interface NormRect {
++    x0: number; x1: number; y0: number; y1: number; floorNotch: boolean; profile?: OpeningProfileKind;
++    /** §OUTLINE80 — the `'custom'` kind's companion ring; ignored by every other kind. */
++    customOutline?: unknown;
++}
+ 
+ export interface NormWallHoles {
+     /** Interior openings (sill > 0, head < height) → ExtrudeGeometry holes (windows). */
+@@ -140,7 +154,19 @@ export function normaliseWallHoles(p: WallHoleBodyParams): NormWallHoles | null
+         if (y1 >= p.height - OPENING_EPS_M) return null;
+         // Sill at (or below) the floor → floor notch (door); else interior hole.
+         const floorNotch = y0 <= OPENING_EPS_M;
+-        rects.push({ x0, x1, y0: floorNotch ? 0 : y0, y1, floorNotch, profile: op.openingProfile });
++        // §OUTLINE80 (D5) — a CUSTOM-OUTLINE WINDOW cannot reach the floor. `openingProfileShapeRefusal`
++        // is the AUTHORING gate that refuses this by name (naming the door alternative); this is
++        // defence-in-depth at the geometry layer, matching the `wallProfileRectFit` precedent
++        // above ("not defence-in-depth theatre... can only fire when the model was mutated behind
++        // both"). A free-form ring built as a floor NOTCH would need two feet at `v = 0` the way
++        // `notchWalk` assumes for the four built-in kinds, and D3 guarantees only a VERTEX on each
++        // bbox edge, never a RUN — so a custom ring pushed to the floor has no guaranteed foot for
++        // the notch walk to start from.
++        if (op.type === 'window' && floorNotch && op.openingProfile === 'custom') return null;
++        rects.push({
++            x0, x1, y0: floorNotch ? 0 : y0, y1, floorNotch,
++            profile: op.openingProfile, customOutline: op.customOutline,
++        });
+     }
+ 
+     // Overlapping openings self-intersect in the extrude — reject (segmented fallback).
+@@ -356,6 +382,7 @@ function outlineFor(r: NormRect): readonly { x: number; y: number }[] | null {
+         width: r.x1 - r.x0,
+         height: r.y1 - r.y0,
+         sillHeight: r.y0,
++        customOutline: r.customOutline,
+     });
+     return o && !o.isRectangular ? o.points : null;
+ }
+diff --git a/packages/geometry-wall/src/WallStore.ts b/packages/geometry-wall/src/WallStore.ts
+index 16694c5b..c24ea632 100644
+--- a/packages/geometry-wall/src/WallStore.ts
++++ b/packages/geometry-wall/src/WallStore.ts
+@@ -657,7 +657,12 @@ export class WallStore implements ILevelProvider {
+                 this.windows.set(opening.elementId, cloneWindowData({
+                     ...commonData,
+                     type: 'window',
+-                    windowType: opening.windowType
++                    windowType: opening.windowType,
++                    // §OUTLINE80 (L-3421) — same reasoning as `updateWindow`'s self-heal: this
++                    // WallStore-level `WindowData` record is a SEPARATE copy of the window
++                    // (C86 §2), and a field this literal omits does not round-trip to it at all.
++                    openingProfile: opening.openingProfile,
++                    customOutline: opening.customOutline,
+                 }));
+             } else if (opening.type === 'door' && !this.doors.has(opening.elementId)) {
+                 this.doors.set(opening.elementId, cloneDoorData({
+@@ -1281,7 +1286,11 @@ export class WallStore implements ILevelProvider {
+                 const windowData: WindowData = {
+                     ...commonData,
+                     type: 'window',
+-                    windowType: openingClone.windowType
++                    windowType: openingClone.windowType,
++                    // §OUTLINE80 (L-3421) — see the sync-path note above; this is the CREATE path
++                    // (`addOpening`), the one every new window actually reaches first.
++                    openingProfile: openingClone.openingProfile,
++                    customOutline: openingClone.customOutline,
+                 };
+                 this.windows.set(windowData.id, cloneWindowData(windowData));
+                 // §3.5: elementRegistry.registerSemantic removed — the calling Command
+@@ -1452,7 +1461,11 @@ export class WallStore implements ILevelProvider {
+                 this.windows.set(opening.elementId, cloneWindowData({
+                     ...commonData,
+                     type: 'window',
+-                    windowType: opening.windowType
++                    windowType: opening.windowType,
++                    // §OUTLINE80 (L-3421) — see the sync-path note above; this is the UNDO-RESTORE
++                    // path (undoing a delete), so a custom window's shape must survive undo too.
++                    openingProfile: opening.openingProfile,
++                    customOutline: opening.customOutline,
+                 }));
+                 // §3.5: elementRegistry.registerSemantic removed — the calling Command
+                 // (DeleteElementCommand.undo) is responsible for registering in elementRegistry.
+@@ -1548,7 +1561,14 @@ export class WallStore implements ILevelProvider {
+                         width: updated.width,
+                         height: updated.height,
+                         sillHeight: updated.sillHeight,
+-                        offset: updated.offset
++                        offset: updated.offset,
++                        // §OUTLINE80 (L-3421) — carried alongside the four geometric fields above
++                        // so this method can never DROP a profile/ring that was already correct on
++                        // `updated` (the window's own record, which `merged` above already folded
++                        // `updates` into). Idempotent for the overwhelmingly common case where
++                        // neither changed.
++                        openingProfile: updated.openingProfile,
++                        customOutline: updated.customOutline,
+                     };
+                 }
+                 return cloneOpening(o);
+@@ -1558,6 +1578,13 @@ export class WallStore implements ILevelProvider {
+             // opening is missing from the wall (a prior out-of-bounds edit dropped
+             // it), RE-CREATE it from the (now clamped, in-bounds) window record so the
+             // wall re-cuts instead of staying solid with an orphaned window.
++            //
++            // §OUTLINE80 (L-3421) — MUST carry `openingProfile` AND `customOutline` too, or a
++            // self-healed opening silently reverts to a rectangle: this RE-CREATES the host
++            // record from `updated` (the window's own store record) rather than patching an
++            // existing one, so any field this literal omits is not merely stale — it is GONE from
++            // the wall's copy the moment the heal runs, which is the exact loss path this fix
++            // closes.
+             if (!matched) {
+                 openings.push({
+                     id: updated.openingId,
+@@ -1568,6 +1595,8 @@ export class WallStore implements ILevelProvider {
+                     height: updated.height,
+                     sillHeight: updated.sillHeight,
+                     windowType: updated.windowType,
++                    openingProfile: updated.openingProfile,
++                    customOutline: updated.customOutline,
+                 } as Opening);
+             }
+ 
+diff --git a/packages/geometry-wall/src/WallTypes.ts b/packages/geometry-wall/src/WallTypes.ts
+index e5097837..8b70c9b5 100644
+--- a/packages/geometry-wall/src/WallTypes.ts
++++ b/packages/geometry-wall/src/WallTypes.ts
+@@ -6,6 +6,7 @@ import { WallStore } from './WallStore';
+ import type { WallProfile } from './WallProfile';
+ import type { WallProfileEditorPort } from './WallProfileEditor';
+ import type { OpeningProfileKind } from './OpeningProfile';
++import type { CustomOutline } from './CustomOutline';
+ 
+ export enum WallToolState {
+     IDLE = 'IDLE',
+@@ -85,6 +86,19 @@ export interface Opening {
+      * See `OpeningProfile.ts` for the single outline producer and the refusals.
+      */
+     openingProfile?: OpeningProfileKind;
++
++    /**
++     * §OUTLINE80 (SPEC-WINDOW-CUSTOM-OUTLINE D1) — the companion carrier of `openingProfile ===
++     * 'custom'`. A normalised `{u, v} ∈ [0,1]` ring in the opening's own unit bounding box.
++     *
++     * ⛔ PRESENT IFF `openingProfile === 'custom'`, ABSENT OTHERWISE — enforced by a Zod
++     * `superRefine` on `OpeningSchema` (this interface's schema twin), not by convention alone.
++     * This is C86 §10.1 PR-7 amended: "one field" becomes "one AXIS: the kind, plus its carrier,
++     * which no other kind may populate."
++     *
++     * A door never carries this (D12 — `openingProfilesFor('door')` never offers `'custom'`).
++     */
++    customOutline?: CustomOutline;
+ }
+ 
+ export interface WindowData extends CoreElement {
+@@ -99,6 +113,16 @@ export interface WindowData extends CoreElement {
+     frameThickness: number;
+     frameWidth: number;
+     frameColor?: string;
++    /**
++     * §OUTLINE80 (L-3421) — mirrors `Opening.openingProfile`. This WallStore-level record is a
++     * SECOND, thinner copy of a window (C86 §2's "FOUR records for one door"); it did not carry
++     * this field before this fix, which is exactly the self-heal loss path L-3421 names — a store
++     * write path that reads `Opening.openingProfile` off the host but has nowhere on ITS OWN
++     * record to hold it back would silently drop it on the next round-trip through this type.
++     */
++    openingProfile?: OpeningProfileKind;
++    /** §OUTLINE80 (L-3421) — mirrors `Opening.customOutline`, same reasoning as the field above. */
++    customOutline?: CustomOutline;
+     /** IFC / BIM fire-resistance rating (e.g. "30min", "60min"). */
+     fireRating?: string;
+     anchor?: {
+diff --git a/packages/geometry-wall/src/composeWallGeometryHash.ts b/packages/geometry-wall/src/composeWallGeometryHash.ts
+index 20518ec8..2015547a 100644
+--- a/packages/geometry-wall/src/composeWallGeometryHash.ts
++++ b/packages/geometry-wall/src/composeWallGeometryHash.ts
+@@ -89,7 +89,11 @@ function hashOpening(o: Opening): string {
+     // IDENTICALLY and no persisted geometry cache is invalidated. Contrast the rake fold above,
+     // which lengthened the key for every wall and cost a one-time full rebuild — a profile can do
+     // better precisely because absence and default coincide.
+-    return `${o.id}:${t}:${f(o.offset)}:${f(o.width)}:${f(o.height)}:${f(o.sillHeight)}${openingProfileTag(o.openingProfile)}`;
++    // §OUTLINE80 — `customOutline` rides alongside `openingProfile`: for a `'custom'` opening the
++    // KIND alone does not distinguish two different rings, so `openingProfileTag` folds the ring's
++    // own vertices in too (see its own header). Empty/absent for every other kind, unchanged.
++    return `${o.id}:${t}:${f(o.offset)}:${f(o.width)}:${f(o.height)}:${f(o.sillHeight)}` +
++        openingProfileTag(o.openingProfile, (o as { customOutline?: unknown }).customOutline);
+ }
+ 
+ function hashJoin(joinData: JoinData | null | undefined): string {
+diff --git a/packages/geometry-window/src/WindowBuilder.ts b/packages/geometry-window/src/WindowBuilder.ts
+index 61dd6fb8..f336d22b 100644
+--- a/packages/geometry-window/src/WindowBuilder.ts
++++ b/packages/geometry-window/src/WindowBuilder.ts
+@@ -46,6 +46,10 @@ import {
+     // …and the SHARED frame solid derived from that outline. It lives beside the producer, in
+     // `geometry-wall`, because the DOOR builder consumes the identical band — see its header.
+     profiledBandGeometry, profiledPlateGeometry,
++    // §OUTLINE80 (D4) — the ONE "does this ring have a sill run" predicate, and the ONE frame-
++    // inset failure diagnostic — both declared beside `OpeningProfile`'s outline producer so
++    // neither this builder nor the plan-symbol drawer can derive a second answer.
++    outlineBaseRun, diagnoseInsetFailure,
+     type OpeningOutline, type OutlinePoint,
+ } from '@pryzm/geometry-wall';
+ import { elementRegistry } from '@pryzm/core-app-model/element-registry';
+@@ -393,6 +397,16 @@ export class WindowBuilder {
+      */
+     private _unresolvedFrameReported = new Set<string>();
+ 
++    /**
++     * §OUTLINE80 (D4) — `windowId` values already reported as having no sill run, and
++     * `${windowId}|${vertexIndex}` pairs already reported for a frame-inset failure. Same dedup
++     * discipline as `_unresolvedFrameReported` immediately above, for the identical reason: a
++     * profiled window rebuilds on every host-wall cascade, so an un-deduplicated `console.warn`
++     * here would flood the console across every rebuild of every custom-outline window.
++     */
++    private _noSillReported = new Set<string>();
++    private _frameInsetFailureReported = new Set<string>();
++
+     /**
+      * §INSTANCE-WINDOWS — optional GPU-instancing bridge (the SAME shared
+      * InstancedElementRenderer walls/columns/beams use). When injected AND
+@@ -909,7 +923,7 @@ export class WindowBuilder {
+         // half that instances" would mint a second definition of "has a reveal" whose drift
+         // shows up as a 1 m cube months later. Cost is one draw call per projecting window.
+         const _hostRaked = rakeShearPerMetre((wallData as { rakeAngleDeg?: number }).rakeAngleDeg) !== 0;
+-        const _profiled = !arc && isProfiledOpening(win.openingProfile, win.width, win.height);
++        const _profiled = !arc && isProfiledOpening(win.openingProfile, win.width, win.height, win.customOutline);
+         if (this._instancingActive() && !_hostRaked && !arc && !_profiled && !reveal.active) {
+             this._convertGroupToInstances(win, group, wallData.levelId);
+         }
+@@ -1335,6 +1349,43 @@ export class WindowBuilder {
+         );
+     }
+ 
++    /**
++     * §OUTLINE80 (D4) — the profiled outline has no horizontal run at its sill line, so no sill
++     * board is built. Reported ONCE per window through the SAME dedup channel
++     * `_reportUnresolvedFrameMaterial` uses, for the identical flood reason.
++     */
++    private _reportNoSill(winId: string, kind: string): void {
++        if (this._noSillReported.has(winId)) return;
++        this._noSillReported.add(winId);
++        console.warn(
++            `[WindowBuilder] §OUTLINE80 D4 — window ${winId}'s ${kind} outline has no horizontal ` +
++            `run at its sill line (the bottom is a vertex or an arc, not a straight edge), so no ` +
++            `sill board is built. The frame and glazing are unaffected.`,
++        );
++    }
++
++    /**
++     * §OUTLINE80 (D4) — the frame inset at `thicknessM` collapsed, spiked or inverted the outline
++     * at the named vertex, so the profiled arm draws the opening SOLID rather than a frame it
++     * cannot honestly build (see the call site's own comment). Reported ONCE per
++     * `(window, vertex)` pair — a window rebuilds on every host-wall cascade, the same flood this
++     * package already guards against twice above.
++     */
++    private _reportFrameInsetFailure(winId: string, vertexIndex: number | null, thicknessM: number): void {
++        const key = `${winId}|${vertexIndex ?? 'ring'}`;
++        if (this._frameInsetFailureReported.has(key)) return;
++        this._frameInsetFailureReported.add(key);
++        const where = vertexIndex === null
++            ? 'the outline itself (too few vertices, or not wound the way this producer requires)'
++            : `vertex ${vertexIndex} — the outline's corner there is too sharp for a constant-width member`;
++        console.warn(
++            `[WindowBuilder] §OUTLINE80 D4 — window ${winId}: the frame inset of ` +
++            `${(thicknessM * 1000).toFixed(0)} mm fails at ${where}. Reduce the frame thickness, or ` +
++            `open that corner's angle in the outline. Drawing the opening SOLID rather than a ` +
++            `frame that would spike through it.`,
++        );
++    }
++
+     /**
+      * §FEAT-WINDOW-CUT-ZONE-AND-LOD (L-278) — THE WINDOW ROW OF ADR-121'S LOD MATRIX.
+      *
+@@ -1413,7 +1464,7 @@ export class WindowBuilder {
+         // only consumes the one the gate already vetted.
+         const outline: OpeningOutline | null = arc
+             ? null
+-            : openingOutlineLocal(win.openingProfile, w, h);
++            : openingOutlineLocal(win.openingProfile, w, h, win.customOutline);
+         if (outline && !outline.isRectangular) {
+             this._buildProfiledVisuals(win, group, outline, frameMat, glassMat, dims, ft, fd, lod, levelId, mats);
+             return mats;
+@@ -1742,6 +1793,14 @@ export class WindowBuilder {
+      * rectangle has, so their board is unchanged and correct. A **CIRCULAR window has no cill in
+      * this sense at all** — its outline has no bottom edge for a board to sit on — and drawing one
+      * would be an unknown rendered as a rectangle. It is OMITTED.
++     *
++     * §OUTLINE80 (D4) — `baseRun` generalises the board's SPAN. `undefined` (every pre-existing
++     * caller) keeps the exact previous full-width, centred board. A profiled caller that HAS
++     * resolved a run (`OpeningProfile.outlineBaseRun`, in the centred `[-w/2, w/2]` frame) passes
++     * it here, and the board becomes that run's OWN length plus the overhang, centred on that
++     * run — which for `round-arch`/`segmental-arch` is algebraically the SAME full-width, centred
++     * board as before (their base run IS `[-w/2, w/2]`), and for a `custom` trapezoid narrower at
++     * the sill is the shorter, off-centre board the ring actually has.
+      */
+     private _addSillBoard(
+         win: WindowOpening,
+@@ -1751,9 +1810,14 @@ export class WindowBuilder {
+         levelId: string,
+         mats: THREE.Material[],
+         arc: LeafArc | null,
++        baseRun?: { x0: number; x1: number },
+     ): void {
+         const { width: w, height: h } = win;
+-        if (win.sill && win.sillDepth > 0 && win.sillThickness > 0) {
++        const runX0 = baseRun ? baseRun.x0 : -w / 2;
++        const runX1 = baseRun ? baseRun.x1 : w / 2;
++        const runWidth = runX1 - runX0;
++        const runCenterX = (runX0 + runX1) / 2;
++        if (win.sill && win.sillDepth > 0 && win.sillThickness > 0 && runWidth > 0) {
+             // §INSTANCE-WINDOWS — sill mirrors the frame colour (roughness 0.7),
+             // resolved from the SHARED cache so it coalesces across storeys too.
+             const sillMat = this._sharedFrameMaterial(levelId, this._resolveFrameColor(win), false, 1, 0.7);
+@@ -1768,10 +1832,10 @@ export class WindowBuilder {
+                 // §FEAT-WINDOW-PLAN-SYMBOL-SOUND (L-254) — the board overhangs each jamb by
+                 // the RESOLVED `sillOverhang` (was a bare `+ 0.04`). The plan sill line is
+                 // drawn to the same overhang, so the symbol and the built board agree.
+-                w + 2 * dims.sillOverhang,
++                runWidth + 2 * dims.sillOverhang,
+                 win.sillThickness,
+                 fd + win.sillDepth,
+-                0,
++                runCenterX,
+                 -h / 2 + win.sillThickness / 2,
+                 win.sillDepth / 2,       // protrudes out from wall face
+                 'windowSill',
+@@ -1844,6 +1908,14 @@ export class WindowBuilder {
+             // SOLID FRAME, and drawing it as such is the truthful reading of the record — far
+             // better than falling back to a rectangle inside a circular hole, which would put the
+             // C86 §11 #1 divergence back after removing it.
++            //
++            // §OUTLINE80 (D4) — REPORTED BY NAME before the fallback, on the SAME dedup channel
++            // `_reportUnresolvedFrameMaterial` uses. `diagnoseInsetFailure` is a read-only twin of
++            // `insetOutlinePoints` (never a second decision — see its own header) that names WHICH
++            // vertex the inset actually failed at, so the message is a real diagnosis and not a
++            // guess restated.
++            const diagnosis = diagnoseInsetFailure(pts, ft);
++            this._reportFrameInsetFailure(win.id, diagnosis?.vertexIndex ?? null, ft);
+             addProfiled(group, frameMat, profiledPlateGeometry(pts, fd), 'windowFrame');
+             return;
+         }
+@@ -1886,13 +1958,21 @@ export class WindowBuilder {
+         addProfiled(group, glassMat, profiledPlateGeometry(sight, dims.glazingThickness), 'windowGlazing');
+ 
+         // ── Sill board ─────────────────────────────────────────────────────
+-        // ⛔ A CIRCLE HAS NO CILL. Its outline has no bottom edge for a board to sit on, and a
+-        // board drawn across the underside of an oculus is a member no fabricator makes. The two
+-        // ARCHES keep theirs unchanged: below the springing their outline IS the rectangle's, so
+-        // the same board is the same correct board. `arc` is `null` on this whole path (a curved
+-        // host cannot carry a profile — PR-5), which is why it is passed as such.
+-        if (outline.kind !== 'circular') {
+-            this._addSillBoard(win, group, dims, fd, levelId, mats, null);
++        // §OUTLINE80 (D4) — GENERALISED from "kind !== 'circular'" to the actual predicate that
++        // rule was standing in for: the ring's OWN lowest horizontal run, read through the ONE
++        // shared predicate `OpeningProfile.outlineBaseRun` (the same one the plan symbol's sill
++        // line consumes — C84 EI-9, one producer). `round-arch`/`segmental-arch` keep their exact
++        // previous full-width board (their base run IS the full width); `circular` keeps its exact
++        // previous omission (a circle's outline touches `y0` at one point, not a run); a `custom`
++        // ring's sill is now that ring's OWN run — narrower, wider or off-centre, whatever the
++        // author drew — or omitted and REPORTED BY NAME when the outline has no run at all (an
++        // apex-down triangle, a star). `arc` is `null` on this whole path (a curved host cannot
++        // carry a profile — PR-5), which is why it is passed as such.
++        const baseRun = outlineBaseRun(outline);
++        if (baseRun) {
++            this._addSillBoard(win, group, dims, fd, levelId, mats, null, baseRun);
++        } else {
++            this._reportNoSill(win.id, outline.kind);
+         }
+     }
+ 
+diff --git a/packages/geometry-window/src/WindowTypes.ts b/packages/geometry-window/src/WindowTypes.ts
+index 84fd3be9..34c34258 100644
+--- a/packages/geometry-window/src/WindowTypes.ts
++++ b/packages/geometry-window/src/WindowTypes.ts
+@@ -1,4 +1,26 @@
+ import { z } from 'zod';
++// §OUTLINE80 — the void-shape vocabulary and the `'custom'` kind's ring carrier, imported rather
++// than retyped (C84 §8.d): a hand-copied `z.enum([...])` here would be a second list to keep in
++// agreement with `OpeningProfile.OPENING_PROFILE_KINDS`, the ONE authority.
++// §OUTLINE80-CYCLE-FIX — the pure './opening-profile' subpath, NOT the bare barrel: the barrel
++// drags in WallTool.ts -> @pryzm/command-registry -> this package -> the barrel again, mid-load
++// (geometry-wall/package.json's exports-note explains the family of bug this dodges).
++import { OPENING_PROFILE_KINDS, type OpeningProfileKind } from '@pryzm/geometry-wall/opening-profile';
++
++/**
++ * §OUTLINE80 (D1) — the `'custom'` kind's companion ring, as a Zod schema. Structurally identical
++ * to `CustomOutline`/`CustomOutlineVertex` in `@pryzm/geometry-wall`'s `CustomOutline.ts` (that
++ * module stays THREE-free / Zod-free by design), re-declared here — the same choice
++ * `WallDataSchema.ts` made for the identical reason: the runtime shape lives beside the field it
++ * validates.
++ */
++const CustomOutlineVertexSchema = z.object({
++    u: z.number().finite(),
++    v: z.number().finite(),
++});
++export const CustomOutlineSchema = z.object({
++    vertices: z.array(CustomOutlineVertexSchema),
++});
+ 
+ /**
+  * Finish layer schema — compatible with WindowFinishLayer in WindowSystemTypeStore.
+@@ -45,7 +67,18 @@ export const WindowOpeningSchema = z.object({
+      *
+      * Absent ⇒ rectangular, so every window persisted before this loads unchanged.
+      */
+-    openingProfile: z.enum(['rectangular', 'round-arch', 'segmental-arch', 'circular']).optional(),
++    openingProfile: z.enum(
++        OPENING_PROFILE_KINDS as unknown as [OpeningProfileKind, ...OpeningProfileKind[]],
++        { message: `openingProfile must be one of: ${OPENING_PROFILE_KINDS.join(', ')}` },
++    ).optional(),
++
++    /**
++     * §OUTLINE80 (SPEC-WINDOW-CUSTOM-OUTLINE D1) — the companion carrier of `openingProfile ===
++     * 'custom'`. Same "not optional polish" warning as the field above applies verbatim: absent
++     * here, a ring authored anywhere upstream is stripped by `WindowStore.add`'s
++     * `Object.freeze({...safeParse(w).data})` the moment it reaches this schema.
++     */
++    customOutline: CustomOutlineSchema.optional(),
+ 
+     // Frame
+     frameThickness: z.number().positive().default(0.05),
+@@ -154,6 +187,25 @@ export const WindowOpeningSchema = z.object({
+ 
+     // Type system — reference to the WindowSystemType that generated this window's finish defaults
+     systemTypeId:   z.string().optional(),
++}).superRefine((val, ctx) => {
++    // §OUTLINE80 (D1) — the SAME "one axis, one carrier" rule `WallDataSchema.OpeningSchema`
++    // enforces on the host record, restated on the window's own runtime twin so the two cannot
++    // disagree about what a valid `'custom'` window looks like.
++    const isCustom = val.openingProfile === 'custom';
++    if (isCustom && !val.customOutline) {
++        ctx.addIssue({
++            code: z.ZodIssueCode.custom,
++            message: "customOutline is required when openingProfile is 'custom'",
++            path: ['customOutline'],
++        });
++    }
++    if (!isCustom && val.customOutline !== undefined) {
++        ctx.addIssue({
++            code: z.ZodIssueCode.custom,
++            message: "customOutline must be absent unless openingProfile is 'custom'",
++            path: ['customOutline'],
++        });
++    }
+ });
+ 
+ export type WindowOpening = z.infer<typeof WindowOpeningSchema>;
