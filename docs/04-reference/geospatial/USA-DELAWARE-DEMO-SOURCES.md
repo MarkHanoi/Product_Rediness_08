@@ -27,7 +27,7 @@ the USA. It is not.
 | Fact | Measured how |
 |---|---|
 | **`delaware` is ALREADY a declared bake region** — `bbox '-75.79,38.45,-74.98,39.85'`, `heightJoin: 'usas'`, `pending: true` | `tools/context-bake/bake.mjs:702` |
-| **The US bake pipeline WORKS — `california` and `newyork` are LIVE on R2 right now** | `GET /api/context-tiles/tileset-manifest.json` → 46 regions, 7 layers |
+| ⚠ **CORRECTED 2026-09-09 — this row said "46 regions, 7 layers" and that reading is FALSE.** The 2026-09-07 merge carried `mergedLayers: ['buildings']` ONLY; the other six layers are `carriedForward` from earlier runs over a DIFFERENT 49-region set. **buildings** ships state-level US rows (california, illinois, massachusetts, newyork, texas); the other six ship **city bboxes only** (newyork, sanfrancisco, chicago, austin, houston, boston). So "bake-and-publish, the pipeline already works" is established for Delaware **BUILDINGS ONLY** — no US region has ever shipped state-level roads/water/parks/landuse/rail/trees, and that leg is unproven work. See [DELAWARE-PUBLISH-DISPATCH-PLAN.md](./DELAWARE-PUBLISH-DISPATCH-PLAN.md). | measured live, workflow wf_a4f83f97-e65 |
 | **Delaware is NOT live** — `pending: true` means declared and NEVER STAGED; `merge-tiles.mjs` deliberately keeps an unstaged row out of `expect=all` (§PENDING-REGION) | manifest has no `delaware` key |
 | **Heights for every US row come from `usas`** — the FEMA/ORNL *USA Structures* join, **135,321,228 structures** | `bake.mjs:661`, `heights/usasNationalStamp.mjs` |
 | **53 of 54 US rows are `pending`** — only `newyork` was live when they were added | `bake.mjs:691` |
