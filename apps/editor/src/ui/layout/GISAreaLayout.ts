@@ -7411,6 +7411,21 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      *  the user happened to reach for. Here the ACTIVE SURFACE decides — which is what
      *  the user meant by "zoom to site" in both cases. Composed entirely of the existing
      *  dispatches; no framing logic is authored here. */
+    /**
+     * §BCN-VOLUMES-PREVIEW (founder 2026-09-09 · L-13284) — `pryzmPreviewBcnVolumes()` in the
+     * console swaps Barcelona's baked prisms for the municipality's own 503k-volume model,
+     * over a 450 m disc of Ciutat Vella. Call again to swap back.
+     *
+     * ⛔ A PREVIEW, NOT A FEATURE. It exists to answer one question before the R2 bake is
+     * built — does the articulation read on screen? — and should be deleted once it has.
+     */
+    window.pryzmPreviewBcnVolumes = async () => {
+        const msg = await (cesiumViewport?.toggleBcnVolumesPreview?.()
+            ?? Promise.resolve('§BCN-VOLUMES-PREVIEW the 3D Site is not mounted.'));
+        console.log(msg);
+        return msg;
+    };
+
     window.pryzmZoomToSite = () => {
         if (activeSegment === 'forma') {
             if (formaViewMode === 'plan') cesiumViewport?.flyToFormaPlan?.();

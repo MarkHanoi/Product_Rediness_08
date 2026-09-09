@@ -540,6 +540,9 @@ declare global {
          *  photoreal tiles), which is what the two rival "Zoom to Site" buttons disagreed
          *  about. Registered by GISAreaLayout. */
         pryzmZoomToSite?: () => void;
+        /** §BCN-VOLUMES-PREVIEW (L-13284) — console-only preview of Barcelona's municipal
+         *  volume model. A throwaway, deleted once the R2 bake lands. */
+        pryzmPreviewBcnVolumes?: () => Promise<string>;
         /** §GIS-ACTION-REGISTRY (L-1360, C06 §13.7) — restore every optional panel to its
          *  declared default state, size and position. APP-WIDE: it walks the whole
          *  `PANEL_REGISTRY`, not only the site panels. Registered by GISAreaLayout; it is

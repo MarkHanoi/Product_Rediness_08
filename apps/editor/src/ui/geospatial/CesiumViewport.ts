@@ -19231,6 +19231,35 @@ export class CesiumViewport {
   }
 
   /**
+   * §BCN-VOLUMES-PREVIEW (founder 2026-09-09 · L-13284) — a throwaway look at Barcelona's
+   * municipal volumes before the R2 bake is wired, so the founder can answer the only question
+   * that justifies the pipeline: **does the articulation read on screen?**
+   *
+   * ⛔ NOT THE SHIPPING PATH. One hand-cut 450 m disc from `/preview/bcn-volumes.geojson`, no
+   * tiering, no budget, no cap. Reachable only from `window.pryzmPreviewBcnVolumes()`; nothing
+   * in the app calls it, and the 640 KB asset is not fetched until it is called. Delete this
+   * method and its module once the bake lands.
+   */
+  private _bcnPreview: { entities: Cesium.Entity[]; on: boolean } = { entities: [], on: false };
+
+  public async toggleBcnVolumesPreview(): Promise<string> {
+    const viewer = this.viewer;
+    if (!viewer) return '§BCN-VOLUMES-PREVIEW no Cesium viewer — open the 3D Site first.';
+    const { toggleBcnVolumesPreview } = await import('./bcnVolumesPreview');
+    return toggleBcnVolumesPreview(
+      {
+        Cesium: Cesium as unknown as typeof import('cesium'),
+        viewer: viewer as unknown as import('cesium').Viewer,
+        // The viewport's OWN seat function, so a preview volume sits exactly where a baked
+        // prism would — otherwise the comparison would be of two different ground datums.
+        sampleGround: (lat, lon, fb) => this.sampleGround(lat, lon, fb),
+        contextEntities: () => this.contextBuildingEntities as unknown as import('cesium').Entity[],
+      },
+      this._bcnPreview as unknown as { entities: import('cesium').Entity[]; on: boolean },
+    );
+  }
+
+  /**
    * §FEAT-SITE-ENTRY-GLOBE (L-593, C60 §4) — fly the ONE camera to an explicit WGS84
    * target. The whole public surface the site-entry stage machine needs.
    *
