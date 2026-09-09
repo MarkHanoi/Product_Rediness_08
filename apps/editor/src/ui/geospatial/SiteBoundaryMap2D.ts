@@ -286,6 +286,24 @@ import { makeDraggable, clampDraggableWithin, DRAG_PINNED_ATTR } from '../makeDr
 // answered, and the jurisdiction row is where that string and its region code live. Pure
 // routing — no network, no side effect.
 import { resolveParcelAttribution } from '../site/parcel/parcelRegistry.js';
+// §CADASTRAL-BOUNDARIES (C57 §5.5, lane CADASTRAL-COVERAGE) — the surrounding parcels' boundary
+// lines. ⛔ THE FLAG IS NOT KEPT HERE. It lives in `cadastralBoundariesLayer.ts` and this map
+// SUBSCRIBES, because the same toggle is offered in the Forma Cesium panel, which is mounted in a
+// DIFFERENT view mode from this one — a boolean per surface would drift the moment the user
+// flipped it in a view the other was not mounted in (C59 §2.10 / [[view-region-one-owner]]).
+import {
+    getCadastralBoundariesEnabled,
+    toggleCadastralBoundaries,
+    subscribeCadastralBoundaries,
+    getCadastralBoundariesVerdict,
+    cadastralBoundariesSentence,
+    cadastralBoundariesChipEnabled,
+    registerCadastralBoundarySurface,
+} from '../site/cadastralBoundariesLayer.js';
+import {
+    getCadastralBoundarySet,
+    refreshCadastralBoundaries,
+} from './cadastralBoundaries.js';
 import {
     assessParcelSize,
     parcelSizeReviewText,
@@ -343,6 +361,11 @@ const SNAP_LAYER = 'pryzm-boundary-snap-indicator';
 // distinct from the DRAW tool's dashed-green boundary. Its own geojson source so it
 // survives a basemap swap (re-added in installRingLayers).
 const PARCEL_SELECT_SOURCE = 'pryzm-parcel-select';
+// §CADASTRAL-BOUNDARIES — the NEIGHBOURS' boundary lines. A separate source from
+// `PARCEL_SELECT_SOURCE` on purpose: the selected parcel is filled violet and is the user's
+// CHOICE; these are reference lines about everyone else's land and must never be mistaken for it.
+const CADASTRE_BOUNDARIES_SOURCE = 'pryzm-cadastre-boundaries';
+const CADASTRE_BOUNDARIES_LINE_LAYER = 'pryzm-cadastre-boundaries-line';
 const PARCEL_SELECT_FILL_LAYER = 'pryzm-parcel-select-fill';
 const PARCEL_SELECT_LINE_LAYER = 'pryzm-parcel-select-line';
 
@@ -911,6 +934,82 @@ export function mountSiteBoundaryMap2D(
         boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
         font: '12px/1 system-ui, sans-serif',
     } satisfies Partial<CSSStyleDeclaration>);
+    // ── §CADASTRAL-BOUNDARIES (C57 §5.5, lane CADASTRAL-COVERAGE) ─────────────────────
+    // The founder's toggle, on the view he named first. A single chip, not a segmented control:
+    // this is a layer that is on or off, not a mode with two alternatives.
+    //
+    // ⛔ THE CHIP KEEPS NO BOOLEAN. It calls `toggleCadastralBoundaries()` and then repaints from
+    // `getCadastralBoundariesEnabled()`, so the Forma panel's chip and this one cannot disagree.
+    // ⛔ AND IT ALWAYS CARRIES A SENTENCE. `title` is the verdict from the ONE owner, so a chip
+    // that is ON over a blank map says WHY it is blank — "this cadastre publishes no area query"
+    // and "there are no parcels here" draw the same nothing and must never read the same
+    // (§CONTEXT-DATA-HONESTY, L-581/L-616).
+    const boundariesChip = document.createElement('button');
+    boundariesChip.type = 'button';
+    boundariesChip.className = 'pryzm-gis-cadastre-boundaries-chip';
+    boundariesChip.setAttribute('data-testid', 'cadastre-boundaries-chip');
+    boundariesChip.textContent = '▦ Parcel lines';
+    Object.assign(boundariesChip.style, {
+        position: 'absolute',
+        bottom: '300px',
+        right: '16px',
+        zIndex: '22',
+        padding: '7px 12px',
+        borderRadius: '8px',
+        border: `1px solid ${VIOLET}`,
+        boxShadow: '0 2px 10px rgba(60,52,40,0.18)',
+        font: '600 12px/1 system-ui, sans-serif',
+        cursor: 'pointer',
+    } satisfies Partial<CSSStyleDeclaration>);
+
+    function paintBoundariesChip(): void {
+        const on = getCadastralBoundariesEnabled();
+        const verdict = getCadastralBoundariesVerdict();
+        const usable = cadastralBoundariesChipEnabled(verdict);
+        boundariesChip.style.background = on ? VIOLET : 'rgba(255,255,255,0.92)';
+        boundariesChip.style.color = on ? '#ffffff' : (usable ? '#2a2438' : '#9a93ad');
+        boundariesChip.style.cursor = usable ? 'pointer' : 'not-allowed';
+        boundariesChip.disabled = !usable;
+        boundariesChip.setAttribute('aria-pressed', on ? 'true' : 'false');
+        boundariesChip.title = cadastralBoundariesSentence(verdict);
+    }
+
+    boundariesChip.addEventListener('click', () => {
+        const on = toggleCadastralBoundaries();
+        paintBoundariesChip();
+        refreshCadastralBoundaryLines();
+        if (!on) return;
+        // ⛔ THE CENTRE IS THE SELECTED PARCEL, AND ONLY THE CAMERA WHEN THERE IS NONE. Binding
+        // the query to the camera would re-ask a foreign government register on every pan
+        // ([[context-one-read-per-bbox]]); the plot is what "around here" means, and it moves only
+        // when the user moves it.
+        const centre = selectedParcel && selectedParcel.ring.length >= 3
+            ? {
+                lat: selectedParcel.ring.reduce((s, p) => s + p.lat, 0) / selectedParcel.ring.length,
+                lon: selectedParcel.ring.reduce((s, p) => s + p.lon, 0) / selectedParcel.ring.length,
+            }
+            : { lat: map.getCenter().lat, lon: map.getCenter().lng };
+        void refreshCadastralBoundaries(centre.lat, centre.lon).then(() => {
+            paintBoundariesChip();
+            refreshCadastralBoundaryLines();
+        });
+    });
+    paintBoundariesChip();
+    overlay.appendChild(boundariesChip);
+
+    // ⭐ SUBSCRIBE + DECLARE, AS ONE. The registration names the view in the user's own words, so
+    // `describeCadastralBoundaryReach()` reports where a click will actually be visible rather than
+    // asserting it (C84 EI-1b). Disposed together in `dispose()` — a registration that outlived
+    // its subscription would name a view that no longer repaints.
+    const cadastreBoundariesSub = subscribeCadastralBoundaries(() => {
+        paintBoundariesChip();
+        refreshCadastralBoundaryLines();
+    });
+    const cadastreBoundariesSurface = registerCadastralBoundarySurface(
+        'site-boundary-map-2d',
+        '2D site map',
+    );
+
     function makeInterBtn(label: string, mode: 'select' | 'draw'): HTMLButtonElement {
         const b = document.createElement('button');
         b.type = 'button';
@@ -1584,6 +1683,67 @@ export function mountSiteBoundaryMap2D(
         // asserting compliance as three violations.
         installEnvelopeLayers();
         refreshParcelHighlight();
+        // §CADASTRAL-BOUNDARIES — registered HERE for the reason the block above states: a
+        // basemap swap re-styles with `diff:false` and WIPES every source and layer, and this
+        // function is what the `style.load` handler re-runs. A layer added anywhere else would
+        // silently vanish the first time the user pressed Satellite.
+        map.addSource(CADASTRE_BOUNDARIES_SOURCE, { type: 'geojson', data: emptyFC() });
+        map.addLayer({
+            id: CADASTRE_BOUNDARIES_LINE_LAYER,
+            type: 'line',
+            source: CADASTRE_BOUNDARIES_SOURCE,
+            // ⚠ LINES ONLY, NO FILL, AND THINNER + PALER THAN THE SELECTED PARCEL'S 2.5 px
+            // violet. These are OTHER people's plots: they are reference, and a neighbour drawn
+            // as emphatically as the user's own selection invites the reading that PRYZM has
+            // selected it too.
+            paint: { 'line-color': VIOLET, 'line-width': 1, 'line-opacity': 0.55 },
+        });
+        refreshCadastralBoundaryLines();
+    }
+
+    /**
+     * §CADASTRAL-BOUNDARIES — push the fetched neighbour rings into the line source.
+     *
+     * ⛔ READS THE ONE OWNER, HOLDS NOTHING. Both the flag and the geometry come from the shared
+     * modules; this function's only job is to turn them into GeoJSON. When the overlay is OFF, or
+     * the last query did not produce a set, it clears the source — it never leaves a previous
+     * country's lines on screen under a new plot.
+     */
+    function refreshCadastralBoundaryLines(): void {
+        // ⚠ `map` IS DECLARED BELOW THIS CLOSURE (the chip is built with the rest of the overlay
+        // chrome, ~500 lines before the MapLibre instance). Every real call arrives long after the
+        // module body has run, but the ONE OWNER can notify at any time — including from the other
+        // chip in another view — and a notification landing inside that window would hit the
+        // temporal dead zone. The store already isolates a throwing listener; this keeps it from
+        // being reported as a listener fault when it is simply "not mounted yet".
+        let srcRef: GeoJSONSource | undefined;
+        try {
+            srcRef = map.getSource(CADASTRE_BOUNDARIES_SOURCE) as GeoJSONSource | undefined;
+        } catch {
+            return;
+        }
+        if (!srcRef) return;
+        const set = getCadastralBoundarySet();
+        if (!getCadastralBoundariesEnabled() || !set || set.parcels.length === 0) {
+            srcRef.setData(emptyFC());
+            return;
+        }
+        srcRef.setData({
+            type: 'FeatureCollection',
+            features: set.parcels
+                .filter((p) => p.ring.length >= 3)
+                .map((p) => {
+                    const coords = p.ring.map((pt) => [pt.lon, pt.lat] as [number, number]);
+                    return {
+                        type: 'Feature' as const,
+                        geometry: {
+                            type: 'Polygon' as const,
+                            coordinates: [[...coords, coords[0]!]],
+                        },
+                        properties: { refcat: p.refcat },
+                    };
+                }),
+        });
     }
 
     /** An empty FeatureCollection (the snap indicator's resting state). */
@@ -4363,6 +4523,10 @@ export function mountSiteBoundaryMap2D(
         // that no longer repaints, which is exactly the claim the registry exists to prevent.
         try { siteHighlightSub?.(); } catch { /* ignore */ }
         siteHighlightSub = null;
+        // §CADASTRAL-BOUNDARIES — the same pairing, for the same reason: drop the subscription
+        // AND the surface declaration together, or the reach probe keeps naming a dead map.
+        try { cadastreBoundariesSub(); } catch { /* ignore */ }
+        try { cadastreBoundariesSurface(); } catch { /* ignore */ }
         try { siteHighlightSurfaceReg?.(); } catch { /* ignore */ }
         siteHighlightSurfaceReg = null;
         // §ENVELOPE-DRAW C6 — disarm BEFORE unregistering: an armed adapter on a disposed map

@@ -5,7 +5,10 @@
 // so the map's "Select parcel" click resolves the right national cadastre where one is open
 // (Spain/France/Netherlands/Norway/NRW) and an honest OSM footprint everywhere else.
 
-export type { ParcelFeature, ParcelProvider } from './ParcelProvider.js';
+export type { ParcelFeature, ParcelProvider, ParcelAreaOutcome } from './ParcelProvider.js';
+// C57 §1.14 — THE ONE client reader for every cadastral AREA route. Exported so a consumer
+// normalises the server's seven outcomes through this and never grows a second reader.
+export { normaliseParcelAreaBody, fetchParcelAreaFromProxy, unsupportedAreaReason } from './parcelAreaFetch.js';
 // §L-1581 (C06 §13.3) — THE ONE parcel-card producer + the fetched→persisted adapter.
 export {
     buildParcelCard,

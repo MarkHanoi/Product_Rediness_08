@@ -81,6 +81,21 @@ import {
 // §FACADE-STUDY-SUBJECT (L-596) — the subject type + its user-facing labels. The REFUSAL wording
 // lives in that module too, so the panel never invents its own explanation of a missing input.
 import type { FacadeStudySubject } from './facadeStudySubject';
+// §CADASTRAL-BOUNDARIES (C57 §5.5, lane CADASTRAL-COVERAGE) — the surrounding parcels' boundary
+// lines. ⛔ THE FLAG IS NOT ON THE VIEWPORT, unlike every other toggle in this block. The same
+// switch is offered on the 2D MapLibre site map, and THIS PANEL IS NOT MOUNTED THERE
+// (`formaViewMode !== 'map2d'`), so a viewport-local boolean could not be read by the other chip
+// and the two would drift (C59 §2.10 / [[view-region-one-owner]]).
+import {
+    getCadastralBoundariesEnabled,
+    toggleCadastralBoundaries,
+    subscribeCadastralBoundaries,
+    getCadastralBoundariesVerdict,
+    cadastralBoundariesSentence,
+    cadastralBoundariesChipEnabled,
+    describeCadastralBoundaryReach,
+} from '../site/cadastralBoundariesLayer.js';
+import { refreshCadastralBoundaries } from './cadastralBoundaries.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ACCENT = '#6600FF';
@@ -182,6 +197,8 @@ export class FormaSiteAnalysisControls {
     private useColourOn = false;
     /** Guards a single proactive `ensureSiteClimate` per mount (avoid loops). */
     private climateEnsureRequested = false;
+    /** §CADASTRAL-BOUNDARIES — unsubscribe from the ONE owner; disposed with the panel. */
+    private cadastralBoundariesSub: (() => void) | null = null;
     /** SITE-PANEL-UI — user dismissed the panel (✕). STATIC so the choice persists
      *  across the dispose→new→mount cycle the Forma view does on every Plan/3D
      *  activation (a per-instance field would reset to "shown" on each switch).
@@ -347,6 +364,14 @@ export class FormaSiteAnalysisControls {
         if (this.dragDispose) { try { this.dragDispose(); } catch { /* ignore */ } this.dragDispose = null; }
         if (this.sunUnsub) { try { this.sunUnsub(); } catch { /* ignore */ } this.sunUnsub = null; }
         if (this.climateUnsub) { try { this.climateUnsub(); } catch { /* ignore */ } this.climateUnsub = null; }
+        // §CADASTRAL-BOUNDARIES — drop the subscription to the ONE owner. ⛔ The FLAG is NOT
+        // cleared here, unlike the viewport overlays below: it is shared with the 2D site map, and
+        // turning it off because this panel unmounted would silently switch off a layer the user
+        // asked for in the other view. Unmounting a chip is not the user changing their mind.
+        if (this.cadastralBoundariesSub) {
+            try { this.cadastralBoundariesSub(); } catch { /* ignore */ }
+            this.cadastralBoundariesSub = null;
+        }
         // A.21.D24 — turn off any active 3D overlays so they don't linger when the
         // panel is removed (e.g. switching to the 2D map view). The viewport keeps
         // running; only this panel's overlay layers are cleared.
@@ -980,7 +1005,75 @@ export class FormaSiteAnalysisControls {
             this.viewport.isStreetLifeEnabled?.() ?? true,
         );
 
+        // ── §CADASTRAL-BOUNDARIES (C57 §5.5) — the founder's parcel-lines toggle ────────────
+        //
+        // ⛔ NOT VIA `mkToggle`, AND THAT IS THE POINT RATHER THAN AN EXCEPTION. `mkToggle` is a
+        // shared factory behind five shipped toggles (Sun path / Wind / Heat / Terrain / Street
+        // life); it holds its own `on` boolean and is fire-and-forget. Both properties are wrong
+        // here and neither could be changed without touching all five:
+        //   · the state must come from the ONE OWNER, not from a closure variable, or this chip
+        //     and the 2D map's chip drift apart (C59 §2.10);
+        //   · the answer is ASYNCHRONOUS and can be `unsupported` — the chip has to be able to say
+        //     "this cadastre publishes no area query" instead of lighting up over nothing.
+        // So this one chip is built explicitly, and the shared factory is left untouched.
+        const boundariesBtn = document.createElement('button');
+        boundariesBtn.type = 'button';
+        boundariesBtn.textContent = '▦ Parcel lines';
+        boundariesBtn.setAttribute('data-testid', 'forma-cadastre-boundaries-chip');
+        Object.assign(boundariesBtn.style, {
+            flex: '1', minWidth: '60px', appearance: 'none',
+            border: '1px solid #e3dcfa', borderRadius: '6px',
+            font: '600 11px/1 system-ui', padding: '6px 4px',
+        } satisfies Partial<CSSStyleDeclaration>);
+
+        // Its OWN note, live. The block's shared `smallNote` below is static prose about the five
+        // factory toggles; this layer's state is a fetched VERDICT and has to be able to change
+        // after the click that caused it.
+        const boundariesNote = this.smallNote('');
+        boundariesNote.setAttribute('data-testid', 'forma-cadastre-boundaries-note');
+
+        const paintBoundaries = (): void => {
+            const on = getCadastralBoundariesEnabled();
+            const verdict = getCadastralBoundariesVerdict();
+            const usable = cadastralBoundariesChipEnabled(verdict);
+            boundariesBtn.style.background = on ? ACCENT : '#faf8ff';
+            boundariesBtn.style.color = on ? '#ffffff' : (usable ? ACCENT : '#bdb6d6');
+            boundariesBtn.style.cursor = usable ? 'pointer' : 'not-allowed';
+            boundariesBtn.disabled = !usable;
+            boundariesBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            // ⭐ TWO SENTENCES, AND THE SECOND ONE IS THE HONEST ONE. The verdict says what the
+            // register answered; the REACH says which views will actually draw it. A chip that
+            // reports "showing 43 boundaries" in a view that does not draw them is the
+            // [[committed-is-not-reachable]] failure rendered as a claim to the user.
+            const reach = describeCadastralBoundaryReach();
+            boundariesNote.textContent = `${cadastralBoundariesSentence(verdict)} ${reach.sentence}`;
+        };
+
+        boundariesBtn.addEventListener('click', () => {
+            const on = toggleCadastralBoundaries();
+            paintBoundaries();
+            if (!on) return;
+            const centre = this.siteLatLon();
+            if (!centre) {
+                // ⛔ NO PLOT, NO QUERY — and SAY so rather than firing at 0,0. `refreshCadastral-
+                // Boundaries` would answer `unreachable` for an invalid centre, which is true but
+                // blames the register for something PRYZM has not supplied.
+                boundariesNote.textContent =
+                    'PRYZM does not know where your plot is yet, so it cannot look up the '
+                    + 'surrounding parcel boundaries. Pick a location or select a parcel first.';
+                return;
+            }
+            void refreshCadastralBoundaries(centre.lat, centre.lon).then(paintBoundaries);
+        });
+
+        row.appendChild(boundariesBtn);
+        paintBoundaries();
+        // Repaint on every change from the ONE owner — including changes made by the OTHER chip.
+        this.cadastralBoundariesSub?.();
+        this.cadastralBoundariesSub = subscribeCadastralBoundaries(paintBoundaries);
+
         block.appendChild(row);
+        block.appendChild(boundariesNote);
         block.appendChild(this.smallNote(
             supported
                 ? 'Toggle 3D overlays onto the site. Sun-path needs no climate; wind/heat need climate data. Terrain is a 3D-Site layer — off = flat ground. Street life = lamps + people; mapped lamps are real, the rest is scenery.'
