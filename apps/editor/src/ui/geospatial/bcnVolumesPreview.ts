@@ -175,6 +175,23 @@ export async function toggleBcnVolumesPreview(
     }
 
     state.on = true;
+
+    // ⭐ FLY THE CAMERA TO THE DATA. The first test of this failed for a reason that had
+    // nothing to do with the data: the founder was at a 5,827 m scope, ~6 km up, and a 450 m
+    // disc of volumes is a speck from there. His own "TO BE" reference — Barcelona's
+    // `Mapa 3D detallat` viewer — is a STREET-LEVEL view, and articulation only reads close up.
+    // A preview the user has to go and find is a preview that reports a false negative.
+    const c = data.pryzm?.centre;
+    if (c && Array.isArray(c) && c.length === 2) {
+        try {
+            viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(c[0], c[1] - 0.0035, 420),
+                orientation: { heading: Cesium.Math.toRadians(20), pitch: Cesium.Math.toRadians(-32), roll: 0 },
+                duration: 2.0,
+            });
+        } catch { /* a preview must never break the camera */ }
+    }
+
     viewer.scene.requestRender();
 
     const attrib = data.pryzm?.attribution ?? 'Ajuntament de Barcelona (CartoBCN)';
@@ -185,6 +202,9 @@ export async function toggleBcnVolumesPreview(
         ` ${Number.isFinite(minH) ? minH.toFixed(1) : '—'}–${maxH.toFixed(1)} m`,
         zeroH ? `, ${zeroH} at height 0 (patios/terraces — drawn flat, NOT given a nominal)` : '',
         `. The baked prisms are hidden so the comparison is of SHAPE. Call again to swap back.`,
+        c ? `
+  Flying to ${c[1].toFixed(5)}, ${c[0].toFixed(5)} at 420 m — articulation only`
+            + ` reads CLOSE UP; at a 5 km scope this looks like the flat plate it replaces.` : '',
         `\n  ${attrib}`,
         `\n  ⛔ PREVIEW ONLY — one hand-cut 450 m disc, no tiering, no budget, no cap.`,
         ` The shipping route is a bake into the R2 buildings tiles.`,
