@@ -9,6 +9,8 @@
  * FragmentReader -> IntermediateModel -> IfcModelBuilder -> IFC File
  */
 
+import { DEFAULT_BUILDING_ID, DEFAULT_BUILDING_NAME } from '@pryzm/core-app-model';
+
 export interface Vector3D {
     x: number;
     y: number;
@@ -64,6 +66,15 @@ export interface ExportElement {
     rotation: Vector3D;
     propertySets: PropertySet[];
     levelId?: string;
+    /**
+     * ADR-0385 — which {@link ExportBuilding} contains this element.
+     *
+     * Resolved THROUGH the element's level, because no element schema carries a
+     * building or group axis today (measured: `grep -n "group"
+     * packages/schemas/src/elements/Wall.ts Slab.ts` → 0 hits). `undefined` means
+     * the default building, which is the pre-ADR-0385 behaviour unchanged.
+     */
+    buildingId?: string;
     parentId?: string;
     hostWallId?: string;
     openingGeometry?: TriangulatedGeometry;
@@ -79,6 +90,16 @@ export interface ExportLevel {
     name: string;
     elevation: number;
     height: number;
+    /**
+     * ADR-0385 — which {@link ExportBuilding} owns this storey.
+     *
+     * `undefined` means "not resolved", and the writer treats that as the single
+     * default building — which is exactly what every project authored before
+     * ADR-0385 gets, and why their storey GlobalIds do not move. Filled by
+     * `FragmentReader` from `resolveLevelBuilding()`, the ONE authority
+     * (`hierarchyStore`); never from `SpaceEnvelope.group` (ADR-0385 §2).
+     */
+    buildingId?: string;
 }
 
 export interface ExportProject {
@@ -106,7 +127,20 @@ export interface ExportBuilding {
 export interface IntermediateModel {
     project: ExportProject;
     site: ExportSite;
-    building: ExportBuilding;
+    /**
+     * ⭐ ADR-0385 — `IfcSite` aggregates N `IfcBuilding`, each owning its OWN
+     * `IfcBuildingStorey` set (C25 §1.3 as amended).
+     *
+     * ⛔ This was a SINGULAR `building: ExportBuilding` hard-coded to
+     * `{id:'building-1', name:'Default Building'}`, which is why a master plan of
+     * three blocks exported as one building with nine storeys instead of three
+     * buildings with three each. The founder's 2026-09-09 ask is that cardinality.
+     *
+     * ⛔ NEVER EMPTY. A model with no resolvable containment still has one
+     * building — the default — so the ungrouped shape is bit-for-bit unchanged.
+     * `buildBuildingRoster()` guarantees this; do not re-derive the guarantee here.
+     */
+    buildings: ExportBuilding[];
     levels: ExportLevel[];
     elements: ExportElement[];
 }
@@ -128,10 +162,13 @@ export function createDefaultIntermediateModel(): IntermediateModel {
             id: 'site-1',
             name: 'Default Site'
         },
-        building: {
-            id: 'building-1',
-            name: 'Default Building'
-        },
+        // ADR-0385: the ungrouped default. `DEFAULT_BUILDING_ID` is the sentinel
+        // that keeps every pre-existing storey GlobalId byte-identical — see
+        // `ifcIdentity.storeySlot`. It is imported, never re-typed as a literal.
+        buildings: [{
+            id: DEFAULT_BUILDING_ID,
+            name: DEFAULT_BUILDING_NAME
+        }],
         levels: [],
         elements: []
     };

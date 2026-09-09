@@ -27,8 +27,11 @@ import { IfcSpatialStructure } from '../src/export/ifc/IfcSpatialStructure';
 import { IfcGeometryWriter } from '../src/export/ifc/IfcGeometryWriter';
 import { IfcPropertyWriter } from '../src/export/ifc/IfcPropertyWriter';
 import { IfcModelBuilder } from '../src/export/ifc/IfcModelBuilder';
-import { ExportDiagnostics, UNASSIGNED_LEVEL_ID } from '../src/export/ifc/ifcIdentity';
-import type { IntermediateModel, ExportElement, TriangulatedGeometry } from '../src/export/ifc/IntermediateModel';
+import { ExportDiagnostics, UNASSIGNED_LEVEL_ID, DEFAULT_BUILDING_ID, storeySlot, storeyKey } from '../src/export/ifc/ifcIdentity';
+import type { IntermediateModel, ExportElement, ExportLevel, TriangulatedGeometry } from '../src/export/ifc/IntermediateModel';
+import { applyBuildingContainment } from '../src/export/ifc/buildingContainment';
+import { globalIdFromStableKey } from '@pryzm/schemas/ifc';
+import { HierarchyStore, readBuildingSubstrate, UNREADABLE_SUBSTRATE } from '@pryzm/core-app-model';
 import { isIfcGlobalId } from '@pryzm/schemas/ifc';
 
 // ── fixtures ────────────────────────────────────────────────────────────────
@@ -59,12 +62,41 @@ function el(partial: Partial<ExportElement> & { id: string; ifcClass: string }):
     } as ExportElement;
 }
 
-function model(elements: ExportElement[], levels = [{ id: 'L0', name: 'Ground Floor', elevation: 0, height: 3 }]): IntermediateModel {
+/**
+ * The UNGROUPED model - one building, exactly as every project authored before
+ * ADR-0385 exports.
+ *
+ * ADR-0385 turned `IntermediateModel.building` (singular) into `buildings` (an
+ * array), so this CONSTRUCTOR had to change. Every ASSERTION below is untouched -
+ * in particular the two `IFCRELAGGREGATES === 4` arms, which are the arithmetic of
+ * exactly one site and exactly one building and are therefore the ADR-0383 D3
+ * back-compatibility guarantee. They were preserved verbatim rather than edited to
+ * accommodate the change; editing them would have retired the guarantee silently.
+ *
+ * The id MUST be `DEFAULT_BUILDING_ID` - it is the sentinel that keeps the storey
+ * slot equal to the bare levelId, and therefore every storey GlobalId byte-identical
+ * (`ifcIdentity.storeySlot`, the L-8501 pin).
+ */
+function model(elements: ExportElement[], levels: ExportLevel[] = [{ id: 'L0', name: 'Ground Floor', elevation: 0, height: 3 }]): IntermediateModel {
     return {
         project: { id: 'project-1', name: 'Validity Project' },
         site: { id: 'site-1', name: 'Site' },
-        building: { id: 'building-1', name: 'Building' },
+        buildings: [{ id: DEFAULT_BUILDING_ID, name: 'Building' }],
         levels,
+        elements,
+    };
+}
+
+/** A model of N buildings, each owning its own storeys. ADR-0385. */
+function multiBuildingModel(
+    buildings: { id: string; name: string; levels: ExportLevel[] }[],
+    elements: ExportElement[] = [],
+): IntermediateModel {
+    return {
+        project: { id: 'project-1', name: 'Master Plan' },
+        site: { id: 'site-1', name: 'Site' },
+        buildings: buildings.map((b) => ({ id: b.id, name: b.name })),
+        levels: buildings.flatMap((b) => b.levels.map((l) => ({ ...l, buildingId: b.id }))),
         elements,
     };
 }
@@ -101,7 +133,7 @@ function emit(m: IntermediateModel): Emitted {
     const propertyWriter = new IfcPropertyWriter(api, modelID, refs.ownerHistoryRef);
     const builder = new IfcModelBuilder(api, modelID, geometryWriter, propertyWriter, refs, diagnostics);
     builder.createElements(m.elements);
-    spatial.finaliseBuildingAggregation(refs, m.building.id);
+    spatial.finaliseBuildingAggregation(refs);
 
     const bytes = api.SaveModel(modelID);
     return { step: new TextDecoder().decode(bytes), diagnostics };
@@ -463,7 +495,7 @@ describe('the emitted file is still a readable IFC model', () => {
             refs, diagnostics,
         );
         builder.createElements(m.elements);
-        spatial.finaliseBuildingAggregation(refs, m.building.id);
+        spatial.finaliseBuildingAggregation(refs);
         const bytes = api.SaveModel(modelID);
 
         const reopened = api.OpenModel(bytes);

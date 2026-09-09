@@ -29,6 +29,7 @@ import { IfcModelBuilder } from './IfcModelBuilder';
 import { IfcFileWriter } from './IfcFileWriter';
 import { IfcSemanticWriter, RoomSemanticData } from './IfcSemanticWriter';
 import { ExportDiagnostics, ExportDiagnostic } from './ifcIdentity';
+import { applyBuildingContainment } from './buildingContainment';
 import { Relationship } from '@pryzm/core-app-model';
 import { debug } from '@pryzm/core-app-model';
 
@@ -110,7 +111,20 @@ export class IfcExporter {
 
             if (options.projectName) intermediateModel.project.name = options.projectName;
 
-            prog('Building spatial structure', 32, `${intermediateModel.levels.length} level${intermediateModel.levels.length !== 1 ? 's' : ''} — creating project, site, building, and storey hierarchy.`);
+            // ADR-0385 - N IfcBuilding, one per building the containment authority
+            // (hierarchyStore) records. MUST run here, AFTER imported storeys have
+            // been appended above: a level added later would carry no buildingId and
+            // fall silently to the default. An ungrouped project resolves to exactly
+            // one building and emits byte-identically to before (ADR-0383 D3).
+            const containment = applyBuildingContainment(intermediateModel, diagnostics);
+            debug(
+                `Building containment: ${containment.buildingCount} IfcBuilding(s); ` +
+                `${containment.unresolvedLevels.length} unresolved level(s); ` +
+                `${containment.substrateNote}`,
+            );
+
+            const buildingCount = containment.buildingCount;
+            prog('Building spatial structure', 32, `${intermediateModel.levels.length} level${intermediateModel.levels.length !== 1 ? 's' : ''} in ${buildingCount} building${buildingCount !== 1 ? 's' : ''} — creating project, site, building, and storey hierarchy.`);
             debug("Creating spatial structure...");
             const spatialStructure = new IfcSpatialStructure(this.api, modelID);
             const spatialRefs = spatialStructure.create(intermediateModel);
@@ -152,7 +166,9 @@ export class IfcExporter {
             // levelId can add the UNASSIGNED storey partway through
             // createElements(). A storey outside this aggregation is orphaned in
             // the spatial tree, which is the defect this ordering prevents.
-            spatialStructure.finaliseBuildingAggregation(spatialRefs, intermediateModel.building.id);
+            // ADR-0385: one aggregation PER BUILDING, and the mapping comes from
+            // spatialRefs rather than from a model field the caller could pass wrong.
+            spatialStructure.finaliseBuildingAggregation(spatialRefs);
 
             // Surface every defect BEFORE the bytes leave, so the caller can warn
             // the user rather than shipping a file that merely looks fine.

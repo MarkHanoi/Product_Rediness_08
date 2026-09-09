@@ -24,6 +24,8 @@ import {
     relAggregatesKey,
     UNASSIGNED_LEVEL_ID,
     ExportDiagnostics,
+    storeySlot,
+    DEFAULT_BUILDING_ID,
 } from './ifcIdentity';
 import { debug } from '@pryzm/core-app-model';
 
@@ -379,10 +381,24 @@ export class IfcModelBuilder {
             this.spatialRefs.ownerHistoryRef, null, null, storeyRef, elementRefs));
     }
 
+    /**
+     * Bucket elements by the STOREY SLOT they belong to.
+     *
+     * ADR-0385: the bucket key is `storeySlot(buildingId, levelId)`, not the bare
+     * `levelId`. Block A "Level 1" and Block B "Level 1" are one PRYZM levelId and
+     * TWO IfcBuildingStorey entities, and an element must land in exactly one of
+     * them. For the ungrouped case the slot IS the levelId, so this function
+     * behaves identically to its pre-ADR-0385 self, key for key.
+     *
+     * An element whose `buildingId` names a building that produced no storey for
+     * its level falls through to the same UNASSIGNED path as an unresolved level
+     * (L-8510) - loudly, never by silent relocation.
+     */
     private groupByStorey(elements: ExportElement[]): Map<string, ExportElement[]> {
         const grouped = new Map<string, ExportElement[]>();
         for (const element of elements) {
-            let storeyId = element.levelId || 'L0';
+            const levelId = element.levelId || 'L0';
+            let storeyId = storeySlot(element.buildingId ?? DEFAULT_BUILDING_ID, levelId);
             if (!this.spatialRefs.storeyRefs.has(storeyId)) {
                 // ⛔ L-8510 — THE WORST DEFECT IN THE AUDIT.
                 //
@@ -402,13 +418,20 @@ export class IfcModelBuilder {
                     severity: 'error',
                     code: 'UNRESOLVED_LEVEL',
                     message:
-                        `levelId "${element.levelId ?? '(none)'}" does not match any exported storey. ` +
+                        `levelId "${element.levelId ?? '(none)'}" (building ` +
+                        `"${element.buildingId ?? DEFAULT_BUILDING_ID}", storey slot "${storeyId}") ` +
+                        `does not match any exported storey. ` +
                         `Placed in the explicit "${UNASSIGNED_LEVEL_ID}" storey instead of being silently ` +
                         `moved to the first storey in the model.`,
                     elementId: element.id,
                 });
                 this.spatialRefs.ensureUnassignedStorey();
-                storeyId = UNASSIGNED_LEVEL_ID;
+                // ensureUnassignedStorey() registers itself under its own slot;
+                // find it rather than assuming the bare id, so a project whose
+                // fallback building is not the default still resolves.
+                storeyId = [...this.spatialRefs.storeyRefs.keys()].find(
+                    (k) => k === UNASSIGNED_LEVEL_ID || k.endsWith(`::${UNASSIGNED_LEVEL_ID}`),
+                ) ?? UNASSIGNED_LEVEL_ID;
             }
             if (!grouped.has(storeyId)) grouped.set(storeyId, []);
             grouped.get(storeyId)!.push(element);

@@ -229,6 +229,30 @@ export type {
     PartOfMembersQuery,
 } from './hierarchy/PartOfProjection.js';
 
+// ── ADR-0385 — the ONE resolver for "which building is this element in" ─────
+// hierarchyStore is the AUTHORITY for spatial containment at the IfcBuilding
+// rung; SpaceEnvelope.group is the massing-stage AUTHORING axis that projects
+// into it. The IFC exporter and BOTH inspect trees call this one function, so
+// they cannot give two answers (C84 EI-9, ADR-0328).
+export {
+    DEFAULT_BUILDING_ID,
+    DEFAULT_BUILDING_NAME,
+    UNREADABLE_SUBSTRATE,
+    readBuildingSubstrate,
+    resolveLevelBuilding,
+    resolveElementBuilding,
+    buildBuildingRoster,
+} from './hierarchy/BuildingResolver.js';
+export type {
+    BuildingSubstrate,
+    BuildingSubstrateBuilding,
+    BuildingSubstrateLevel,
+    BuildingResolution,
+    BuildingResolutionKind,
+    BuildingRoster,
+    RosterBuilding,
+} from './hierarchy/BuildingResolver.js';
+
 export type { CheckResult, SyncCheckResult } from './sync/SyncStateEngine.js';
 export { syncStateEngine } from './sync/SyncStateEngine.js';
 

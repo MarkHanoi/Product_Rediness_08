@@ -32,8 +32,11 @@ import {
     isIfcGlobalId,
     globalIdFromStableKey,
 } from '@pryzm/schemas/ifc';
+// ADR-0385 — the sentinel lives with the resolver, never copied. See storeySlot().
+import { DEFAULT_BUILDING_ID } from '@pryzm/core-app-model';
 
 export { isIfcGlobalId, globalIdFromStableKey };
+export { DEFAULT_BUILDING_ID };
 
 /**
  * Coerce whatever identity the model carries into a valid, stable
@@ -54,8 +57,35 @@ export function ifcGlobalId(value: string | null | undefined, stableKey: string)
 
 /** The element itself. */
 export const elementKey = (pryzmId: string) => `el:${pryzmId}`;
-/** A storey. */
-export const storeyKey = (levelId: string) => `storey:${levelId}`;
+/** A storey. Takes a STOREY SLOT (see {@link storeySlot}), not a bare levelId. */
+export const storeyKey = (storeySlotId: string) => `storey:${storeySlotId}`;
+
+/**
+ * ⭐ ADR-0385 — the composite storey identity, and the whole of the L-8501
+ * back-compatibility pin.
+ *
+ * An `IfcBuildingStorey` belongs to exactly ONE `IfcBuilding` (IFC4 4.1.4.4 /
+ * IFC2x3 §Building: the storey is decomposed from the building by
+ * `IfcRelAggregates`). So Block A "Level 1" and Block B "Level 1" are ONE PRYZM
+ * `levelId` and TWO storeys, and a `Map<levelId, …>` cannot express that. Every
+ * storey-scoped key in this pipeline is therefore derived from a SLOT rather than
+ * from the raw `levelId`.
+ *
+ * ⛔ AND THE SLOT DEGENERATES TO THE LEVEL ID FOR THE DEFAULT BUILDING. That is
+ * not a convenience — it is the guarantee. `storeyKey()` seeds `ifcGlobalId()`,
+ * and so do `relContainedKey()` and the `storey-spaces:` aggregate. Every project
+ * authored before ADR-0385 has exactly one building, and it is
+ * {@link DEFAULT_BUILDING_ID}, so every one of those keys comes out BYTE-IDENTICAL
+ * to what it was before this change. Widening the key unconditionally would
+ * re-churn every storey GlobalId in every existing project — precisely the defect
+ * L-8501 fixed, guarded by the "GlobalId churned between exports" arm.
+ *
+ * ⛔ Do NOT make the slot depend on how many buildings the model has. A rule like
+ * "compose only when N > 1" would re-churn the first building's ids the moment a
+ * second one is added. The sentinel is local to the building and nothing else.
+ */
+export const storeySlot = (buildingId: string, levelId: string): string =>
+    buildingId === DEFAULT_BUILDING_ID ? levelId : `${buildingId}::${levelId}`;
 /** The project / site / building singletons. */
 export const projectKey = (id: string) => `project:${id}`;
 export const siteKey = (id: string) => `site:${id}`;
@@ -65,8 +95,8 @@ export const openingKey = (hostId: string, hostedId: string) => `opening:${hostI
 /** `IfcRelVoidsElement` / `IfcRelFillsElement`. */
 export const relVoidsKey = (hostId: string, hostedId: string) => `relvoids:${hostId}:${hostedId}`;
 export const relFillsKey = (hostId: string, hostedId: string) => `relfills:${hostId}:${hostedId}`;
-/** `IfcRelContainedInSpatialStructure`, one per storey. */
-export const relContainedKey = (storeyId: string) => `relcontained:${storeyId}`;
+/** `IfcRelContainedInSpatialStructure`, one per storey. Takes a STOREY SLOT. */
+export const relContainedKey = (storeySlotId: string) => `relcontained:${storeySlotId}`;
 /** `IfcRelAggregates`, keyed by the aggregating entity. */
 export const relAggregatesKey = (relatingKey: string) => `relaggregates:${relatingKey}`;
 /** An `IfcPropertySet` and its `IfcRelDefinesByProperties`. */
@@ -99,6 +129,16 @@ export interface ExportDiagnostic {
     /** Stable machine-readable code — greppable, and safe to assert on in tests. */
     code:
         | 'UNRESOLVED_LEVEL'
+        /**
+         * ADR-0385 — the hierarchy substrate could not say which `IfcBuilding`
+         * a level belongs to: unreadable store, a dangling `buildingId`, or two
+         * buildings both claiming one `bimLevelId`. The storey is still written
+         * (under the default building) so no element is lost, and the failure is
+         * REPORTED rather than laundered into "ungrouped" — an unreadable
+         * substrate and a genuinely ungrouped project must not look the same
+         * (§CONTEXT-DATA-HONESTY, L-581/L-616).
+         */
+        | 'UNRESOLVED_BUILDING'
         | 'MISSING_HOST_WALL'
         | 'OPENING_WITHOUT_GEOMETRY'
         | 'EMPTY_GEOMETRY'

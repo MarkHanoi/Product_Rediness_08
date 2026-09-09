@@ -36,3 +36,26 @@ export type {
     PartOfParentQuery,
     PartOfMembersQuery,
 } from './PartOfProjection.js';
+
+// ── ADR-0385 — the ONE resolver for "which building is this element in" ──────
+// hierarchyStore is the authority for containment; SpaceEnvelope.group is the
+// massing-stage authoring axis that projects into it. The IFC exporter and BOTH
+// inspect trees call THIS, so they cannot disagree (C84 EI-9).
+export {
+    DEFAULT_BUILDING_ID,
+    DEFAULT_BUILDING_NAME,
+    UNREADABLE_SUBSTRATE,
+    readBuildingSubstrate,
+    resolveLevelBuilding,
+    resolveElementBuilding,
+    buildBuildingRoster,
+} from './BuildingResolver.js';
+export type {
+    BuildingSubstrate,
+    BuildingSubstrateBuilding,
+    BuildingSubstrateLevel,
+    BuildingResolution,
+    BuildingResolutionKind,
+    BuildingRoster,
+    RosterBuilding,
+} from './BuildingResolver.js';
