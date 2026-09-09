@@ -64,11 +64,11 @@ export const PLAN_CAMTARGET_MAX_ABS_M = 20_000;
 // stamps the element TYPE's function on the projected LineSegments; this is where it is read.
 import { elementFunctionFrom, ELEMENT_FUNCTION_KEY } from '../drawing/ElementFunction';
 import type { PenStyle } from '../drawing/PenWeightTable';
-import { SCREEN_PX_PER_MM } from '../drawing/DrawingConstants';
 // §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288) — the backing store must have enough DEVICE PIXELS to
 // draw the pen table's thinnest pen, or every pen at or below the raster floor collapses onto it
 // and the C09 §4.6.4 ladder is invisible on screen. The PENS ARE CORRECT; the rasteriser was not.
-import { resolveCanvasRenderScale, minStrokePx, dashScale } from '../drawing/CanvasRenderScale';
+import { resolveCanvasRenderScale, minStrokePx, dashScale, penMmToCanvasPx } from '../drawing/CanvasRenderScale';
+import { pxPerWorldMetre, resolveScaleDenominator } from '../annotations/paperScale.js';
 // Contract 23 §7 — GraphicsRulesEngine: resolveStyle() replaces direct resolvePen() calls
 import { graphicsRulesEngine } from '../drawing/GraphicsRulesEngine';
 // Contract 23 §3 (Day 3-4) — centralised poche fill table
@@ -410,6 +410,15 @@ export class PlanViewCanvas {
         const hairline = minStrokePx(scale);
         const dashPxScale = dashScale(window.devicePixelRatio);
 
+        // §PENS-ARE-PAPER-MM-LIKE-EVERY-OTHER-MARK (L-13274) — a pen's mm are PAPER mm, so
+        // they travel the SAME paper→world→screen chain every annotation beside them already
+        // travels. The conversion itself lives in `CanvasRenderScale`, once, because this file
+        // has two stroke paths and its own L-288 comment records why one copy is not a fix.
+        const _penScaleDenom = resolveScaleDenominator(viewDef.output);
+        const _penPxPerWorldM = pxPerWorldMetre((ph, pv) => this.worldToScreen(ph, pv));
+        const _penMmToPx = (widthMm: number): number =>
+            penMmToCanvasPx(widthMm, _penScaleDenom, _penPxPerWorldM);
+
         // §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) / C09 §4.6.4d — how THIS view draws the `beyond`
         // zone. Resolved ONCE, here, through the one resolver (the view's own override beats its
         // TYPE's default — elevation/section 'dashed', plan 'solid'), and handed to the pen engine
@@ -517,7 +526,7 @@ export class PlanViewCanvas {
             // (0.35 mm) now genuinely outweighs a door PROJECTION (0.18 mm), and a wall
             // CUT (0.50 mm × wall's VG emphasis) outweighs both — which is exactly the
             // hierarchy the founder's reference drawings read by.
-            const _penPx    = _pen.widthMm * SCREEN_PX_PER_MM;
+            const _penPx    = _penMmToPx(_pen.widthMm);   // §PENS-ARE-PAPER-MM (L-13274)
             const _vgFactor = (vgLineWeight !== null && Number.isFinite(vgLineWeight) && vgLineWeight > 0)
                 ? vgLineWeight / VG_BASE_LINE_WEIGHT
                 : 1;
@@ -1936,6 +1945,15 @@ export class PlanViewCanvas {
         const hairline = minStrokePx(scale);
         const dashPxScale = dashScale(window.devicePixelRatio);
 
+        // §PENS-ARE-PAPER-MM-LIKE-EVERY-OTHER-MARK (L-13274) — a pen's mm are PAPER mm, so
+        // they travel the SAME paper→world→screen chain every annotation beside them already
+        // travels. The conversion itself lives in `CanvasRenderScale`, once, because this file
+        // has two stroke paths and its own L-288 comment records why one copy is not a fix.
+        const _penScaleDenom = resolveScaleDenominator(viewDef.output);
+        const _penPxPerWorldM = pxPerWorldMetre((ph, pv) => this.worldToScreen(ph, pv));
+        const _penMmToPx = (widthMm: number): number =>
+            penMmToCanvasPx(widthMm, _penScaleDenom, _penPxPerWorldM);
+
         // §FEAT-BEYOND-DASH-IN-ELEVATION (L-290) / C09 §4.6.4d — how THIS view draws the `beyond`
         // zone. Resolved ONCE, here, through the one resolver (the view's own override beats its
         // TYPE's default — elevation/section 'dashed', plan 'solid'), and handed to the pen engine
@@ -2049,7 +2067,7 @@ export class PlanViewCanvas {
                 : edge.dashPx;
 
             ctx.strokeStyle = edge.color;
-            ctx.lineWidth   = Math.max(hairline, edge.widthMm * SCREEN_PX_PER_MM);
+            ctx.lineWidth   = Math.max(hairline, _penMmToPx(edge.widthMm));   // §PENS-ARE-PAPER-MM (L-13274)
             ctx.globalAlpha = edge.opacity;
             ctx.setLineDash(_edgeDash ? _edgeDash.map(v => v * dashPxScale) : []);
 

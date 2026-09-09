@@ -668,6 +668,22 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * arrived at from the other side).
      */
     let envelopeFaceDrag3dUnregister: (() => void) | null = null;
+    /**
+     * §FACE-DRAG-SURVIVES-A-PROJECT-SWITCH (founder 2026-09-09 · L-13273 · C13 · C58)
+     *
+     * Re-runs the whole 3D-Site envelope surface wiring. ⭐ THE WIRING WAS INSTALLED EXACTLY
+     * ONCE PER TAB AND TORN DOWN ON EVERY PROJECT SWITCH, WITH NO RE-INSTALL PATH ANYWHERE.
+     * `ensureGisInitialized` is one-shot (`if (gisInitPromise) return gisInitPromise`) and
+     * `mountGISArea` runs once per tab, so nothing could ever wire it again — which is why
+     * the founder could DRAW an envelope on the 3D Site and then not drag its faces: the
+     * draw teardown only `disarm()`s, while the face-drag teardown disposed the listeners
+     * AND dropped the only registered surface.
+     *
+     * ⭐ THE BLOCK IS ALREADY IDEMPOTENT — it opens by disposing and nulling its own
+     * predecessor, because it was written to run after a device-loss re-mount. Re-running it
+     * is therefore the whole fix; nothing had to be made re-entrant.
+     */
+    let rewireSiteEnvelopeSurfaces: (() => void) | null = null;
     // A.8.c.f — the Hektar-style 2D cream/shadow boundary-draw map. This REPLACES
     // the Cesium-3D draw surface for the DRAW step (Cesium stays for 3D render):
     // startBoundaryDraw() opens THIS 2D map; the legacy Cesium `boundaryTool` is
@@ -1194,6 +1210,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                         } catch { return []; }
                     };
 
+                    rewireSiteEnvelopeSurfaces = (): void => {
                     try {
                         envelopeDraw3dUnregister?.();
                         envelopeFaceDrag3dDispose?.();
@@ -1436,6 +1453,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                         console.warn('[gis] §ENVELOPE-DRAW could not register the 3D Site draw surface (non-fatal) — '
                             + 'the Draw button on the envelope panel will SAY SO rather than doing nothing:', e);
                     }
+                    };
+                    // §FACE-DRAG-SURVIVES-A-PROJECT-SWITCH (L-13273) — the first wiring. Every
+                    // later one comes from `clearLayoutProjectState`, which used to only tear down.
+                    rewireSiteEnvelopeSurfaces();
 
                     console.log('[gis] site-authoring surfaces ready (geocode search + 2D Hektar boundary map). Run pryzmStartBoundaryDraw() for the 2D draw, pryzmStartBoundaryDraw3D() for the Cesium draw.');
                 }
@@ -8510,6 +8531,29 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         catch (e) { console.warn('[gis] §ENVELOPE-FACE-DRAG unregister during project teardown failed (non-fatal):', e); }
         try { envelopeDraw3d?.disposeFaceDragAffordance(); }
         catch (e) { console.warn('[gis] §ENVELOPE-FACE-DRAG affordance teardown failed (non-fatal):', e); }
+
+        // §FACE-DRAG-SURVIVES-A-PROJECT-SWITCH (founder 2026-09-09 · L-13273 · C13 · C58)
+        //
+        // ⭐ EVERYTHING ABOVE IS CORRECT AND WAS NEVER THE BUG. The bug is that nothing ran
+        // AFTER it. The teardown is reached on every project switch (`pryzm-project-switch`
+        // → `clearScopes(GIS_SWITCH_SCOPES)`) and every project load
+        // (`ClearProjectCommand` → `clearAll()`), but the INSTALL lived inside the one-shot
+        // `ensureGisInitialized`, inside a further `if (!cesiumViewport)`. So the FIRST
+        // project opened in a tab had face-drag and every later one did not — deterministically,
+        // for the rest of the tab, with no error anywhere.
+        //
+        // ⭐ WHY THE FOUNDER SAW EXACTLY THIS ASYMMETRY — *"I just created the envelopes"* works,
+        // dragging their faces does not. The DRAW teardown a few lines up calls only `disarm()`
+        // and keeps its registration; the FACE-DRAG teardown disposed the listeners AND dropped
+        // the only registered surface. Same lifecycle, two dispositions — one survivable, one not.
+        //
+        // The listeners are bound to a viewer that `CesiumViewport.resetProjectScopedState`
+        // explicitly keeps alive across a switch, so re-wiring here is cheap and correct. The
+        // wiring block opens by disposing its own predecessor, so this is idempotent even if a
+        // future path calls the teardown twice.
+        try { rewireSiteEnvelopeSurfaces?.(); }
+        catch (e) { console.warn('[gis] §FACE-DRAG-SURVIVES-A-PROJECT-SWITCH re-wire failed (non-fatal):', e); }
+
         _layoutOwningProjectId = null;
         console.log('[gis] §L-676-B GIS layout project scope cleared (geocode frame + placement caches dropped).');
     };

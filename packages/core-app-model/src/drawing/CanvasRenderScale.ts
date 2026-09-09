@@ -139,3 +139,96 @@ export function dashScale(devicePixelRatio: number | undefined): number {
         : 1;
     return Math.max(0.5, 1 / Math.max(dpr, 1));
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// §PENS-ARE-PAPER-MM-LIKE-EVERY-OTHER-MARK (founder 2026-09-09 · L-13274 · C09 §4.6)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+//
+// *"THE QUALITY ATM IS REALLY BAD - THE LINES ARE ALMOST NOT READIBLE"*
+//
+// A pen's `widthMm` is PAPER millimetres — the ISO 0.09 / 0.13 / 0.18 / 0.25 / 0.35 / 0.50
+// ladder. Both stroke paths in `PlanViewCanvas` converted it with a FIXED `widthMm × 3.7795`,
+// reading neither the view's drawing scale nor the canvas zoom. So a 0.18 mm line was 0.68 CSS
+// px at every zoom, forever: zoom in on a drawing and the building grows while its linework
+// stays a sub-pixel grey smudge. That is the founder's complaint, literally.
+//
+// Meanwhile every ANNOTATION drawn beside that linework already travels the full
+// paper → world → screen chain (`annotations/paperScale`), whose header states the principle:
+// *"the tag is scaled by exactly the same factor as the geometry it annotates … that relative
+// constancy IS paper size, and it is the property the old fixed-pixel code destroyed."*
+// One rule, two implementations ([[same-rule-two-implementations]]).
+//
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// ⭐⭐ WHY THE LOWER BOUND IS NOT A HEDGE — IT IS THE L-288 INVARIANT, RESTATED AS A SCALE
+// ─────────────────────────────────────────────────────────────────────────────────────────
+// The first draft of this fix was pure paper-faithfulness with no lower bound. IT FAILED TEN
+// EXISTING ARMS, and they were right to fail it: at low zoom every paper-faithful width falls
+// under the raster floor, `max(minStrokePx, …)` clamps them all to one device pixel, and the
+// whole ladder collapses to a single width — **the exact L-288 defect, re-opened.**
+//
+// So the drawing needs both properties at once, and they look contradictory:
+//   (1) PAPER-FAITHFUL — widths follow the zoom, like every other mark.
+//   (2) SEPARABLE — the ladder must never flatten on screen (L-288, C09 §4.6).
+//
+// ⭐ THEY ARE RECONCILED BY WHAT `SCREEN_PX_PER_MM` ACTUALLY IS. Measured:
+//
+//       0.09 mm × (96/25.4) = 0.340 CSS px × backing scale 3 = **1.02 DEVICE px**
+//
+// `MIN_LEGIBLE_BACKING_SCALE` is 3, and `minStrokePx(3)` is exactly one device pixel. So the
+// legacy constant is not an arbitrary second authority at all: it is precisely THE SCALE AT
+// WHICH THE THINNEST RUNG OF THE ISO LADDER LANDS ON THE RASTER FLOOR — the minimum scale at
+// which the ladder is separable at all. Below it the ladder flattens; at or above it the
+// ladder is whole. That calibration is what L-288 established, and it was hiding inside a
+// constant that looked like a unit conversion.
+//
+// The bound therefore belongs on the SCALE, not on each pen:
+//
+//       pxPerPaperMm = max(paperFaithful, LADDER_FLOOR_PX_PER_MM)
+//
+// ⛔ THE DISTINCTION IS THE WHOLE DESIGN. A floor applied PER PEN clamps rungs onto each other
+// and destroys hierarchy — that is L-288. A floor applied to the ONE SCALE FACTOR moves the
+// whole ladder together and preserves every ratio in it exactly. Same word, opposite effect.
+// Do not "simplify" this into a per-pen clamp.
+//
+// Net behaviour: zoomed out, the drawing renders exactly as it does today, ladder intact;
+// zoomed in, the linework grows with the building, as paper does under a magnifier — which is
+// the readability the founder asked for and the property the fixed constant could not express.
+
+/** 96 DPI ÷ 25.4 — see the block above: the scale at which 0.09 mm = one device pixel. */
+const LADDER_FLOOR_PX_PER_MM = 96 / 25.4;
+
+/** 1:100 — the same default `resolveScaleDenominator` applies when a view has no opinion. */
+const DEFAULT_PEN_SCALE_DENOMINATOR = 100;
+
+/**
+ * A pen's PAPER millimetres → CSS pixels on this canvas.
+ *
+ * `paperMm × denominator ÷ 1000` is the width in WORLD metres; `× pxPerWorldM` puts it on
+ * screen through the same transform the geometry itself is drawn with. The result is bounded
+ * BELOW by the ladder-legibility scale, never per-pen — see the block above for why that
+ * distinction is the entire design.
+ *
+ * @param pxPerWorldM the canvas's current zoom, derived from its own `worldToScreen` (see
+ *   `pxPerWorldMetre`). ⚠ When it is not derivable — a degenerate transform, a canvas with no
+ *   size yet, a headless test — the lower bound simply wins, so the drawing renders at today's
+ *   weights instead of collapsing. A pen resolving to 0 px would erase the drawing and be
+ *   indistinguishable from a genuinely hairline pen ([[context-data-honesty-family]]: failure
+ *   and empty must not be the same value).
+ */
+export function penMmToCanvasPx(
+    paperMm: number,
+    scaleDenominator: number,
+    pxPerWorldM: number,
+): number {
+    const mm = Number.isFinite(paperMm) && paperMm > 0 ? paperMm : 0;
+    if (mm === 0) return 0;
+
+    const zoom = Number.isFinite(pxPerWorldM) && pxPerWorldM > 0 ? pxPerWorldM : 0;
+    const denom = Number.isFinite(scaleDenominator) && scaleDenominator > 0
+        ? scaleDenominator
+        : DEFAULT_PEN_SCALE_DENOMINATOR;
+
+    // ONE scale factor for the whole ladder, bounded below. Not a per-pen clamp.
+    const pxPerPaperMm = Math.max(LADDER_FLOOR_PX_PER_MM, (denom / 1000) * zoom);
+    return mm * pxPerPaperMm;
+}
