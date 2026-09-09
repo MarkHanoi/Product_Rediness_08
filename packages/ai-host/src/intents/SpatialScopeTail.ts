@@ -109,6 +109,41 @@ export const LEVEL_NOUN_SRC = String.raw`(?:levels?|floors?|storeys?|stor(?:y|ie
  */
 export const STOREY_NAME_SRC = String.raw`(?:ground|basement|attic|penthouse|mezzanine)`;
 
+/**
+ * ⭐ THE BUILDING NOUNS — §CHAT-HAS-NO-BUILDING-AXIS (L-13302, 2026-09-09).
+ *
+ * The nouns a user reaches for when a parcel holds more than one block: *"create
+ * windows on all walls in BLOCK B"*, *"delete the windows in TOWER 2"*.
+ *
+ * ⛔ THIS IS NOT A SCOPE KIND, AND IT DELIBERATELY DOES NOT BECOME ONE HERE.
+ * `readSpatialTail` still reads "block b" as a ROOM reference, because that is
+ * what the resolver can act on and inventing a fourth `IntentSpatialScope` arm
+ * would oblige every consumer to grow a case for a scope nothing resolves.
+ * The list exists so a REFUSAL can name the axis it lacks instead of implying
+ * the user misspelled a room — the §CHAT-AXIS-AWARE-REFUSAL rule (L-10942)
+ * applied to an axis that does not exist yet rather than to one that does.
+ *
+ * ⭐ ONE LIST, TWO CALLERS, MEMBERSHIP UNCHANGED. `APT_PLACE_BUILDING_RE` in
+ * ZeroTokenResolver.ts carried exactly these four alternatives already; it is
+ * now built from this constant instead of repeating them, so the apartment
+ * grammar and the refusal copy cannot drift apart. The membership is therefore
+ * held EXACTLY as it was — widening it (to `house`, say) would silently change
+ * which sentences that grammar declines, and that is a separate, measured
+ * decision, not a side effect of sharing a string.
+ */
+export const BUILDING_PLACE_NOUN_SRC = String.raw`(?:buildings?|blocks?|towers?|complex)`;
+
+// ⛔ `String.raw`, not a bare template — in a template literal `` is the
+// BACKSPACE character, not a word boundary. Caught by measurement while
+// writing this line (the first cut matched nothing at all).
+const BUILDING_PLACE_RE = new RegExp(String.raw`\b${BUILDING_PLACE_NOUN_SRC}\b`, 'i');
+
+/** Does this place phrase name a BUILDING rather than a room? Used only by
+ *  refusal copy — never to claim, scope or dispatch anything. */
+export function namesABuildingPlace(phrase: string): boolean {
+  return BUILDING_PLACE_RE.test(phrase.trim());
+}
+
 // ─── §CHAT-ORIENTATION-IS-NOT-A-ROOM (L-10941) — THE THIRD SCOPE KIND ────────
 //
 // ⭐ THE FOUNDER TYPED **"Make all windows in the south facade 0.1 meters sill

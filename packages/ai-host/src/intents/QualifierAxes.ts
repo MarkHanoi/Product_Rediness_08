@@ -51,7 +51,7 @@
 
 import { resolveColorRef } from './colorRef.js';
 import { resolveOpeningShapeRef, openingShapeNames, joinNames } from './OpeningShapeVocabulary.js';
-import { resolveCompassRef } from './SpatialScopeTail.js';
+import { resolveCompassRef, namesABuildingPlace } from './SpatialScopeTail.js';
 import { resolveFinishRef } from './finishRef.js';
 import type { ResolverContext } from './ZeroTokenResolver.js';
 
@@ -358,12 +358,96 @@ export function unmatchedQualifierTail(
     };
   }
   const searched = axesSearched(elementKind, ctx, [], opts.searchedNoun ? `${opts.searchedNoun}s` : undefined);
-  return {
-    tail: searched.length === 0
-      ? ''
-      : ` I searched ${joinNames([...searched])} — "${token}" is on none of them.`,
-    redirects: [],
-  };
+  const searchedTail = searched.length === 0
+    ? ''
+    : ` I searched ${joinNames([...searched])} — "${token}" is on none of them.`;
+  // §CHAT-HAS-NO-BUILDING-AXIS (L-13302) — the token names a real thing on an
+  // axis this product does not have. Say THAT, rather than let an exhaustive
+  // list of the axes it does have imply the user misspelled one of them.
+  const absent = absentAxisFor(token);
+  if (absent !== null) {
+    return {
+      tail:
+        `${searchedTail} "${token}" reads as a ${absent.noun}, and ${absent.cannot}. ` +
+        `To do this today, ${absent.insteadSay(elementKind)}.`,
+      redirects: [],
+    };
+  }
+  return { tail: searchedTail, redirects: [] };
+}
+
+/**
+ * ⭐⭐ AXES PRYZM RECOGNISES BUT DOES NOT HAVE — §CHAT-HAS-NO-BUILDING-AXIS
+ * (L-13302, 2026-09-09).
+ *
+ * THE FOUNDER, 2026-09-09: *"i am not sure if the engine via RAC / Bulk chat AI
+ * works efficiently across multiple footprints… it should create windows in all
+ * walls on all the envelopes of all houses on the parcel."*
+ *
+ * The audit that answered him found that it DOES — every `all` verb resolves
+ * project-wide because walls, windows, doors and slabs sit in project-wide
+ * stores with no building partition. But the moment he says the obvious next
+ * sentence, *"…in block b"*, every family in the resolver answers:
+ *
+ *     "I can't find a room 'block b'. The rooms here are: 00-001 (Kitchen).
+ *      I searched compass orientations, colours, finishes, levels, rooms or
+ *      wall types — 'block b' is on none of them."
+ *
+ * ⛔ THAT IS TRUE, EXHAUSTIVE, AND STILL THE WRONG ANSWER. It is this module's
+ * founding defect displaced by one step: the refusal no longer mistakes one
+ * axis for the whole vocabulary — it now correctly reports SIX — and the user
+ * still walks away believing they misspelled a room. What actually happened is
+ * that they named a real thing on an axis THAT DOES NOT EXIST YET. ADR-0383
+ * gave `SpaceEnvelope` a `group`, ADR-0385 made `hierarchyStore` the
+ * containment authority, and NEITHER reaches the chat stack: `ResolverContext`
+ * has no building field, `ScopeDescriptor` has no building arm, and so PRYZM
+ * cannot scope to a block and cannot even count the blocks it would refuse for.
+ *
+ * ⭐ WHY THIS IS A SECOND TABLE AND NOT A ROW IN `QUALIFIER_AXES`, given that
+ * this module's header rules that axes are a TABLE, NOT A CHAIN OF IFS. Because
+ * an `AxisHit` is contractually required to carry `sayIt` — "a sentence that
+ * WOULD work" — and for a building there is none. A building row would have to
+ * put a lie in the one field whose entire job is to be a working sentence, and
+ * `probeQualifierAxes` would then offer it as a REDIRECT. So the shape is kept
+ * (data, one row per axis, no `if`s at the call sites) and only the payload
+ * differs: an absent axis carries what it CANNOT do and what to say instead.
+ *
+ * ⛔ NOTHING HERE CLAIMS, SCOPES OR DISPATCHES. It is refusal copy only. When
+ * the building axis is built, this row is DELETED and a real `QUALIFIER_AXES`
+ * row replaces it — that deletion is the exit condition, and it is the reason
+ * the copy says "yet".
+ */
+export interface AbsentQualifierAxis {
+  readonly id: string;
+  /** The axis as the user would name it, singular. */
+  readonly noun: string;
+  /** Does this token name something on the absent axis? */
+  readonly names: (token: string) => boolean;
+  /** What PRYZM cannot do, said plainly — and never more than it knows. */
+  readonly cannot: string;
+  /** The sentence that DOES work today, which is the half a bare refusal drops. */
+  readonly insteadSay: (elementKind: string) => string;
+}
+
+export const ABSENT_QUALIFIER_AXES: readonly AbsentQualifierAxis[] = [
+  {
+    id: 'building',
+    noun: 'building',
+    names: namesABuildingPlace,
+    cannot:
+      'PRYZM cannot scope a request to one building on a parcel yet — walls, ' +
+      'windows and slabs are stored per project, not per block',
+    insteadSay: (kind) =>
+      `select that block's ${kind}s and say "the selected ${kind}s", or name a level`,
+  },
+];
+
+/** The absent axis this token lands on, or null. First match wins; the table is
+ *  one row long and ordered deliberately if it ever grows. */
+export function absentAxisFor(token: string): AbsentQualifierAxis | null {
+  const bare = bareToken(token);
+  if (bare.length === 0) return null;
+  return ABSENT_QUALIFIER_AXES.find((a) => a.names(bare)) ?? null;
 }
 
 /** "opening shapes" → "opening shape". Refusal copy speaks one value. */

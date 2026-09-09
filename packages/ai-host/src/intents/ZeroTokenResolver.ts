@@ -196,6 +196,9 @@ import {
   // window grammar consumes its tail through the same matcher and needs the
   // same answer; a private copy here would have been the fourth spelling.
   isNotAPlace,
+  // §CHAT-HAS-NO-BUILDING-AXIS (L-13302) — the ONE building-noun list, so the
+  // apartment grammar and the refusal copy cannot drift apart.
+  BUILDING_PLACE_NOUN_SRC,
 } from './SpatialScopeTail.js';
 // §RAC-APARTMENT-IN-ROOM (L-1640) — THE room-number ladder (number tiers
 // strictest-first, whole-name fallback with an ambiguity guard), shared with
@@ -5848,7 +5851,13 @@ const APT_SCOPE_NOT_A_PLACE_RE =
   /^(?:(?:this|that|the|my|our)\s+)?(?:shells?|apartments?|flats?|units?|plans?|walls?)$|^(?:every|each|all)\b|^(?:it|here|there)$/;
 // Building words inside a claimed "place" mean the sentence is about a NEW
 // building envelope — never claimed here (it belongs to generate-building).
-const APT_PLACE_BUILDING_RE = /\b(?:buildings?|blocks?|towers?|complex)\b/;
+// ⭐ BUILT FROM THE SHARED VOCABULARY (§CHAT-HAS-NO-BUILDING-AXIS, L-13302).
+// These four alternatives were spelled out here AND needed again by the
+// refusal copy in QualifierAxes.ts. Membership is byte-identical to what this
+// line carried before — the change is that there is now ONE list, so the
+// grammar that DECLINES on a building word and the refusal that NAMES the
+// missing building axis can never disagree about what a building word is.
+const APT_PLACE_BUILDING_RE = new RegExp(String.raw`\b${BUILDING_PLACE_NOUN_SRC}\b`);
 
 /**
  * L-911 — the programme the EDITOR falls back to when the sentence names no
