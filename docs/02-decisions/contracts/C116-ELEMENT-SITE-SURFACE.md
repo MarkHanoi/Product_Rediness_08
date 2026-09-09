@@ -1,9 +1,17 @@
-# C116 — ELEMENT: SITE SURFACE (roads · parking · pedestrian areas)
+# C116 — ELEMENT: SITEWORKS (roads · parking · pedestrian areas)
+
+> ⚠ **THE FILENAME RETAINS THE HISTORICAL SLUG `C116-ELEMENT-SITE-SURFACE.md`, DELIBERATELY.**
+> The element kind was renamed `siteSurface` → `siteworks` on 2026-09-09 (the ruling below), but the
+> path is already cited by `ADR-0384` and by this document's own header, and the contract **id** —
+> which is what `check-contract-index-equivalence` matches and what every other document cites — is
+> `C116` either way. Renaming the file would move three citations to buy nothing: a grep for
+> `siteworks` finds this document by its *content* on the first line. ⛔ Do not "tidy" the filename
+> into a fourth thing to reconcile.
 
 **Status:** CANONICAL · **Minted:** 2026-09-09 · **Lane:** SITE-SURFACE
 **Ratified by:** [`ADR-0384`](../adrs/ADR-0384-the-site-surface-is-one-family-with-two-forms-and-three-roles.md)
 (nine rulings) · **Authority above it:** the founder transmission of **2026-09-09** (§0, verbatim).
-**Binds:** every PR touching the `siteSurface` family, per [`C84 §6`](C84-ELEMENT-INTEGRITY.md).
+**Binds:** every PR touching the `siteworks` family, per [`C84 §6`](C84-ELEMENT-INTEGRITY.md).
 **Siblings:** [`C92`](C92-ELEMENT-SLAB.md) (slab — **the areal precedent**, whose field spellings this
 family reuses verbatim) · [`C85`](C85-ELEMENT-WALL.md) (wall — **the linear precedent**: a baseline
 plus a thickness, geometry derived) · [`C114`](C114-ELEMENT-SPACE-ENVELOPE.md) (**the structural
@@ -73,7 +81,7 @@ The founder's transmission, verbatim (2026-09-09):
 > panel rail for a new masterplanning category** - then we need **parking spaces** - another
 > category. and **pedestrian areas** - working similar to Roads / slabs."*
 
-A **site surface** is an AUTHORED flat paved surface laid on the site: a footprint on a level's XZ
+A **siteworks** surface is an AUTHORED flat paved surface laid on the site: a footprint on a level's XZ
 plane, with a `thickness` that hangs **below** the finished surface. It is authored either
 **linearly** (a centreline and a width — a road) or **areally** (a ring — a parking area, a plaza).
 
@@ -91,10 +99,41 @@ Per C84 §6.2a — *"on the day it is written, almost every AS-IS cell will read
 honest absence, and that is the correct content"* — and following C107 §0.1 / C114 §0.1:
 
 ```
-grep -rl "siteSurface\|SiteSurface" --include=*.ts --include=*.tsx \
+grep -rl "siteworks\|Siteworks" --include=*.ts --include=*.tsx \
      packages plugins apps src server tools
-→ 0 files.
+→ 0 files.        (re-measured 2026-09-09, AFTER the rename — see the correction box)
 ```
+
+> ⛔ **CORRECTION 2026-09-09 (lane SITE-SURFACE, at the start of implementation) — THIS SECTION'S
+> ORIGINAL MEASUREMENT WAS FALSE WHEN IT WAS WRITTEN, AND FINDING THAT OUT IS WHY THE KIND IS NOW
+> SPELLED `siteworks`.**
+>
+> As minted, the block above read:
+>
+> ```
+> grep -rl "siteSurface\|SiteSurface" … → 0 files.
+> ```
+>
+> Re-run verbatim at the first implementation step: **9 files.**
+> `apps/editor/src/ui/site/SiteSurface.ts` (a **465-line live class** with a module-load singleton
+> `export const siteSurface`), `apps/editor/src/ui/styles/panels/siteSurface.ts`,
+> `.../site/__tests__/siteSurfaceMount.spec.ts`, `engineLauncher.ts`, `WorkspaceController.ts`,
+> `styles/AppTheme.ts`, and the three `ui/analysis/` siblings.
+>
+> ⚠ **This was not staleness.** `SiteSurface.ts` was created in `b6d90edb` (**2026-09-07 22:55**,
+> L-13180) and amended in `f7176132` (**2026-09-09 13:34**, L-13285). This contract was minted in
+> `f7901603` (**2026-09-09 19:20**). **The UI surface predated the contract by 5 h 46 min.** The
+> "0 files" was wrong at the instant of writing — the same defect class as a doc asserting an
+> enforcement that does not exist, and the reason this repository's standing instruction is
+> *"read the gate, never the line"*.
+>
+> ⭐ **Why it was load-bearing rather than cosmetic.** §1 orders *"hold the count at ONE"* and mints
+> the long spelling explicitly *"so a grep for one never returns the others"*. Both were already
+> false: the count was one — **for an unrelated L7 concept** — and the grep returned nine unrelated
+> files. No gate could have caught it (different modules, an L7 class versus an L0 kind, so
+> TypeScript is silent), which is [[same-rule-two-implementations]] in its naming form, at its first
+> instant. The ORCHESTRATOR RULING above resolved it: **the element kind yields, the UI does not**,
+> because the UI exists and the family had not shipped a line of code.
 
 ⭐ **At mint there is no schema, no store, no command, no handler, no plugin, no renderer, no UI
 control and no persistence leg.** §14 is the living record of what is actually built, appended
@@ -109,7 +148,7 @@ logs repeatedly."*
 ⛔ **This contract may not describe terrain draping, junction resolution, kerbs, road markings,
 gradients, camber, drainage, IFC identity, living-graph membership, quantity take-off or RAC
 authoring as capabilities.** Each is claimed only where §14 records it SHIPPED with a proof.
-Everything else here is normative intent. ⛔ **In particular: the family is called `siteSurface` and
+Everything else here is normative intent. ⛔ **In particular: the family is called `siteworks` and
 not `road` precisely so that nobody reads road ENGINEERING into it.** It is a paved plane. §12 is
 the list of everything a road engineer would expect and will not find.
 
@@ -118,9 +157,9 @@ the list of everything a road engineer would expect and will not find.
 | Not this | Why the confusion is dangerous |
 |---|---|
 | **`Slab`** (`packages/schemas/src/elements/Slab.ts`) | A slab is **building fabric on a storey**: it is scheduled, it carries a system type and layers, it couples to columns (`SlabColumnCoupling`) and traces regions from walls (`SlabRegionTracer`). A car park is not a floor plate and must not appear in a floor-area schedule. ⭐ **Its FIELD SPELLINGS are reused verbatim (§9) and its DATUM RULE is inherited (§10) — its IDENTITY is not** |
-| **The zoning `street_width` family** (`packages/site-parcel-data/src/geometry/streetWidth.ts`, `BCN_OFFICIAL_STREET_WIDTHS`, `MURCIA_STREET_WIDTH_AUTHORITY`, …) | ⛔ **The single most dangerous confusion in this contract.** That subsystem MEASURES the width of an EXISTING street in order to resolve a LEGAL height limit; it is a determination with a confidence, a provenance and a refusal vocabulary. A `siteSurface` is a DESIGN the user drew. **A drawn road must never be read as a measured street width**, or an architect would raise their own permitted height by widening a road they invented |
+| **The zoning `street_width` family** (`packages/site-parcel-data/src/geometry/streetWidth.ts`, `BCN_OFFICIAL_STREET_WIDTHS`, `MURCIA_STREET_WIDTH_AUTHORITY`, …) | ⛔ **The single most dangerous confusion in this contract.** That subsystem MEASURES the width of an EXISTING street in order to resolve a LEGAL height limit; it is a determination with a confidence, a provenance and a refusal vocabulary. A `siteworks` is a DESIGN the user drew. **A drawn road must never be read as a measured street width**, or an architect would raise their own permitted height by widening a road they invented |
 | **`SpaceEnvelope`** (`./C114-ELEMENT-SPACE-ENVELOPE.md`) | A prism with a `height`, extruded UP; this is a plate with a `thickness`, extruded DOWN. They share the ONE-KIND-WITH-A-ROLE architecture (ADR-0380 D2 → ADR-0384 D1) and share nothing else |
-| **A context road from the geospatial bake** (`R2` roads layer, `context-3d-tiles-not-live-overpass`) | Context roads are **surveyed fabric around the site**, baked as tiles and never editable. A `siteSurface` is authored inside the project. Two answers to *"where is the road"* would be C84 EI-9 — so the family carries no `sourceFeatureId` and does not adopt context geometry. `NOT MEASURED:` whether tracing a context road into an authored one is wanted |
+| **A context road from the geospatial bake** (`R2` roads layer, `context-3d-tiles-not-live-overpass`) | Context roads are **surveyed fabric around the site**, baked as tiles and never editable. A `siteworks` is authored inside the project. Two answers to *"where is the road"* would be C84 EI-9 — so the family carries no `sourceFeatureId` and does not adopt context geometry. `NOT MEASURED:` whether tracing a context road into an authored one is wanted |
 
 ---
 
@@ -128,13 +167,13 @@ the list of everything a road engineer would expect and will not find.
 
 | Axis | AS-IS (measured 2026-09-09) | TO-BE (normative) |
 |---|---|---|
-| Canonical `elementType` tag | **ABSENT** | `'siteSurface'` — `Id.ts` (`ElementType` union) + `registry.ts` (`SCHEMA_REGISTRY`) |
-| Every spelling in use (§4E) | **none** | ⛔ **hold the count at ONE**: `siteSurface`. `road`, `surface`, `pavement`, `paving`, `siteslab` and `groundSurface` are FORBIDDEN spellings for this family (C84 EI-8). The kind is never bare `surface`, so a grep for one never returns an unrelated hit |
-| L0 schema | **ABSENT** | `packages/schemas/src/elements/SiteSurface.ts` — `defineElement('siteSurface', …)` + `.refine()` invariants |
-| Branded id | **ABSENT** | `SiteSurfaceId = Id<'siteSurface'>`, in `AnyElementId` and `IdFor`. Runtime prefix is derived by `createId('siteSurface')` — there is no separate prefix table |
-| Bus verb namespace | **ABSENT** | `siteSurface.*` per C69 §3.6 (the namespace is the kind, never an abbreviation). Roster in §6 |
-| Geometry package | **ABSENT** | `packages/geometry-site-surface` — **L2**, THREE-free, declared in `eslint.config.js`'s `layerElements` |
-| Plugin | **ABSENT** | `plugins/site-surface` (`@pryzm/plugin-site-surface`), `storeKey: 'siteSurface'` |
+| Canonical `elementType` tag | **ABSENT** | `'siteworks'` — `Id.ts` (`ElementType` union) + `registry.ts` (`SCHEMA_REGISTRY`) |
+| Every spelling in use (§4E) | **none** | ⛔ **hold the count at ONE**: `siteworks`. `road`, `surface`, `pavement`, `paving`, `siteslab`, `groundSurface` — and ⭐ **`siteSurface`, which is FORBIDDEN for this family because it is already TAKEN by an unrelated one** (`apps/editor/src/ui/site/SiteSurface.ts`, the SITE workspace mode's right-hand panel; see §0.1 and the ruling above) — are FORBIDDEN spellings (C84 EI-8). ⭐ **`siteworks` was verified against the whole tree before it was chosen**: `grep -rn "siteworks\|Siteworks\|SITEWORKS" --include=*.ts --include=*.tsx --include=*.json packages plugins apps src server tools docs` → **0 hits**, 2026-09-09. That check is the step §0.1 skipped |
+| L0 schema | **ABSENT** | `packages/schemas/src/elements/Siteworks.ts` — `defineElement('siteworks', …)` + `.refine()` invariants · ⏳ PLANNED — lands stage 2 (schema) |
+| Branded id | **ABSENT** | `SiteworksId = Id<'siteworks'>`, in `AnyElementId` and `IdFor`. Runtime prefix is derived by `createId('siteworks')` — there is no separate prefix table |
+| Bus verb namespace | **ABSENT** | `siteworks.*` per C69 §3.6 (the namespace is the kind, never an abbreviation). Roster in §6 |
+| Geometry package | **ABSENT** | `packages/geometry-siteworks` — **L2**, THREE-free, declared in `eslint.config.js`'s `layerElements` · ⏳ PLANNED — lands stage 3 (geometry) |
+| Plugin | **ABSENT** | `plugins/siteworks` (`@pryzm/plugin-siteworks`), `storeKey: 'siteworks'` · ⏳ PLANNED — lands stage 4 (plugin) |
 | IFC identity | ⛔ **NOT MEASURED.** `IfcCourse` / `IfcPavement` (IFC 4.3 infrastructure) are plausible; neither was verified | resolve before any IFC export claim. ⛔ Until resolved the family is **EXCLUDED** from IFC export rather than guessed into it — C114 §1's precedent for this exact position |
 
 ---
@@ -143,11 +182,11 @@ the list of everything a road engineer would expect and will not find.
 
 | Representation | Where | Authority? |
 |---|---|---|
-| **L0 record** `SiteSurface` | `packages/schemas/src/elements/SiteSurface.ts` | **the shape** |
-| **Plugin store** `SiteSurfaceStore extends Store<SiteSurface>` | `plugins/site-surface/src/store.ts`, `storeKey: 'siteSurface'` | ⭐ **THE AUTHORITY (C84 EI-1).** Reached as `runtime.stores.siteSurface` |
+| **L0 record** `Siteworks` | `packages/schemas/src/elements/Siteworks.ts` | **the shape** · ⏳ PLANNED — lands stage 2 (schema) |
+| **Plugin store** `SiteworksStore extends Store<Siteworks>` | `plugins/siteworks/src/store.ts`, `storeKey: 'siteworks'` | ⭐ **THE AUTHORITY (C84 EI-1).** Reached as `runtime.stores.siteworks` · ⏳ PLANNED — lands stage 4 (plugin) |
 | plugin DTO twin | **none, deliberately** | — |
 | legacy geometry store | **none, deliberately** | — |
-| scene `userData` | mesh carries `{ type: 'siteSurface', id, levelId }` | **a projection, never a source** |
+| scene `userData` | mesh carries `{ type: 'siteworks', id, levelId }` | **a projection, never a source** |
 
 ⭐ **ONE store, and the reason is load-bearing rather than tidy.** C114 §2 records that `pool` spans
 four stores and MUST therefore use `produceMultiStoreCommand` or its patches route to nothing.
@@ -165,11 +204,11 @@ a decision (the `spaceEnvelope` precedent), not an omission. A second store woul
 | Consumer | AS-IS | TO-BE |
 |---|---|---|
 | 3D renderer | **ABSENT** | `apps/editor/src/engine` mesh builder driven by `store.subscribeDirty` — the one channel that fires on EXECUTE, UNDO and REDO alike, so no rival render path exists |
-| Plan view | **ABSENT** | ⛔ `NOT MEASURED` whether a site surface belongs in a storey plan at all. Deferred rather than guessed — §11 item 4 |
+| Plan view | **ABSENT** | ⛔ `NOT MEASURED` whether a siteworks surface belongs in a storey plan at all. Deferred rather than guessed — §11 item 4 |
 | Persistence | **ABSENT** | `snapshotFamilyCoverage.ts` ledger row + `ProjectSerializer` + `restoreCompoundFamilies` common tail |
 | IFC export | **EXCLUDED** (§1) | resolve identity first |
 | GLB export / bake worker | ⛔ **NOT MEASURED** | — |
-| Schedules / quantities | **ABSENT** | ⛔ **A site surface MUST NOT contribute to any floor-area or GFA figure.** C114 §3a's rule generalises: *built* / *intended* / *permitted* are three questions with three authorities, and paved ground is none of them. §12 |
+| Schedules / quantities | **ABSENT** | ⛔ **A siteworks surface MUST NOT contribute to any floor-area or GFA figure.** C114 §3a's rule generalises: *built* / *intended* / *permitted* are three questions with three authorities, and paved ground is none of them. §12 |
 | Zoning / envelope solver | **NOT A CONSUMER, BY REFUSAL** | §0.3 row 2 — a drawn road may never feed `street_width` |
 
 ---
@@ -180,10 +219,10 @@ AS-IS: **nothing exists.** TO-BE, per C11 §11.2 and the measured `spaceEnvelope
 
 | Leg | File | Note |
 |---|---|---|
-| store | `plugins/site-surface/src/store.ts` | `super('siteSurface')` — the ctor arg MUST equal `registration.storeKey` |
-| handlers | `plugins/site-surface/src/handlers/` | each: `readonly type`, `readonly affectedStores`, `canExecute`, `execute` wrapped in `withHandlerSpan` |
-| roster | `plugins/site-surface/src/handlers/index.ts` | `SITE_SURFACE_HANDLER_TYPES` + `buildSiteSurfaceHandlerSet()` |
-| descriptor | `plugins/site-surface/src/registration.ts` | `satisfies PluginRegistration`, **never a type annotation** |
+| store | `plugins/siteworks/src/store.ts` | `super('siteworks')` — the ctor arg MUST equal `registration.storeKey` · ⏳ PLANNED — lands stage 4 (plugin) |
+| handlers | `plugins/siteworks/src/handlers/` | each: `readonly type`, `readonly affectedStores`, `canExecute`, `execute` wrapped in `withHandlerSpan` · ⏳ PLANNED — lands stage 4 (plugin) |
+| roster | `plugins/siteworks/src/handlers/index.ts` | `SITEWORKS_HANDLER_TYPES` + `buildSiteworksHandlerSet()` · ⏳ PLANNED — lands stage 4 (plugin) |
+| descriptor | `plugins/siteworks/src/registration.ts` | `satisfies PluginRegistration`, **never a type annotation** · ⏳ PLANNED — lands stage 4 (plugin) |
 | composition | `apps/editor/src/PluginRegistry.ts` · `runtime-composer/src/{types,composeRuntime}.ts` · `PluginHost.ts` | ⛔ omitting the `StoresSlot` read-channel is **L-11530**, four days of silent data loss |
 | undo | `apps/editor/src/engine/undo/performUndoRedo.ts` | `buildUndoStoreMap()` row |
 
@@ -212,11 +251,12 @@ the section a future `check-bridge-field-coverage` consumes.**
 | `thickness` | `thickness` | **CARRIED** |
 | `baseOffset` | `baseOffset` | **CARRIED** |
 | `name` | `name` | **CARRIED** |
+| `materialId` | `materialId` | **CARRIED**, optional — the C100 master-material reference. §9e (amended): `Slab`'s pair is taken whole, because `check-material-id-required` ARM A is **hard-0** on a colour field without one |
 | `materialColor` | `materialColor` | **CARRIED**, optional; the renderer supplies the default |
 | *(none)* | `provenance` | **MINTED at the handler** — `RetrofittedProvenanceSchema` default. C75 §2.4 |
 | *(none)* | `confidence` | **MINTED at the handler** — `RetrofittedConfidenceSchema` default. C75 §1.3 |
 | *(none)* | *swept ring of a linear surface* | ⛔ **DELIBERATELY NOT A FIELD.** Derived by `sweepCentrelineToRing`, the family's one authority (ADR-0384 D2). A stored ring is a cache and goes stale on the next `setWidth` |
-| *(none)* | *area in m²* | ⛔ **DELIBERATELY NOT A FIELD.** ⚠ **This DIVERGES from `SpaceEnvelope.footprintAreaM2`, and the divergence is named rather than silent:** an envelope's cached area feeds panels that SUM many records, so the read is hot; a site surface's area is a pure function of two fields that the user edits directly, so a cache would need a writer at every mutation site and the one that forgets is the one that ships. One exported `siteSurfaceAreaM2()`, one answer (C84 EI-9) |
+| *(none)* | *area in m²* | ⛔ **DELIBERATELY NOT A FIELD.** ⚠ **This DIVERGES from `SpaceEnvelope.footprintAreaM2`, and the divergence is named rather than silent:** an envelope's cached area feeds panels that SUM many records, so the read is hot; a siteworks surface's area is a pure function of two fields that the user edits directly, so a cache would need a writer at every mutation site and the one that forgets is the one that ships. One exported `siteworksAreaM2()`, one answer (C84 EI-9) |
 | *(none)* | *terrain relationship* | ⛔ **DELIBERATELY ABSENT.** ADR-0384 D5, §12 |
 
 ---
@@ -225,14 +265,14 @@ the section a future `check-bridge-field-coverage` consumes.**
 
 | Verb | Lineage | Stores WRITTEN | Stores RESTORED on undo | Equal? |
 |---|---|---|---|---|
-| `siteSurface.batch.create` | bus / `produceCommand` | `siteSurface` | `siteSurface` | ✅ |
-| `siteSurface.setWidth` | bus / `produceCommand` | `siteSurface` | `siteSurface` | ✅ |
-| `siteSurface.setThickness` | bus / `produceCommand` | `siteSurface` | `siteSurface` | ✅ |
-| `siteSurface.setRole` | bus / `produceCommand` | `siteSurface` | `siteSurface` | ✅ |
-| `siteSurface.delete` | bus / `produceCommand` | `siteSurface` | `siteSurface` | ✅ |
+| `siteworks.batch.create` | bus / `produceCommand` | `siteworks` | `siteworks` | ✅ |
+| `siteworks.setWidth` | bus / `produceCommand` | `siteworks` | `siteworks` | ✅ |
+| `siteworks.setThickness` | bus / `produceCommand` | `siteworks` | `siteworks` | ✅ |
+| `siteworks.setRole` | bus / `produceCommand` | `siteworks` | `siteworks` | ✅ |
+| `siteworks.delete` | bus / `produceCommand` | `siteworks` | `siteworks` | ✅ |
 | batch create · delete · move · **rotate** · material · level change | — | ⛔ **`move`, `rotate`, `material` and `levelChange` are NOT IMPLEMENTED.** Named here because C84 §6 requires the row to exist rather than the verb: an omitted row reads as "fine" | | |
 
-### §6a — There is no singular `siteSurface.create`
+### §6a — There is no singular `siteworks.create`
 
 ⭐ **The batch verb IS the create path, even for one surface** — the shape C114 §6a already ruled.
 One drawn road is a batch of one; a masterplan is a batch of forty; both are **one undo entry**
@@ -248,11 +288,11 @@ an areal surface has no width, and silently doing nothing would be C16 CA-18's b
 
 ## §7 — UNDO / REDO
 
-`affectedStores: ['siteSurface'] as const` — one store, and it is the store the handler writes, so
+`affectedStores: ['siteworks'] as const` — one store, and it is the store the handler writes, so
 C16 CA-19's *"declared == measured"* holds by construction.
 
 Undo routes through the single unified `performUndoRedo` (C03 §4.5) via the **generic**
-`composedStoreUndoAdapter('siteSurface', …)`. ⚠ **The generic adapter is only correct because the
+`composedStoreUndoAdapter('siteworks', …)`. ⚠ **The generic adapter is only correct because the
 render seam subscribes the store's dirty channel** — `Store.applyPatch` notifies `subscribeDirty` on
 EXECUTE, UNDO and REDO alike. ⛔ **A renderer driven by bus EVENTS instead would need a bespoke
 adapter** (`boundaryLine`'s shape), because `performUndoRedo` emits no bus events. This is recorded
@@ -264,7 +304,7 @@ so a future contributor who changes the render seam knows the adapter changes wi
 
 ## §8 — CASCADES
 
-**None, and that is the design.** A site surface triggers no room redetection, no wall rebuild, no
+**None, and that is the design.** A siteworks surface triggers no room redetection, no wall rebuild, no
 slab region trace, no column coupling.
 
 ⛔ **C16 CA-16 forbids a handler writing another family's store**, and there is no cross-family
@@ -279,12 +319,12 @@ what C84 §4C exists to catch.
 
 ### §9a — The role vocabulary (this family's own)
 
-`SITE_SURFACE_ROLES = ['road', 'parking', 'pedestrian']` — a **closed union with a value roster**, so
+`SITEWORKS_ROLES = ['road', 'parking', 'pedestrian']` — a **closed union with a value roster**, so
 a new member is a compile error at every exhaustive switch, and a typed
-`Record<SiteSurfaceRole, string>` gives each member **one sentence of explanation**. A role cannot
+`Record<SiteworksRole, string>` gives each member **one sentence of explanation**. A role cannot
 exist without an explanation. (The `SPACE_ENVELOPE_ROLES` property, inherited.)
 
-⛔ **No `AUTHORABLE_SITE_SURFACE_ROLES` subset is minted.** All three are authorable, so a subset
+⛔ **No `AUTHORABLE_SITEWORKS_ROLES` subset is minted.** All three are authorable, so a subset
 with identical membership would be a second vocabulary answering a question with one answer
 (C84 EI-8). If a non-authorable role ever appears, its subset arrives in the same commit.
 
@@ -292,10 +332,10 @@ with identical membership would be a second vocabulary answering a question with
 
 | "role" | Owner | Members |
 |---|---|---|
-| **the family's purpose discriminator** | `SiteSurface.role`, this §9a | `road` · `parking` · `pedestrian` |
+| **the family's purpose discriminator** | `Siteworks.role`, this §9a | `road` · `parking` · `pedestrian` |
 | **the SPATIAL-VALIDITY role** | [`C83 §2.2`](C83-SPATIAL-VALIDITY-AND-DESIGN-LOGIC.md) | `PASSAGE` · `APERTURE` · `STRUCTURE` · `OCCUPIABLE` · `CIRCULATION_SURFACE` |
 
-A `siteSurface` is a **`CIRCULATION_SURFACE`** in the second vocabulary, in all three of its own
+A `siteworks` is a **`CIRCULATION_SURFACE`** in the second vocabulary, in all three of its own
 roles. C84 EI-8 asks for one vocabulary per **concept**; these are two concepts, so the resolution
 is to name the collision at the point of use — here and in the schema — not to rename either.
 `SpaceEnvelope.role` established `role` as the family-discriminator spelling and consistency with
@@ -318,7 +358,7 @@ measured to have failed twice.
 
 ### §9d — ⭐ THE DEFAULT WIDTHS ARE A CITED RECORD, NOT THREE LITERALS
 
-`SITE_SURFACE_DEFAULT_WIDTH_M` is a `Record<SiteSurfaceRole, CitedDefault>` where a `CitedDefault`
+`SITEWORKS_DEFAULT_WIDTH_M` is a `Record<SiteworksRole, CitedDefault>` where a `CitedDefault`
 carries `{ valueM, standing: 'standard' | 'convention', instrument, note }`. ⛔ **A bare number
 cannot say where it came from, and a number that cannot say where it came from is
 [[fake-more-capable-than-real]].**
@@ -342,10 +382,50 @@ cannot say where it came from, and a number that cannot say where it came from i
 
 ### §9e — Material vocabulary
 
-⛔ `NOT MEASURED` — which of C84 EI-8's V1–V5 material vocabularies applies. The family carries an
-optional `materialColor` string (the `Slab`/`SpaceEnvelope` spelling) and **no `materialId` and no
-`systemTypeId`**, because adopting `Slab`'s system-type machinery would make a car park schedulable
-as building fabric (§0.3). A real paving build-up is §11 item 6.
+The family carries **`materialId` + `materialColor`** — `Slab`'s pair, taken unchanged — and
+**NO `systemTypeId` and NO `layers`**.
+
+> ⛔ **AMENDED 2026-09-09 (lane SITE-SURFACE, at the first implementation step). As minted this
+> section said "no `materialId` and no `systemTypeId`", and half of that was wrong — measurably.**
+>
+> As written, §9e was in **direct conflict with a hard-0 gate arm**.
+> `tools/ga-gate/check-material-id-required.ts` **ARM A** fires on any element schema that declares
+> a colour field and no `materialId`, quoting C100 §2.1: *"a hex is not a material; it is one
+> attribute of one."* Measured at the start of this lane: **RC=3, ARM A colour-without-id 1 / 0**,
+> the single offender being `packages/schemas/src/elements/SpaceEnvelope.ts`. Implementing §9e
+> literally would have taken that hard-0 arm to **2 / 0** — a worse exit-3 whose new site is
+> unambiguously **this family's**, and which is **not absorbable** (§RATCHET-EXCEEDED-IS-NEVER-DEBT,
+> R7 / L-836). The gate's own words: *"A baseline is not permission (C68). Fix the new site; never
+> raise the ceiling."*
+>
+> ⭐ **§9e conflated two different fields, and `Slab.ts` — the very file §9c binds this family to —
+> proves they are separable.** Measured:
+>
+> ```
+> packages/schemas/src/elements/Slab.ts
+>   60:  materialId:    z.string().optional(),   <- the C100 master-material REFERENCE
+>   61:  materialColor: z.string().optional(),   <- a display tint
+>   62:  systemTypeId:  z.string().optional(),   <- the ASSEMBLY / schedulability machinery
+> ```
+>
+> **`materialId` is not the schedulability machinery.** It is a reference into the master material
+> database (C100). `systemTypeId` is what makes a slab a *typed assembly* that a floor schedule can
+> total — and **that** is what §9e's stated reason actually objects to: *"adopting `Slab`'s
+> system-type machinery would make a car park schedulable as building fabric"*. That objection is
+> **preserved in full** and is why `systemTypeId` and `layers` are still refused (§0.3, §12).
+>
+> ⭐ **The amendment is justified by this family's own existing principle rather than a new
+> argument.** §9c already binds it to *"`Slab`'s spellings taken unchanged"*. Taking `Slab`'s
+> `materialId` + `materialColor` **pair** while declining `systemTypeId` + `layers` therefore
+> satisfies C100 §2.1, satisfies §9e's stated intent, and mints no new vocabulary.
+>
+> ⚠ **And §9e's own `NOT MEASURED` is now discharged for the axis it named.** It read *"`NOT
+> MEASURED` — which of C84 EI-8's V1–V5 material vocabularies applies."* Measured: the family takes
+> **`Slab`'s**, minus the assembly half. That line is struck from §15.
+
+A real paving build-up (courses, a sub-base, a binder) remains **§11 item 6** and must NOT arrive as
+`Slab`'s `systemTypeId`, for the reason §0.3 gives: a car park is not a floor plate and must never
+appear in a floor-area schedule.
 
 ---
 
@@ -363,7 +443,7 @@ convention, two surfaces at the same `baseOffset` would silently fail to meet.
 
 ### §10b — THE ONE AUTHORITY
 
-`sweepCentrelineToRing(centreline, widthM)` in `@pryzm/geometry-site-surface` — the single named
+`sweepCentrelineToRing(centreline, widthM)` in `@pryzm/geometry-siteworks` — the single named
 authority (C84 EI-1) that turns a linear surface into a ring. **Every consumer that needs the
 footprint of a linear surface calls it.** A second sweep anywhere is [[same-rule-two-implementations]].
 
@@ -372,11 +452,11 @@ tight reversal. The sweep's own header states its limits; §11 item 2.
 
 ### §10c — Layering
 
-`packages/geometry-site-surface` is **L2**: it imports `@pryzm/schemas` (L0) and nothing above.
+`packages/geometry-siteworks` is **L2**: it imports `@pryzm/schemas` (L0) and nothing above.  (⏳ PLANNED — lands stage 3 (geometry))
 ⛔ **THREE-free** (P2) — it must appear in `eslint.config.js`'s `layerElements` or
 `check-layer-boundaries.ts` cannot classify it.
 
-`packages/schemas/src/elements/SiteSurface.ts` is **L0-pure** (P5): Zod + plain TS, zero I/O, zero
+`packages/schemas/src/elements/Siteworks.ts` is **L0-pure** (P5): Zod + plain TS, zero I/O, zero  (⏳ PLANNED — lands stage 2 (schema))
 THREE, zero DOM, **no OTel span** (a span is I/O).
 
 ---
@@ -387,8 +467,8 @@ THREE, zero DOM, **no OTel span** (a span is I/O).
 |---|---|---|---|
 | 1 | **Terrain draping** — a surface that follows the ground | §CONTEXT-DATA-HONESTY; L-584 | a terrain sampler returning a PROFILE, not one centroid point. Refused by name today (§12) |
 | 2 | **Sweep mitres and self-intersection** at polyline corners | C84 EI-1 (one authority) | a fixture from the real sampler, not a hand-built one — [[grep-for-the-existing-solver-first]] |
-| 3 | **Reachability through the REAL composed runtime** | [[committed-is-not-reachable]] | dispatch → read back out of `rt.stores.siteSurface` → serialise → clear → restore → read again |
-| 4 | **Plan-view representation** | C11 §8.4 | ⛔ `NOT MEASURED` whether a site surface belongs in a storey plan at all — decide before drawing it |
+| 3 | **Reachability through the REAL composed runtime** | [[committed-is-not-reachable]] | dispatch → read back out of `rt.stores.siteworks` → serialise → clear → restore → read again |
+| 4 | **Plan-view representation** | C11 §8.4 | ⛔ `NOT MEASURED` whether a siteworks surface belongs in a storey plan at all — decide before drawing it |
 | 5 | **RAC / chat authoring** | C67 / C68 | a `ChatCapabilityRegistry` entry per verb. At mint every verb is `CHAT_UNAVAILABLE` with a refusal naming the route back to success |
 | 6 | **Paving build-up (layers)** | C84 EI-8 | must NOT be `Slab`'s `systemTypeId` — §0.3 |
 | 7 | **Junction resolution between crossing roads** | C84 EI-10 | §12 — refused, not deferred silently |
@@ -404,13 +484,13 @@ THREE, zero DOM, **no OTel span** (a span is I/O).
 |---|---|
 | ⛔ **No terrain draping.** A surface is level-relative | The ordinance measures at the façade; PRYZM samples ONE terrain point at the centroid (L-584). A road draped over a one-point sample is *geometry the user believes*, which is worse than a wrong number in a panel. ADR-0384 D5 |
 | ⛔ **No junction resolution.** Two crossing roads are two overlapping surfaces | Walls have `JunctionResolverV2` (ADR-0055) and it does **not** transfer: it keys on wall thickness and vertical faces. Forking it would be a second solver for a problem it does not solve. ADR-0384 §5 |
-| ⛔ **No kerbs, markings, gradients, camber, superelevation or drainage** | A `siteSurface` is a flat plane. §0.2 — a family named for a behaviour it does not have |
+| ⛔ **No kerbs, markings, gradients, camber, superelevation or drainage** | A `siteworks` is a flat plane. §0.2 — a family named for a behaviour it does not have |
 | ⛔ **`setWidth` refuses on an areal surface, by name** | An areal surface has no width. Silently doing nothing is C16 CA-18's bare success |
 | ⛔ **No contribution to any floor-area, GFA or schedule figure** | C114 §3a generalised: *built* / *intended* / *permitted* are three questions with three authorities and paved ground is none of them. A car park in a GFA total is a wrong number with a citation attached |
 | ⛔ **Never feeds the zoning `street_width` determination** | §0.3 row 2 — an architect could otherwise raise their own permitted height by widening a road they invented |
 | ⛔ **Excluded from IFC export** until §1's identity is resolved | Guessing an IFC class exports intent as fact — C114 §1's precedent |
 | ⛔ **No `sourceFeatureId`; context roads are not adopted** | Two answers to *"where is the road"* is C84 EI-9 |
-| ⛔ **Overlap between two site surfaces is NOT refused** | A drive crossing a plaza is a normal design. [[spatial-validity-rules-founder-direction]] puts this in FINE/INADVISABLE, and the founder's standing direction is **always ASK, never silently correct**. ⛔ `NOT MEASURED:` whether an advisory is wanted |
+| ⛔ **Overlap between two siteworks surfaces is NOT refused** | A drive crossing a plaza is a normal design. [[spatial-validity-rules-founder-direction]] puts this in FINE/INADVISABLE, and the founder's standing direction is **always ASK, never silently correct**. ⛔ `NOT MEASURED:` whether an advisory is wanted |
 
 ---
 
@@ -420,11 +500,11 @@ THREE, zero DOM, **no OTel span** (a span is I/O).
 |---|---|
 | `tools/ga-gate/check-domain-purity.ts` | the L0 schema is Zod + plain TS; **hard-0** |
 | `tools/ga-gate/check-three-imports.ts` | the geometry package imports no THREE; **hard-0** (P2) |
-| `tools/ga-gate/check-otel-spans.ts` | every `siteSurface.*` handler carries ≥1 span; **ZONE A, zero tolerance** (P8 / C16 CA-14) |
+| `tools/ga-gate/check-otel-spans.ts` | every `siteworks.*` handler carries ≥1 span; **ZONE A, zero tolerance** (P8 / C16 CA-14) |
 | `tools/ga-gate/check-layer-boundaries.ts` | the new packages are classified in `eslint.config.js` |
 | `tools/ga-gate/check-no-direct-store-writes.ts` | **zero NEW tolerated direct writes** (P6) |
 | `tools/ga-gate/check-contract-index-equivalence.ts` | this file has a `README.md` row **in the same commit** |
-| provenance/confidence coverage | `provenance` + `confidence` spelled INLINE in the file declaring `defineElement('siteSurface')` — an indirection hides them from the retrofit-safety arm (C62 / C75) |
+| provenance/confidence coverage | `provenance` + `confidence` spelled INLINE in the file declaring `defineElement('siteworks')` — an indirection hides them from the retrofit-safety arm (C62 / C75) |
 | `tools/ga-gate/check-contract-cited-paths.ts` | every repo path cited above resolves, or is marked PLANNED |
 
 ---
@@ -436,16 +516,33 @@ THREE, zero DOM, **no OTel span** (a span is I/O).
 Nothing is built. §0.1's measurement is the whole status: **0 files.** This section grows as legs
 land, each entry naming its proof.
 
+### 2026-09-09 · lane SITE-SURFACE · **STAGE 1 — REGISTRATION, RENAME AND TWO CORRECTIONS.** No element code yet.
+
+**What landed, and what each thing is a proof of:**
+
+| Change | Proof |
+|---|---|
+| **`contracts/README.md` gained the C116 row**, and **the range moved with it** in the same commit | `npx tsx tools/ga-gate/check-contract-index-equivalence.ts` → **RC=0 · arm A 18 = baseline · arms B/C/D clean** (it read **RC=3, arm A 19/18** before, C116 being the sole 19th) |
+| **The element kind was renamed `siteSurface` → `siteworks`** throughout this contract and ADR-0384, per the ORCHESTRATOR RULING at the head of this file | `grep -rn "siteworks\|Siteworks\|SITEWORKS" --include=*.ts --include=*.tsx --include=*.json packages plugins apps src server tools docs` → **0 code hits** before the rename was chosen. ⛔ The UI's nine `siteSurface` files were **not touched** |
+| **§0.1 corrected in place** — its "0 files" was false when written | the 9-file re-run and the 5 h 46 min ordering are quoted in the correction box |
+| **§9e amended in place** — `materialId` is now REQUIRED alongside `materialColor`; `systemTypeId`/`layers` stay refused | `check-material-id-required` ARM A is **hard-0 and already breached 1/0** by `SpaceEnvelope`; implementing §9e as minted would have made it **2/0 at this family's own new site**, which is not absorbable. `Slab.ts:60-62` is the evidence the two fields are separable |
+| **Eleven forward-looking citations marked `⏳ PLANNED`** with the stage that removes each | `check-contract-cited-paths` → **RC=0, 462 = baseline 462** (it read **RC=3, 469/462** before — over by exactly the 7 distinct paths this family declares). ⛔ These are **not laundering**: each marker names the stage that makes the path real and is removed in that commit |
+
+⛔ **NOTHING IS REACHABLE. There is no schema, no store, no verb, no plugin, no renderer and no UI
+control.** §0.1 still governs.
+
 ---
 
 ## §15 — NOT MEASURED (explicit, per C84 EI-1b)
 
-- Whether a site surface belongs in a **storey plan view** at all (§11 item 4).
+- Whether a siteworks surface belongs in a **storey plan view** at all (§11 item 4).
 - **IFC identity** — `IfcCourse` vs `IfcPavement` (§1).
 - **GLB export / bake worker** behaviour (§3).
-- Whether an **overlap advisory** between two site surfaces is wanted (§12).
+- Whether an **overlap advisory** between two siteworks surfaces is wanted (§12).
 - Whether **tracing a context road** into an authored one is wanted (§0.3).
 - Whether **Orden TMA/851/2021** restates the 1,80 m pedestrian figure (§9d).
 - Whether any **national instrument** fixes a Spanish parking-bay dimension (§9d).
-- Which of C84 EI-8's **V1–V5 material vocabularies** applies (§9e).
+- ~~Which of C84 EI-8's **V1–V5 material vocabularies** applies (§9e).~~ ⭐ **DISCHARGED 2026-09-09**
+  — the family takes **`Slab`'s** (`materialId` + `materialColor`), minus the assembly half
+  (`systemTypeId`, `layers`), which stays refused. §9e carries the measurement and the reason.
 - Whether the family participates in the **living graph** (C71).

@@ -21,16 +21,16 @@ per-element contract is absent."*
 
 ---
 
-> ## ⛔⛔ ORCHESTRATOR RULING 2026-09-09 — **THE ELEMENT KIND IS `siteworks`, NOT `siteSurface`**
+> ## ⛔⛔ ORCHESTRATOR RULING 2026-09-09 — **THE ELEMENT KIND IS `siteworks`, NOT `siteworks`**
 >
-> The lane's stage-0 blocker was real and it measured it correctly: **`siteSurface` is already a
-> live UI symbol.** `apps/editor/src/ui/site/SiteSurface.ts` is 25,633 bytes, and the spelling
-> appears across **nine files** — `styles/panels/siteSurface.ts`, `WorkspaceController.ts`,
-> `AppTheme.ts`, `engineLauncher.ts`, `siteSurfaceMount.spec.ts` and the analysis siblings. It is
+> The lane's stage-0 blocker was real and it measured it correctly: **`siteworks` is already a
+> live UI symbol.** `apps/editor/src/ui/site/Siteworks.ts` is 25,633 bytes, and the spelling
+> appears across **nine files** — `styles/panels/siteworks.ts`, `WorkspaceController.ts`,
+> `AppTheme.ts`, `engineLauncher.ts`, `siteworksMount.spec.ts` and the analysis siblings. It is
 > owned by another lane (L-13180 / L-13285).
 >
 > **The ELEMENT KIND yields, not the UI.** Two reasons, in order of weight:
-> 1. **C84 EI-8 — one spelling per subject.** Two unrelated things called `siteSurface` means a
+> 1. **C84 EI-8 — one spelling per subject.** Two unrelated things called `siteworks` means a
 >    grep for either returns both, permanently, for every future reader. That cost is paid forever;
 >    a rename now is paid once.
 > 2. **Renaming the UI would edit nine files across a live lane's surface** to accommodate a family
@@ -56,7 +56,7 @@ per-element contract is absent."*
 >
 > ⭐ **And the other three stage-0 blockers are answered here too:** edit C116 §9e and §0.1 **in
 > place** rather than superseding them by ADR; you do **not** need to touch
-> `apps/editor/src/ui/site/SiteSurface.ts` or its eight siblings at all once the kind is renamed;
+> `apps/editor/src/ui/site/Siteworks.ts` or its eight siblings at all once the kind is renamed;
 > and the ISSUE-LOG rows are the orchestrator's — hand over the text in your close.
 >
 > ⚠ **One correction to the lane's own audit: Actions is NOT billing-blocked today.** Measured
@@ -66,6 +66,42 @@ per-element contract is absent."*
 
 ---
 
+
+> ## ⛔ AMENDED 2026-09-09 (same day, at first implementation) — **THE KIND IS `siteworks`; D1 SAID `siteSurface` AND THAT SPELLING WAS ALREADY TAKEN**
+>
+> D1 below rules the kind is spelled `siteSurface`, *"so a grep for one never returns the others"*.
+> ⛔ **That justification was false at the moment it was written, and no gate could have said so.**
+> Measured at the first implementation step:
+> `grep -rl "siteSurface\|SiteSurface" --include=*.ts --include=*.tsx packages plugins apps src server tools`
+> → **9 files**, led by `apps/editor/src/ui/site/SiteSurface.ts` — a **465-line live L7 class** with a
+> module-load singleton, the SITE workspace mode's right-hand panel, created `b6d90edb`
+> **2026-09-07 22:55** (L-13180) and amended `f7176132` **2026-09-09 13:34** (L-13285). **It predated
+> this ADR by 5 h 46 min.** C116 §0.1 recorded the same grep as *"0 files"*; it was wrong when
+> written, which is why that section now carries a correction box.
+>
+> ⚠ **TypeScript would never have caught it** — an L7 class and an L0 kind in different modules do
+> not collide at compile time — so it would have shipped permanently. This is
+> [[same-rule-two-implementations]] in its naming form, caught at its first instant rather than
+> after the seventh.
+>
+> **THE ORCHESTRATOR RULED THAT THE ELEMENT KIND YIELDS, NOT THE UI** (the ruling is quoted in full at
+> the head of [`C116`](../contracts/C116-ELEMENT-SITE-SURFACE.md)): the UI exists and this family had
+> not shipped a line of code, so renaming nine files across a live lane's surface to accommodate it
+> was the wrong trade. The kind is **`siteworks`** — the industry term for exactly this scope
+> (carriageways, parking, footpaths, hard landscaping), with room to grow into drainage and kerbs
+> without a second rename, and **verified against the whole tree before it was chosen**:
+> `grep -rn "siteworks\|Siteworks\|SITEWORKS" --include=*.ts --include=*.tsx --include=*.json packages plugins apps src server tools docs`
+> → **0 hits**. ⭐ **That verification step is the one D1 skipped, and it is now part of C116 §1.**
+>
+> ⚠ **`pavement` was considered and rejected** despite being the IFC4x3 entity name: it reads as
+> *footway* in British English and *carriageway* in American. The export mapping stays
+> `IfcPavement` / `IfcCourse` — an export mapping and an internal kind need not share a spelling.
+>
+> ⛔ **D1's substance is UNCHANGED and still binding**: ONE kind, THREE roles, no `AUTHORABLE_*`
+> subset. Only the spelling moved. Every `siteworks` in the body below was `siteSurface` as minted;
+> the ADR number does not change, and this banner is the record rather than a rewrite.
+
+---
 
 ## 1 · THE ASK (verbatim, 2026-09-09)
 
@@ -103,13 +139,13 @@ refuses.
 
 ## 3 · DECISIONS
 
-### D1 — ONE element kind, `siteSurface`, carrying `role: 'road' | 'parking' | 'pedestrian'`
+### D1 — ONE element kind, `siteworks`, carrying `role: 'road' | 'parking' | 'pedestrian'`
 
-The kind is spelled **`siteSurface`**, never bare `surface`, never `road`, so a grep for one never
+The kind is spelled **`siteworks`**, never bare `surface`, never `road`, so a grep for one never
 returns the others (`C84 EI-8`, and the identical spelling discipline `C114 §1` imposes on
 `spaceEnvelope`).
 
-`SITE_SURFACE_ROLES` is a **closed union with a value roster**, so a new member is a compile error
+`SITEWORKS_ROLES` is a **closed union with a value roster**, so a new member is a compile error
 at every exhaustive switch, and each member carries **one sentence of explanation in a typed
 `Record<>`** — a role cannot exist in this codebase without an explanation, which is the property
 `SPACE_ENVELOPE_ROLES` established and this family inherits.
@@ -139,7 +175,7 @@ form: 'areal'   →  boundary:   Vec3[] (≥3, an OPEN ring)      +  holes: Vec3
 ```
 
 ⭐ **The swept ring of a linear surface is DERIVED by exactly one exported function and is never
-persisted.** That function — `sweepCentrelineToRing` in `@pryzm/geometry-site-surface` — is the
+persisted.** That function — `sweepCentrelineToRing` in `@pryzm/geometry-siteworks` — is the
 family's named single authority under `C84 EI-1`.
 
 **This is the wall's own rule, not a new one.** `Wall` stores `start`, `end` and `thickness`; it
@@ -199,7 +235,7 @@ failed to meet.
 
 ### D5 — Level-relative. **NOT terrain-draped**, and that is a DECLARED REFUSAL, not a gap
 
-A `siteSurface` records **no terrain relationship at all**. It is seated on a level and measured from
+A `siteworks` surface records **no terrain relationship at all**. It is seated on a level and measured from
 that level's datum, exactly as `SpaceEnvelope` is, and for the same reason its schema states:
 
 > *"⚠ L-584 IS NOT RE-IMPORTED HERE, AND THE OMISSION IS DELIBERATE. The ordinance measures the
@@ -266,7 +302,7 @@ writer exists rather than after).
 `C16 CA-2` — ids are pre-generated at the tool entry and are **identical across redo**, because
 `execute()` runs again on redo and an id minted inside it orphans every reference the second time.
 
-⭐ **`siteSurface.batch.create` is the create verb, and there is no singular `siteSurface.create`** —
+⭐ **`siteworks.batch.create` is the create verb, and there is no singular `siteworks.create`** —
 the shape `C114 §6a` already ruled for envelopes. One drawn road is a batch of one. A masterplan
 laid out in one gesture is a batch of forty, **one Immer patch pair, one Ctrl+Z** (`C16 §8.6`).
 Two verbs would let a surface spend forty undos on one gesture.
@@ -274,7 +310,7 @@ Two verbs would let a surface spend forty undos on one gesture.
 ### D9 — The family declares its `C83 §2.2` spatial role, and that vocabulary is NOT the same word as `role`
 
 `C83 §2.2` has a role vocabulary of its own — `PASSAGE` / `APERTURE` / `STRUCTURE` / `OCCUPIABLE` /
-`CIRCULATION_SURFACE` — for **spatial-validity** rules. A `siteSurface` is a
+`CIRCULATION_SURFACE` — for **spatial-validity** rules. A `siteworks` is a
 **`CIRCULATION_SURFACE`** in that vocabulary, in all three of its own roles.
 
 ⚠ **Two different concepts are both spelled "role", and this ADR refuses to pretend otherwise.**
@@ -295,11 +331,11 @@ family "declares its spatial role" as a shipped property would be the naming-vs-
 
 | Verb | Payload | Undo |
 |---|---|---|
-| `siteSurface.batch.create` | `{ surfaces: SiteSurfaceCreateSpec[] }` — each spec carries its own caller-minted `id`, `role`, `form` and geometry | **1** |
-| `siteSurface.setWidth` | `{ id, widthM }` — **linear form only**; refuses on an areal surface by name | 1 |
-| `siteSurface.setThickness` | `{ id, thickness }` | 1 |
-| `siteSurface.setRole` | `{ id, role }` — geometry untouched; the meaning changes, the surface does not | 1 |
-| `siteSurface.delete` | `{ ids }` | 1 |
+| `siteworks.batch.create` | `{ surfaces: SiteworksCreateSpec[] }` — each spec carries its own caller-minted `id`, `role`, `form` and geometry | **1** |
+| `siteworks.setWidth` | `{ id, widthM }` — **linear form only**; refuses on an areal surface by name | 1 |
+| `siteworks.setThickness` | `{ id, thickness }` | 1 |
+| `siteworks.setRole` | `{ id, role }` — geometry untouched; the meaning changes, the surface does not | 1 |
+| `siteworks.delete` | `{ ids }` | 1 |
 
 ⛔ **`setWidth` is not `setThickness`.** They are perpendicular, both are metres, and a single
 `setDimension` verb taking an axis name would be the exact ambiguity that makes a bug report
@@ -316,7 +352,7 @@ unreadable. Two verbs, two nouns the user already distinguishes.
 - **IFC identity.** `IfcCourse` / `IfcPavement` (IFC 4.3 infrastructure) are the plausible
   candidates and neither was verified. The family is **excluded** from IFC export rather than
   guessed into it — `C114 §1`'s precedent for exactly this position.
-- **Kerbs, markings, gradients, drainage, camber, superelevation.** A `siteSurface` is a flat plane.
+- **Kerbs, markings, gradients, drainage, camber, superelevation.** A `siteworks` is a flat plane.
   Anything a road engineer would call road design is out of scope, and `C116 §12` says so, because
   *"a family named for a behaviour it does not have"* is `C107 §0.2-a`'s defect.
-- **Whether a `siteSurface` participates in the living graph** (`C71`) — `NOT MEASURED`.
+- **Whether a `siteworks` participates in the living graph** (`C71`) — `NOT MEASURED`.
