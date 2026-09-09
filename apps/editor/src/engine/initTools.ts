@@ -128,6 +128,8 @@ import {
     attachSpaceEnvelopeRender,
     type DirtySpaceEnvelopeStore,
 } from './attachSpaceEnvelopeRender';
+// C116 / ADR-0384 - the SITEWORKS 3-D leg (roads, parking, pedestrian areas).
+import { attachSiteworksRender, type DirtySiteworksStore } from './attachSiteworksRender';
 // §ENVELOPE-DRAG-CONSEQUENCE (lane FACE-DRAG-2) — the ONE emit helper and the ONE event name,
 // imported rather than spelled, so the two wiring sites cannot drift apart.
 import {
@@ -2294,6 +2296,57 @@ export async function initTools(p: ToolsParams): Promise<ToolsResult> {
                 });
                 console.log('[initTools] §FEAT-SPACE-ENVELOPE: store→mesh subscriber and face drag installed.');
 
+            }
+        }
+
+        // C116 / ADR-0384 - SITEWORKS: roads, parking areas and pedestrian areas.
+        //
+        // ONE ROAD INTO THE SCENE: `Store.subscribeDirty()`. `applyPatch()` notifies it
+        // on EXECUTE, UNDO and REDO alike, and that single fact is what makes C116 §7's
+        // GENERIC undo adapter correct for this family. A bus-event subscriber here
+        // would need a bespoke adapter instead, because `performUndoRedo` emits no bus
+        // events - the contract says so and this is the line it is talking about.
+        {
+            const slot = runtime.stores as unknown as Record<string, unknown> | undefined;
+            const siteworksStore = slot?.['siteworks'] as DirtySiteworksStore | undefined;
+            if (!siteworksStore || typeof siteworksStore.subscribeDirty !== 'function') {
+                // LOUD, NEVER SILENT (C84 EI-6). UNREACHABLE and EMPTY are different
+                // facts: without this store a siteworks surface is authored, undoable,
+                // SAVED and INVISIBLE - which is exactly the state the pool's water was
+                // in, for weeks, while every gate stayed green.
+                console.warn(
+                    '[initTools] C116: runtime.stores.siteworks is not reachable - roads, '
+                    + 'parking and pedestrian areas will NOT be drawn. The records still '
+                    + 'save and restore; they are simply not on screen.',
+                );
+            } else {
+                attachSiteworksRender({
+                    store: siteworksStore,
+                    scene: world.scene.three,
+                    // The ONE storey-elevation lookup, owned here (initTools holds the
+                    // bimManager) rather than re-derived in the renderer - C11 §5.4.
+                    //
+                    // `null` IS A REAL ANSWER AND IT IS NOT 0. An unresolved storey and
+                    // the ground storey must never share a value (SS-CONTEXT-DATA-HONESTY,
+                    // L-581/L-616): defaulting would lay a road through whatever happens
+                    // to sit at zero, and the user would have no way to see it was a guess.
+                    levelElevation: (levelId: string): number | null => {
+                        try {
+                            const lvl = (bimManager?.getLevels?.() ?? [])
+                                .find((l: { id?: string; levelId?: string }) =>
+                                    (l?.id ?? l?.levelId) === levelId);
+                            const e = (lvl as { elevation?: unknown } | undefined)?.elevation;
+                            return typeof e === 'number' && Number.isFinite(e) ? e : null;
+                        } catch { return null; }
+                    },
+                    registerElement: (id: string, levelId: string) => {
+                        try { viewDependencyTracker.registerElement(id, levelId); }
+                        catch (err) { console.warn('[initTools] C116 VDT.registerElement failed (non-fatal):', err); }
+                        try { bimManager.registerElement(id, levelId); }
+                        catch { /* non-fatal - may already be registered */ }
+                    },
+                });
+                console.log('[initTools] C116: siteworks store to mesh subscriber installed.');
             }
         }
 

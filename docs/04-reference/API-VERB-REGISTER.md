@@ -15,7 +15,7 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1450 (floor 900) |
+| Handler files read | 1453 (floor 900) |
 | **Verbs** | **379** (floor 250) |
 | LIVE | 168 |
 | REFUSES | 37 |

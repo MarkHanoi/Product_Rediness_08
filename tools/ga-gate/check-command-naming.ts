@@ -134,6 +134,43 @@ const CANONICAL_PREFIXES = new Set([
     // The domain covers TEN verbs as of ADR-0383 S4: the seven in C114 §6's original table
     // plus `spaceEnvelope.group.setStoreys` / `.rename` / `.dissolve`.
     'spaceEnvelope',
+    // ─── ADDED 2026-09-10 (lane CI-SIX-RED) — THE PREFIX THE BLOCK ABOVE LEFT TO THIS LANE ─────
+    //
+    // ⚠ LIKE `spaceEnvelope`, THIS GATE WAS ALREADY EXIT 3 FOR THIS PREFIX BEFORE THIS LANE
+    // EXISTED. `component.*` ships THREE verbs and the prefix was never admitted, so the gate has
+    // been counting them as non-canonical against a baseline of 0 the whole time. Admitting it
+    // FIXES a pre-existing breach; it does not create one.
+    //
+    // Measured for a rival spelling FIRST — that measurement is the only thing separating this
+    // file's sanctioned move from the L-796 defect it exists to catch. Counts as COMMAND-type
+    // prefixes (quoted `'<prefix>.<verb>`) over plugins/ + packages/ + apps/, 2026-09-10:
+    //
+    //   `'component.`          : 87 hits across 19 files — the family
+    //   `'components.`         : 0 hits
+    //   `'componentInstance.`  : 0 hits
+    //   `'component-instance.` : 0 hits
+    //   `'placedComponent.`    : 0 hits
+    //   `'placed-component.`   : 0 hits
+    //   `'family.`             : 0 hits as a COMMAND type in plugins/ (the `family.*` strings
+    //                            elsewhere are OTEL span attribute keys, not wire identifiers)
+    //
+    // So this is a NEW DOMAIN, not a second spelling of an existing one.
+    //
+    // `family.` is measured explicitly and not by accident: C113 §1.2 names it as THE forbidden
+    // alternative — *"MUST. The namespace is `component.*`, never `family.*`"* (C84 §6.2e,
+    // inheriting C69 §3.6). A single `'family.<verb>'` command type would therefore be the L-796
+    // split this gate exists for, and it must stay at 0.
+    //
+    // C113 §6 declares the three verbs NORMATIVELY — `component.place`, `component.swapType`,
+    // `component.setInstanceParameter` — so under CLAUDE.md's conflict order the contract outranks
+    // this allowlist and the GATE is what was out of step, exactly the boundaryLine / bathroomPod /
+    // spaceEnvelope precedent. Re-spelling would be a C113 §1.2 amendment first and a code change
+    // second, which inverts *"when code disagrees with a contract, the code is wrong"*.
+    //
+    // ⛔ A SECOND SPELLING DOES NOT BELONG HERE. If a later lane invents `component-instance.*`,
+    // that is a SPLIT and it belongs in BASELINE_SPLITS below (mapped to `component`), never as a
+    // second CANONICAL_PREFIXES entry — admitting it here is what would make the gate blind to it.
+    'component',
 ]);
 
 /**

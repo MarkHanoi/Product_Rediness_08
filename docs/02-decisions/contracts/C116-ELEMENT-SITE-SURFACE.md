@@ -203,7 +203,7 @@ a decision (the `spaceEnvelope` precedent), not an omission. A second store woul
 
 | Consumer | AS-IS | TO-BE |
 |---|---|---|
-| 3D renderer | **ABSENT** | `apps/editor/src/engine` mesh builder driven by `store.subscribeDirty` — the one channel that fires on EXECUTE, UNDO and REDO alike, so no rival render path exists |
+| 3D renderer | ⭐ **SHIPPED 2026-09-09** — `SiteworksMeshBuilder.ts` + `attachSiteworksRender.ts`, mounted in `initTools.ts`, 16/16 with a 7-way scramble control (§14) | `apps/editor/src/engine` mesh builder driven by `store.subscribeDirty` — the one channel that fires on EXECUTE, UNDO and REDO alike, so no rival render path exists. ⛔ It DERIVES nothing: the ring comes from `siteworksFootprintRing()` and the datum from `siteworksDatum()` |
 | Plan view | **ABSENT** | ⛔ `NOT MEASURED` whether a siteworks surface belongs in a storey plan at all. Deferred rather than guessed — §11 item 4 |
 | Persistence | **ABSENT** | `snapshotFamilyCoverage.ts` ledger row + `ProjectSerializer` + `restoreCompoundFamilies` common tail |
 | IFC export | **EXCLUDED** (§1) | resolve identity first |
@@ -668,7 +668,7 @@ regenerated `API-VERB-REGISTER.md`.
 
 | Gate | Reading |
 |---|---|
-| `check-otel-spans` | **RC=0. ZONE A 281 / 281 at ZERO TOLERANCE. ZONE B 52 uninstrumented of 90 against baseline 52** — the denominator grew by one and the COUNT DID NOT. ⛔ Zone B had **zero headroom** and its baseline is a NAMED FILE LIST that explicitly includes plugin `src/handlers/index.ts` barrels, so an uninstrumented barrel would have read 53/52 = exit 3, unabsorbable (R7 / L-836). The barrel wraps registration in `withHandlerSpan` |
+| `check-otel-spans` | **RC=0. ZONE A 281 / 281 at ZERO TOLERANCE. ZONE B 52 uninstrumented of 90 against baseline 52** — the denominator grew by one and the COUNT DID NOT. ⛔ Zone B had **zero headroom** and its baseline is a NAMED FILE LIST that explicitly includes each plugin's handler-registration barrel, so an uninstrumented barrel would have read 53/52 = exit 3, unabsorbable (R7 / L-836). The barrel wraps registration in `withHandlerSpan` |
 | `check-plugin-census-equivalence` | ⭐ **`siteworks` appears in ZERO of the eight arms** — on disk, in the registry, in the catalog, and in `ELEMENT_PLUGIN_IDS`. The gate is still RC=3 (arms B 9/8, E 1/0, F 4/3) and **every breach names `component`**, which predates this lane |
 | `check-snapshot-family-coverage` | **RC=0 · 33 families / 33 rows · sets equal in BOTH directions.** It was RC=1 naming `siteworks` before this commit — the tripwire fired exactly as designed |
 | `check-verb-register` | **RC=0 · 379 verbs**, matching the code both ways |
@@ -725,6 +725,62 @@ call it, which is a refactor of another lane's live tool. **Added as §11 item 9
 ⛔ **STILL NOT DRAWN IN 3-D.** Nothing subscribes `store.subscribeDirty` at this commit, so a
 siteworks surface is a record you can create, edit, undo, save and reload — and not yet see. §3's
 renderer row stays **ABSENT**.
+
+### 2026-09-09 · lane SITE-SURFACE · **STAGES 7–8 — IT IS DRAWN. And parking + pedestrian cost NO new code.**
+
+#### Stage 7 — the render seam
+
+`apps/editor/src/engine/SiteworksMeshBuilder.ts` + `attachSiteworksRender.ts`, mounted in
+`initTools.ts` beside the space-envelope seam. **16 / 16.**
+
+⭐ **ONE ROAD INTO THE SCENE: `store.subscribeDirty`.** `Store.applyPatch()` notifies it on
+EXECUTE, UNDO and REDO alike, which is the single fact that makes §7's GENERIC undo adapter
+correct for this family. §7 warned that a bus-event renderer would need a bespoke adapter instead;
+this is the line it was talking about, and the seam is written so that stays true.
+
+⛔ **THE RENDERER DERIVES NOTHING — IT ASKS.** The ring comes from `siteworksFootprintRing()` and
+the datum from `siteworksDatum()`. It does **not** sweep the centreline and does **not** recompute
+`level.elevation + baseOffset − thickness`. A renderer is exactly where such a copy hides, because
+it LOOKS right on screen long after the number it disagrees with has changed. ⭐ And because the
+footprint resolver answers for both forms, **nothing in the renderer branches on `form`.**
+
+⛔ **`levelElevation` RETURNS `number | null` AND `null` IS NOT `0`.** An unresolved storey and the
+ground storey must never share a value (§CONTEXT-DATA-HONESTY, L-581/L-616): defaulting would lay a
+road through whatever sits at zero, and the user could not see it was a guess. An unresolvable
+storey — or an empty `levelId`, the §DIAG-WALL-LEVEL rule — **refuses to draw and says so by name**.
+
+| Scramble | Arms RED |
+|---|---|
+| plate extruded UPWARD (the Slab datum inverted) | 1 |
+| `baseOffset` ignored | 1 |
+| ring re-derived from the centreline instead of asked for | 2 |
+| the refusal's reason emptied | 1 |
+| **an unresolved level elevation defaulted to `0`** | 1 |
+| the INITIAL draw removed (subscriber only) | 3 |
+| geometry not disposed on remove | 1 |
+
+⭐ The **initial draw** arm is the one worth naming: `restoreCompoundFamilies` runs on project
+open, BEFORE this seam installs, so a subscriber alone would leave every reloaded surface in the
+model and invisible — the same half-wired shape as a save with no restore, one layer out.
+
+#### Stage 8 — ⭐ `parking` AND `pedestrian` REQUIRED NO NEW CODE, WHICH IS D1 BEING CONFIRMED
+
+ADR-0384 D1 predicted this in its own falsification clause: *"What would falsify D1: a rule that
+must fire for a road and must NOT fire for a pedestrian area, where the difference is GEOMETRIC
+rather than semantic. None was found."*
+
+Measured at the end of the lane: **no new element kind, no new geometry function, no new store, no
+new verb, no new persistence leg and no new renderer branch.** All three roles are carried by
+`SITEWORKS_ROLES`, all six `role × form` combinations parse, all three have a rail entry, and the
+renderer distinguishes them by one tint lookup. Had this stage needed geometry of its own, D1 would
+have been falsified and the family would have owed a second kind — it did not.
+
+⚠ **WHAT IS STILL NOT TRUE, so a green lane is not over-read.** No interactive centreline drawing
+(§11 item 9 — the stroke must be EXTRACTED from `BoundaryLinePlanToolHandler`, never cloned). No
+plan-view symbol (§11 item 4 is still `NOT MEASURED`). No IFC export (§1, EXCLUDED until
+`IfcCourse` vs `IfcPavement` is resolved). No terrain draping, no junction resolution, no kerbs,
+markings, gradients or drainage — all refused by name in §12. RAC/chat is `CHAT_UNAVAILABLE` for
+every verb, each refusal naming the route back to success.
 
 ---
 
