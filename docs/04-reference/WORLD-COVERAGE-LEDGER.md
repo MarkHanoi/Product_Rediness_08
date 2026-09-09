@@ -11,12 +11,12 @@
 
 **This page answers one question: _what does PRYZM actually serve HERE?_**
 
-Generated: 2026-09-06T18:02:58.224Z
+Generated: 2026-09-09T20:42:09.963Z
 
 ## §0 · Probe record (C57 §1.5 — the exact answer, never a claim)
 
 ```
-GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.json → HTTP 200 OK · 23535 B · content-type: application/json · 414 ms · first 200 chars: "{\n  \"schema\": \"pryzm-context-tileset-manifest@1\",\n  \"mergedAt\": \"2026-09-06T07:58:43.604Z\",\n  \"mergeRunId\": \"34015784612\",\n  \"mergeGitSha\": \"ad038f5a0337097f9af7fda873383bbfdf193b36\",\n  \"engine\": \"til"
+NOT PROBED (--offline) — using the committed snapshot /tools/coverage-ledger/manifest-snapshot.json
 ```
 
 - manifest `mergedAt`: `2026-09-06T07:58:43.604Z` · `mergeRunId`: `34015784612` · `mergeGitSha`: `ad038f5a0337097f9af7fda873383bbfdf193b36`
@@ -45,8 +45,8 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | Terrain national regions (`NATIONAL_REGIONS`) | **123** |
 | Terrain city regions (`REGIONS`) | **592** (7 blocked) |
 | Client terrain rows (`terrainCoverage.ts`) | **581** cities + **123** regions |
-| Parcel jurisdictions registered | **84** (68 cadastral · 16 footprint-fallback) |
-| — cadastral rows with a WIRED server leg | **68** |
+| Parcel jurisdictions registered | **85** (69 cadastral · 16 footprint-fallback) |
+| — cadastral rows with a WIRED server leg | **69** |
 
 **Verdict rule** (applied mechanically, printed so it can be argued with):
 
@@ -121,7 +121,7 @@ GET https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/tileset-manifest.j
 | **Ukraine** (UA) | 1 region(s): `ukraine` | 0/1 — **missing `ukraine`** | national `ukraine` | **none — assumed default** | OSM | — | 🟡 PARTIAL |
 | **United Arab Emirates** (AE) | 1 region(s): `gccstates` | 0/1 — **missing `gccstates`** | **1× metro box** `gccstates` | `ad_ndsm` **city list (1)** | Overture | 1 footprint-fallback | 🟡 PARTIAL |
 | **United Kingdom** (GB) | 1 region(s): `greatbritain` | all 1 | national `greatbritain` + 1 city | `ealidar_gb` **city list (5)** | OSM | 1/1 cadastral wired (+1 fallback) | 🟡 PARTIAL |
-| **United States** (US) | 54 region(s): `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico newyork northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming` | 1/54 — **missing `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming`** | **54× metro box** `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico newyork northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming` + 2 city | `usas` **WHOLE-COUNTRY** | OSM | 21/21 cadastral wired | 🟡 PARTIAL |
+| **United States** (US) | 54 region(s): `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico newyork northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming` | 1/54 — **missing `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming`** | **54× metro box** `alabama alaska alaskaaleutians arizona arkansas california colorado connecticut delaware districtofcolumbia florida georgia hawaii idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi missouri montana nebraska nevada newhampshire newjersey newmexico newyork northcarolina northdakota ohio oklahoma oregon pennsylvania puertoricousa rhodeisland southcarolina southdakota tennessee texas usvirginislands utah vermont virginia washington westvirginia wisconsin wyoming` + 2 city | `usas` **WHOLE-COUNTRY** | OSM | 22/22 cadastral wired | 🟡 PARTIAL |
 
 ### Named gaps, per country
 
@@ -600,6 +600,7 @@ row that is declared-but-unrouted cannot read as covered.
 | `US-CT` | United States (Connecticut · statewide) | `us-ct-ctgis-cama-parcels` | **cadastral** | `/api/parcel/us-ct` | ✅ yes |
 | `US-IN` | United States (Indiana · statewide) | `us-in-indianamap-parcels` | **cadastral** | `/api/parcel/us-in` | ✅ yes |
 | `US-MD` | United States (Maryland · statewide) | `us-md-sdat-parcel-boundaries` | **cadastral** | `/api/parcel/us-md` | ✅ yes |
+| `US-DE` | United States (Delaware · statewide) | `us-de-firstmap-stateparcels` | **cadastral** | `/api/parcel/us-de` | ✅ yes |
 | `AU-ACT` | Australia (Australian Capital Territory) | `au-act-actmapi-blocks` | **cadastral** | `/api/parcel/au-act` | ✅ yes |
 | `AU-TAS` | Australia (Tasmania) | `au-tas-thelist-cadastre` | **cadastral** | `/api/parcel/au-tas` | ✅ yes |
 | `AU-VIC` | Australia (Victoria) | `au-vic-vicmap-cadastre` | **cadastral** | `/api/parcel/au-vic` | ✅ yes |
@@ -671,7 +672,7 @@ user capability, and an HTTP 200 on a manifest is not proof a layer is in it
 ### §8a · The probe record (C57 §1.5)
 
 ```
-LIVE — 10 layer archive(s) range-probed at https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/<layer>.pmtiles?v=L663a (7 served a 206 with PMTiles magic) · 123 national terrain tileset(s) probed at https://pub-1ad4f6c5dec849b5b25a45586898fd4d.r2.dev/tiles/terrain/<slug>/layer.json?v=L639k (38 answered 200)
+NOT PROBED (--offline) — using the committed snapshot tools/coverage-ledger/r2-probe-snapshot.json, probed 2026-09-06T16:44:36.524Z
 ```
 
 | Layer archive | HTTP | object bytes | content-type | leading magic | Last-Modified | verdict |
@@ -1666,7 +1667,7 @@ part that cannot be a hand-typed table: it is regenerated from the probes each r
 - 🟡 **trees** — `trees`: 6 of 54 slug(s) in `trees.sources` — missing `alabama alaska alaskaaleutians arizona arkansas california +47` (live only via the ORPHAN slug(s) `sanfrancisco chicago austin houston boston`, which the code no longer has and the next merge drops) · `canopy`: `canopy.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
 - 🟡 **water** — `water`: 6 of 54 slug(s) in `water.sources` — missing `alabama alaska alaskaaleutians arizona arkansas california +47` (live only via the ORPHAN slug(s) `sanfrancisco chicago austin houston boston`, which the code no longer has and the next merge drops) · `sea`: `sea.pmtiles` answered HTTP 404 text/html 27150 B — the layer is declared in `bake.mjs` LAYERS but there are NO bytes on R2 for anyone
 - 🟡 **green areas** — `parks`: 6 of 54 slug(s) in `parks.sources` — missing `alabama alaska alaskaaleutians arizona arkansas california +47` (live only via the ORPHAN slug(s) `sanfrancisco chicago austin houston boston`, which the code no longer has and the next merge drops) · `landuse`: 6 of 54 slug(s) in `landuse.sources` — missing `alabama alaska alaskaaleutians arizona arkansas california +47` (live only via the ORPHAN slug(s) `sanfrancisco chicago austin houston boston`, which the code no longer has and the next merge drops)
-- 🟠 **cadastral data** — register legs 21/21 wired (`US-NY-NYC US-CA-SF US-IL-CHI US-MA US-FL US-WA-KING US-TX-HARRIS US-NC US-NY US-OH US-WI US-MT US-UT US-VA US-CA-LA US-AZ-MARICOPA US-NJ US-VT US-CT US-IN US-MD`) · official footprints NONE — the tiles carry OSM geometry
+- 🟠 **cadastral data** — register legs 22/22 wired (`US-NY-NYC US-CA-SF US-IL-CHI US-MA US-FL US-WA-KING US-TX-HARRIS US-NC US-NY US-OH US-WI US-MT US-UT US-VA US-CA-LA US-AZ-MARICOPA US-NJ US-VT US-CT US-IN US-MD US-DE`) · official footprints NONE — the tiles carry OSM geometry
 
 </details>
 

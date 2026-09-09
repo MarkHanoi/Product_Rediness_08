@@ -432,7 +432,7 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
         await expect(fetchEuParcelAtPoint('fr', NaN, NaN, { fetchImpl: fakeFetch(FR_GEOJSON) })).resolves.toBeNull();
     });
 
-    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk; PARCEL-REACH it/bg/be-vlg/gb + 5 us; PARCEL-REACH-2 cz/ie/at + 14 de-*; USA-PARCELS + 9 us; USA-PARCELS-W2 + 5 us states)', () => {
+    it('exposes exactly the wired cadastres (L-651 pt/us-sf/us-chi; PROXY-EE-LT-PL ee/lt/pl; LU-PARCEL lu; PROXY-LEGS au-*/tr/qa/lv/hr/gr/si/sk; PARCEL-REACH it/bg/be-vlg/gb + 5 us; PARCEL-REACH-2 cz/ie/at + 14 de-*; USA-PARCELS + 9 us; USA-PARCELS-W2 + 5 us states; USA-PARCELS-W3 + us-de)', () => {
         expect(Object.keys(EU_CADASTRE_SOURCES).sort()).toEqual([
             'at', 'au-act', 'au-nsw', 'au-qld', 'au-sa', 'au-tas', 'au-vic',
             'be-vlg', 'bg', 'ch', 'cz',
@@ -462,7 +462,13 @@ describe('fetchEuParcelAtPoint — guards + never-throws', () => {
             // irrelevant); the parcels are on the NJGIN/NJOGIS AGOL org. MD was probed at
             // geodata.md.gov, which returned 503 and STILL DOES — the live host is
             // mdgeodata.md.gov, an `md` PREFIX. ⛔ Do not "correct" either URL back.
-            'us-az-maricopa', 'us-ca-la', 'us-chi', 'us-ct', 'us-fl', 'us-in', 'us-ma', 'us-md',
+            // LANE USA-PARCELS WAVE 3 (2026-09-06) — +1 WHOLE STATE: 'us-de'. Delaware FirstMap
+            // state parcels, 3 of 3 counties (New Castle / Kent / Sussex — Delaware HAS only
+            // three), the per-county counts summing EXACTLY to the unfiltered 451,344.
+            // ⚠ THIS KEY WAS ADDED TO THE REGISTRY WITHOUT BEING ADDED HERE, so this arm — the
+            // one whose whole job is "exactly the wired cadastres" — was the last thing in the
+            // estate still reporting Delaware as unwired. Add the row and the key together.
+            'us-az-maricopa', 'us-ca-la', 'us-chi', 'us-ct', 'us-de', 'us-fl', 'us-in', 'us-ma', 'us-md',
             'us-mt', 'us-nc', 'us-nj', 'us-ny', 'us-nyc', 'us-oh', 'us-sf', 'us-tx-harris',
             'us-ut', 'us-va', 'us-vt', 'us-wa-king', 'us-wi',
         ]);

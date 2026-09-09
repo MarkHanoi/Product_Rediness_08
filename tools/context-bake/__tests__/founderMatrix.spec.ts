@@ -202,9 +202,24 @@ describe('§FOUNDER-MATRIX — a cell reads SHIPPED only for bytes, never for a 
     it('a partly-live cell reads PARTIAL, never WIRED — under-reporting bytes is a defect too', async () => {
         // `worst()` scored Bulgaria's `trees` as WIRED ("not published") because canopy 404s,
         // while trees.pmtiles was serving Bulgarian tree points the whole time.
-        const { matrix, r2 } = await offlineMatrix();
+        const { model, matrix, r2 } = await offlineMatrix();
         if (layerIsServed(r2.layers?.trees) && !layerIsServed(r2.layers?.canopy)) {
-            const live = matrix.filter((r: { live: string[] }) => r.live.length > 0);
+            // ⚠ FILTER PER LAYER, NEVER BY `row.live`. `row.live` is derived from
+            // `model.publishedBuildings` ALONE — it means "live in the BUILDINGS archive", and
+            // this arm is about TREES. The two source sets were IDENTICAL for as long as every
+            // merge staged every layer together, so the sloppy filter never fired. The
+            // 2026-09-07 merge (`mergeRunId` 34121618245) split them: it republished `buildings`
+            // from a 46-region staging set that ADDED `gccstates`/`southkorea` and DROPPED
+            // `france`/`spain`, while the other six layers kept the previous 49. So Bahrain
+            // acquired live BUILDINGS and has no trees, and `tileCell('trees')` correctly said
+            // WIRED — "trees.pmtiles is live but none of this country's regions are in its
+            // sources". The verdict was right and the assertion was wrong.
+            // Asserting on the trees source set is STRICTLY MORE PRECISE than `row.live.length`:
+            // it still catches the Bulgaria regression verbatim (BG is in `trees.sources`), and
+            // it stops the arm reporting a scorer defect when what actually happened is that a
+            // merge shipped one layer without the others.
+            const treeSrcs: Set<string> = model.publishedByLayer?.trees ?? new Set<string>();
+            const live = matrix.filter((r: { live: string[] }) => r.live.some((s) => treeSrcs.has(s)));
             expect(live.length).toBeGreaterThan(0);
             for (const row of live) {
                 expect(row.cells.trees.state, `${row.code} has live trees tiles`).not.toBe('WIRED');
