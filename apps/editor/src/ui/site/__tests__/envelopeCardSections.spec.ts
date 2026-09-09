@@ -64,7 +64,17 @@ import {
     MASSING_OPTIONS_SECTION_TESTID,
     MASSING_OPTIONS_GENERATE_BTN_TESTID,
     MASSING_OPTIONS_UNAVAILABLE_TESTID,
+    // ⭐ §PARCEL-ROWS-HAVE-ONE-HOME (L-13282) — the §2.5 stamp that replaced the fold's PARCEL group.
+    buildParcelRowsRelocationStamp,
+    PARCEL_ROWS_RELOCATED_ATTR,
+    PARCEL_ROWS_RELOCATED_TO,
 } from '../envelopeCardSections';
+// ⛔ `ui/site` owes no import edge to `ui/analysis`, so each stamp declares its own attribute NAME.
+// This import exists in the SPEC precisely so the literals are asserted EQUAL (`C115-17`: reuse
+// the pattern, do not re-invent it) — a rename in either place fails here instead of silently
+// minting a second vocabulary for one act. `envelopeCostSection` is the precedent the new stamp's
+// own docblock cites, so it is the right sibling to be pinned against.
+import { ENVELOPE_COST_RELOCATED_ATTR } from '../envelopeCostSection';
 import { MASSING_AUTHOR_BTN_TESTID, MASSING_AUTHOR_OPTION_TESTID } from '../massingAuthoredOptionSection';
 import { CONTEXT_STUDY_DEFAULT_MIN_SAMPLE_SIZE, type ContextDerivedStudyEnvelopeResult } from '@pryzm/site-parcel-data';
 import type { UserSuppliedStudyHeightRecord } from '../userSuppliedStudyHeightState';
@@ -942,5 +952,69 @@ describe('§MASSING-ON-EVERY-ARM — the fold states an impossible generation in
         expect(src).toContain(
             "if (panelAbsent('buildable-envelope')) return null;\n        return document.getElementById('container');",
         );
+    });
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §PARCEL-ROWS-HAVE-ONE-HOME (L-13282 · C115 §2.2 `C115-12` · C115 §2.5 `C115-17`)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+//
+// C115 §2.2 is normative and fixes the canonical home of parcel AREA, PERIMETER, BOUNDING BOX and
+// BOUNDARY EDGES + frontage clause at **01 PARCEL**, marking the buildable-envelope card's
+// site-data fold *"⛔ YES — live duplication today"* on all four. They already render in question
+// 1: §ONE-PARCEL-BLOCK (L-13005) merged them into the cadastral card on the founder's own report
+// that *"the data of the parcel is incorrect format"*. This fold was the THIRD rendering.
+//
+// ⛔ AND `C115-12` FORBIDS READING THIS AS A DELETION — its column header says the non-canonical
+// occurrence *"becomes a reference; it never states delete"*. L-13026 is the row this repo opened
+// the last time a panel section silently stopped appearing, which is why `C115-17` makes the stamp
+// mandatory rather than advisory.
+describe('§PARCEL-ROWS-HAVE-ONE-HOME — the fold keeps a reference where its PARCEL group was', () => {
+    it('the stamp names the owning question and says nothing was dropped', () => {
+        const stamp = buildParcelRowsRelocationStamp();
+        expect(stamp).toContain(`${PARCEL_ROWS_RELOCATED_ATTR}="${PARCEL_ROWS_RELOCATED_TO}"`);
+        expect(PARCEL_ROWS_RELOCATED_TO).toBe('parcel-law-question-1-parcel');
+        // `C115-17` — the stamp is for a spec, the SENTENCE is for the founder. Both, always.
+        expect(stamp).toContain('Which plot are we talking about?');
+        expect(stamp).toContain('View full parcel data');
+        expect(stamp).toContain('Nothing was dropped');
+        // ⭐ AND IT SAYS WHAT STAYED, so "the fold lost its parcel rows" cannot be misread as
+        // "the fold is being retired" — its remaining content is canonical 02 in the same table.
+        expect(stamp).toContain("question 2's subject");
+    });
+
+    it('⛔ ONE VOCABULARY — the attribute is the SAME literal the cost stamp already uses', () => {
+        // `C115-17`: *"the pattern already exists and MUST be reused, not re-invented."* Two
+        // spellings of "this rendering moved" is the conflation the clause exists to prevent.
+        expect(PARCEL_ROWS_RELOCATED_ATTR).toBe(ENVELOPE_COST_RELOCATED_ATTR);
+        expect(PARCEL_ROWS_RELOCATED_ATTR).toBe('data-duplicate-removed');
+    });
+
+    it('⛔ it is a REFERENCE, never a second rendering — no figure, no unit, no control', () => {
+        const stamp = buildParcelRowsRelocationStamp();
+        // A stamp that restated a number could disagree with question 1, which is the whole
+        // defect the merge removed. No digits at all beyond the question number it names.
+        expect(stamp).not.toMatch(/\d+(\.\d+)?\s*m²/);
+        expect(stamp).not.toContain('<button');
+        expect(stamp).not.toContain('<select');
+    });
+
+    it('⛔ SOURCE PIN — the card renders the stamp and no longer builds the four rows itself', () => {
+        const src = readFileSync(resolve(__dirname, '../../layout/GISAreaLayout.ts'), 'utf8');
+        expect(src).toContain('const parcelBlock = buildParcelRowsRelocationStamp();');
+        // ⛔ THE ROWS THEMSELVES ARE GONE FROM THIS FILE. Each of these was a `row(...)` call in
+        // the deleted group; a reappearance is a fourth copy of a question-1 value.
+        expect(src).not.toContain("row('Area', num(polyAreaM2(parcelRing)");
+        expect(src).not.toContain("row('Perimeter', num(polyPerimeterM(parcelRing)");
+        expect(src).not.toContain("row('Bounding box'");
+        expect(src).not.toContain("row('Boundary edges'");
+        // ⛔ AND THE DEAD ALIAS WENT WITH ITS ONE READER — an alias kept alive for a caller that no
+        // longer exists is how a second bounding box comes to be computed on this card.
+        expect(src).not.toContain('const polyBboxM =');
+        // ⭐ THE FOLD ITSELF STAYS ON THE CARD, IN QUESTION 2. Buildable depth, FAR, coverage, the
+        // storey bands and Art. 323 capacity are canonical **02** in the same §2.2 table, so
+        // following the parcel rows into question 1 would have broken `C115-12` the other way.
+        expect(src).toContain('data-testid="envelope-section-site-data"');
     });
 });

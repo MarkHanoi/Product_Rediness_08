@@ -195,10 +195,10 @@ import { toggleSiteEnvelopeTool } from '../site/siteEnvelopeTool';
 // adding a country is a data addition in `@pryzm/site-parcel-data`, not an edit to this L5 file.
 import { defaultParcelProvider } from '../site/parcel';
 // §GR-10/GR-14 — "nobody classified the edges" ≠ "no edge is street frontage".
-import {
-    parcelEdgeClassificationsOrUnknown,
-    frontageClause,
-} from '../site/parcelEdgeClassificationDetermination';
+// §PARCEL-ROWS-HAVE-ONE-HOME (L-13282) — `frontageClause` is no longer imported here: this file's
+// one caller was the fold's `Boundary edges` row, whose canonical home is question 1 (C115 §2.2).
+// ⛔ The RULE is untouched and still has exactly one implementation; only this reader went.
+import { parcelEdgeClassificationsOrUnknown } from '../site/parcelEdgeClassificationDetermination';
 import { makeDraggable } from '../makeDraggable';
 // FORMA.6 — pure geometry signature for the real-building GLB re-export cache.
 // §VIEW-PANEL-PER-PANE — TYPE ONLY. The module itself stays lazy-imported below (it pulls
@@ -334,7 +334,8 @@ import {
 import {
     buildParcelLawModel,
     permittedStudyFiguresOf,
-    polygonBboxXZ,
+    // §PARCEL-ROWS-HAVE-ONE-HOME (L-13282) — `polygonBboxXZ` is no longer imported here. It is
+    // still the ONE bounding-box producer; question 1 reaches it through `ParcelLawGeometry`.
     polygonPerimeterXZ,
     resolveDepthTerm,
 } from '../site/parcel/parcelLawModel.js';
@@ -486,6 +487,8 @@ import {
     MASSING_PICK_ATTR,
     // §FOLD-MEMORY (L-13078) — re-attach the disclosure memory after the card's innerHTML swap.
     wireEnvelopeCardFoldMemory,
+    // §PARCEL-ROWS-HAVE-ONE-HOME (L-13282) — the §2.5 stamp that replaces the fold's PARCEL group.
+    buildParcelRowsRelocationStamp,
 } from '../site/envelopeCardSections';
 // §26.6.7 (L-13085) — THE ONE SPELLING OF THE FOUR CEILINGS lives in `intentAgainstCeilingModel`'s
 // `CEILING_LABEL`, which question 3's intent/ceiling pairs already read. The card's headline reads
@@ -4412,7 +4415,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // migration is one reviewable hunk and every existing reader is unchanged.
     const polyPerimeterM = polygonPerimeterXZ;
     const polyAreaM2 = polygonAreaXZ;
-    const polyBboxM = polygonBboxXZ;
+    // §PARCEL-ROWS-HAVE-ONE-HOME (L-13282) — the `polyBboxM` alias STOOD HERE and is gone with its
+    // one reader, the fold's `Bounding box` row. ⛔ The FIGURE is not gone: `parcelRingMeasuredFacts`
+    // renders it in question 1 from the SAME `polygonBboxXZ` via the parcel-law model, with the
+    // *"a non-rectangular parcel has no single width × depth"* caveat attached. An alias kept alive
+    // for a caller that no longer exists is how a second bounding box comes to be computed here.
     // §26.6.7 (L-13085) — ALIASES, not definitions. Both MOVED to `ceilingHeadlineSection.ts` with
     // the row and the headline they serve, and are aliased here so the ~50 existing call sites below
     // are untouched. The `not derived` sentence in particular must have ONE spelling: the headline
@@ -4506,15 +4513,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             identity: null,
             envelope: env,
         });
-        // §GR-10/GR-14 — THREE outcomes, not two: never-classified, classified-
-        // and-landlocked, and classified-with-N-frontages. `frontageClause`
-        // prints a non-empty sentence for each; the old `?? []` + `> 0` test
-        // printed the SAME empty string for the first two, so a card about an
-        // unmeasured plot read exactly like a card about a landlocked one.
-        // (Now read off the model's `geometry`, which calls the same rule; the fallback covers
-        // the ring-absent arm, where the model has no geometry to carry a clause on.)
-        const frontage = law.geometry?.frontageClause
-            ?? frontageClause(committed === null ? undefined : committed.edgeClassifications);
+        // §PARCEL-ROWS-HAVE-ONE-HOME (L-13282) — the `frontage` local STOOD HERE, and its only
+        // reader was the deleted `Boundary edges` row.
+        //
+        // ⛔ §GR-10/GR-14's THREE OUTCOMES ARE NOT LOST, AND THAT IS THE ONLY REASON THIS MAY GO.
+        // *"nobody classified the edges"*, *"classified and landlocked"* and *"classified with N
+        // frontages"* are three different facts that an `?? []` collapses into one empty string —
+        // and `parcelRingMeasuredFacts` prints all three in question 1, off `ParcelLawGeometry`'s
+        // `frontageClause`, which is the SAME rule this line called. One reader, one producer.
 
         // §RESI-ORCH-COST / §RESI-ORCH-HIGHLIGHT — hoisted above `row` because BOTH the
         // massing rows below and the highlight-availability rule need them, and a second
@@ -4575,32 +4581,40 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                <div style="color:#a49dbb;font-size:9.5px;margin-top:3px;">${escHtml(source)}</div>
              </div>`;
 
-        // ── PARCEL — pure geometry off the committed boundary. ──
-        const parcelBlock = parcelRing.length >= 3
-            ? group('Parcel', 'Cadastral boundary as committed to this project (Catastro / drawn), measured in scene metres.',
-                // §RESI-ORCH-HIGHLIGHT — STR §3's first three rows of its own table:
-                // Area → the parcel · Perimeter → the boundary · frontage → the relevant edges.
-                row('Area', num(polyAreaM2(parcelRing), 'm²', 0), undefined, 'parcel')
-                + row('Perimeter', num(polyPerimeterM(parcelRing), 'm'), undefined, 'boundary')
-                // §26.6 rule 2 (L-13046) — the box is a subject too: *"the bounding box as a box"*.
-                + row('Bounding box', `${num(polyBboxM(parcelRing).w, '', 1)} × ${num(polyBboxM(parcelRing).d, 'm', 1)}`,
-                    'Axis-aligned extent. A non-rectangular parcel has no single width × depth, so this is deliberately labelled a bounding box.',
-                    'bbox')
-                + row('Boundary edges', `${parcelRing.length}${frontage}`,
-                    'Street frontage is the edge buildable depth insets FROM. "Not recorded" means '
-                    + 'nobody classified this parcel\'s edges — it is NOT a finding that the plot has none.',
-                    'frontage'))
-            // §CONTEXT-DATA-HONESTY (L-422/457/467/469) — an ABSENT ring must SAY it is absent.
-            // Rendering '' made the card jump from the header straight to ORDINANCE LIMITS, which
-            // reads as "there is no parcel constraint" rather than "we could not read the parcel".
-            // Failure and empty are the same value only if nobody prints the difference.
-            : group('Parcel', 'The committed C19 parcel boundary could not be read from this session.',
-                `<div style="color:#8a5a00;background:#fff6e8;border-radius:6px;padding:6px 8px;font-size:10px;line-height:1.5;">
-                   <b>Parcel outline unavailable.</b> The massing figures below were solved against the
-                   committed boundary, but this card could not re-read it, so <b>Area</b>, <b>Perimeter</b>
-                   and <b>Footprint / parcel</b> are withheld rather than guessed. Re-commit the plot
-                   (draw or select) to restore them. This is a missing READ, not a missing constraint.
-                 </div>`);
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // ⭐ §PARCEL-ROWS-HAVE-ONE-HOME (L-13282 · C115 §2.2 `C115-12` · §2.5 `C115-17`)
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        //
+        // ⛔ THE `PARCEL` GROUP STOOD HERE AND IS GONE — Area · Perimeter · Bounding box ·
+        // Boundary edges, plus its ring-unreadable sentence. It was the THIRD rendering of four
+        // figures whose canonical home C115 §2.2 fixes at **01 PARCEL**, and whose row in that
+        // table already marked this fold *"⛔ YES — live duplication today"* on every one of them.
+        //
+        // ⭐ THEY WERE NOT DELETED, THEY WERE ALREADY THERE. `parcelRingMeasuredFacts`
+        // (§ONE-PARCEL-BLOCK, L-13005) merged the same four into the question-1 cadastral card —
+        // same values, same hints, the same `parcel-law-fact-*` testids and the same §3
+        // click-a-number-light-the-geometry subjects, with perimeter / bbox / edges behind
+        // *"View full parcel data"*. That merge happened on the founder's own report that
+        // *"the data of the parcel is incorrect format"*; this fold simply never stopped
+        // printing its own copy beside it.
+        //
+        // ⛔ AND THE RING-UNREADABLE SENTENCE IS NOT LOST EITHER. Question 1's `factsPlotSlot`
+        // renders exactly that case and nothing else — its own comment: *"this slot now carries
+        // only what a CARD ROW cannot say: the sentence for a ring that could not be read."*
+        // Two surfaces printing one absence is the same duplication in its honest form.
+        //
+        // ⛔ WHAT REPLACES IT IS A REFERENCE, NEVER A GAP. `C115-12`'s column header is explicit —
+        // a non-canonical occurrence *"becomes a reference; it never states delete"* — and
+        // `C115-17` makes the stamp mandatory so a reader can tell *"the block moved"* from
+        // *"the block is gone"*. L-13026 is the row this repo opened the last time a panel
+        // section silently stopped appearing.
+        //
+        // ⛔ THE FOLD ITSELF STAYS ON THE CARD, IN QUESTION 2. What remains in it — buildable
+        // depth, alignment offset, max FAR, site coverage, the storey bands, Art. 323 capacity —
+        // is canonical **02 BUILDABILITY** in the same table. Moving the fold to question 1 to
+        // follow the parcel rows would have dragged six question-2 values into question 1 and
+        // broken `C115-12` in the opposite direction.
+        const parcelBlock = buildParcelRowsRelocationStamp();
 
         // ── ORDINANCE — every value read from the derivation trace, with its citation. ──
         const dRow = (c: string) => env.derivation.find((d) => d.constraint === c);

@@ -523,6 +523,61 @@ export function buildStagedSectionsHtml(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// §ONE-PARCEL-BLOCK — THE §2.5 RELOCATION STAMP THE SITE-DATA FOLD KEEPS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * §PARCEL-ROWS-HAVE-ONE-HOME (L-13282 · C115 §2.2 `C115-12` · C115 §2.5 `C115-17`) — the attribute
+ * the site-data fold stamps where its PARCEL group used to render.
+ *
+ * ⛔ SAME ATTRIBUTE NAME AS EVERY OTHER STAMP IN THIS REPO (`ENVELOPE_COST_RELOCATED_ATTR`,
+ * `PARCEL_LAW_DUPLICATE_REMOVED_ATTR`) — `C115-17`: *"the pattern already exists and MUST be
+ * reused, not re-invented"*. Declared here rather than imported because `ui/site` owes no import
+ * edge to `ui/analysis`; the spec asserts the literals are equal, so a rename fails a test instead
+ * of quietly minting a second vocabulary.
+ */
+export const PARCEL_ROWS_RELOCATED_ATTR = 'data-duplicate-removed';
+/** What the stamp says now owns those rows. One value, read by the spec. */
+export const PARCEL_ROWS_RELOCATED_TO = 'parcel-law-question-1-parcel';
+
+/**
+ * §PARCEL-ROWS-HAVE-ONE-HOME — ⭐ WHAT THE FOLD RENDERS WHERE ITS `PARCEL` GROUP USED TO BE.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * WHY THE ROWS LEFT, AND WHY THIS DIRECTION AND NOT THE OTHER ONE
+ * ═══════════════════════════════════════════════════════════════════════════════════════
+ * C115 §2.2 is normative and names the canonical home of four values — parcel AREA, PERIMETER,
+ * BOUNDING BOX and BOUNDARY EDGES + frontage clause — as **01 PARCEL**, marking the site-data
+ * fold's copy *"⛔ YES — live duplication today"* on all four rows. They already render in
+ * question 1: `parcelRingMeasuredFacts` merged them INTO the cadastral card at §ONE-PARCEL-BLOCK
+ * (L-13005), on the founder's own report that *"the data of the parcel is incorrect format"* —
+ * two headings, two typographies, the area printed twice. This fold was the third copy.
+ *
+ * The merge direction was settled then and is re-applied here: `parcelCard.ts` is the ONE producer
+ * of the cadastral card, and a second surface that can disagree with it about whether a ring is a
+ * legal cadastral parcel is a legal defect, not a cosmetic one.
+ *
+ * ⛔ AND `C115-12` FORBIDS THE OTHER READING OF THIS CHANGE. Its own column header: the
+ * non-canonical occurrence *"becomes a reference; it never states delete"*. So the rows do not
+ * simply vanish — this stamp is what they become, and it names the question that holds them.
+ * A block that moved must never look like a block that was deleted (`C115-17`, L-13026).
+ *
+ * ⚠ IT IS A REFERENCE, NOT A SUMMARY: it computes nothing and prints no figure, so it cannot
+ * disagree with question 1 the way a restated number could.
+ */
+export function buildParcelRowsRelocationStamp(): string {
+    return `<div ${PARCEL_ROWS_RELOCATED_ATTR}="${PARCEL_ROWS_RELOCATED_TO}" `
+        + `style="margin-top:9px;font-size:9.5px;line-height:1.55;color:#8a83a0;min-width:0;`
+        + `max-width:100%;">`
+        + `<b style="color:#8a83a0;">Parcel measurements moved.</b> Area, perimeter, bounding box `
+        + `and boundary edges now have one home — <b>“Which plot are we talking about?”</b>, `
+        + `question 1, on the cadastral card and behind its <i>View full parcel data</i> fold. `
+        + `They kept their values, their hints and their click-to-light-the-geometry behaviour. `
+        + `Nothing was dropped; this fold keeps the ORDINANCE and MASSING figures, which are `
+        + `question 2's subject.</div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // §RESI-ORCH-MASSING-OPTIONS (STR §7) — N MASSINGS, EACH WITH ITS REASON
 // ─────────────────────────────────────────────────────────────────────────────
 
