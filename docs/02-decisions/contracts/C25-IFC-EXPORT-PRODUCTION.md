@@ -83,6 +83,86 @@ IfcProject → IfcSite → IfcBuilding → IfcBuildingStorey → IfcSpace (per R
 
 **Current state**: `plugins/ifc-export/src/hierarchy.ts` implements IfcProject → IfcBuilding → IfcBuildingStorey. ~~**IfcSite is empty; IfcSpace is absent; IfcZone is absent.** These are the master plan IFC-α-1/α-2/α-3 gap-fill phases.~~ **← SUPERSEDED, see the banner above.**
 
+### §1.3.0 — CARDINALITY: one `IfcSite`, **N** `IfcBuilding`, each owning its OWN storeys (added 2026-09-09, ADR-0385)
+
+> ⭐ **THIS CLAUSE IS AN AMENDMENT, NOT A CORRECTION.** §1.3 above fixes the *chain*
+> `IfcProject → IfcSite → IfcBuilding → IfcBuildingStorey → IfcSpace → IfcZone` and asserts
+> *"every storey to a building, every building to the site"*. It has never stated a **cardinality**,
+> and both shipping writers read the silence as **one**. The founder, 2026-09-09: *"each building
+> should be considered as a different building entity for the IFC schema and the inspect tree etc…
+> as per IFC standards."* This clause states the number §1.3 left unsaid.
+
+**A project MAY contain SEVERAL buildings. Every export MUST emit one `IfcBuilding` per building
+the containment authority records, and each `IfcBuilding` MUST aggregate ITS OWN
+`IfcBuildingStorey` set.** A master plan of three blocks is **three `IfcBuilding` entities under
+one `IfcSite`**, not one building with nine storeys.
+
+⛔ **Block A "Level 1" and Block B "Level 1" are ONE PRYZM `levelId` and TWO `IfcBuildingStorey`
+entities.** An `IfcBuildingStorey` is decomposed from exactly one `IfcBuilding`, so a storey table
+keyed by `levelId` alone cannot express a master plan. Pipeline A keys storeys by a composite
+**slot**, `storeySlot(buildingId, levelId)` (`packages/file-format/src/export/ifc/ifcIdentity.ts`).
+
+**Relationship entities — unchanged, because the defect was cardinality and not vocabulary:**
+
+| Edge | Entity | Clause |
+|---|---|---|
+| site ⊃ buildings | `IfcRelAggregates` | IFC4 (ISO 16739-1:2018) §5.1.3.3 + §5.1.2.5; IFC2x3 (ISO/PAS 16739:2005) `IfcKernel.IfcRelDecomposes` |
+| building ⊃ storeys | `IfcRelAggregates` | same |
+| storey ⊃ products | `IfcRelContainedInSpatialStructure` | IFC4 §5.1.3.5; IFC2x3 `IfcProductExtension` |
+| storey ⊃ `IfcSpace` | `IfcRelAggregates` | L-8504 — a spatial element is decomposed, not contained |
+
+Both relation entities exist unchanged in **IFC4 and IFC2x3**, which is what Pipeline A can emit
+(`ExportOptions.schema: 'IFC2X3' | 'IFC4'`, default `IFC4`; the Revit route at
+`apps/editor/src/engine/initUI.ts:2003` passes `'IFC2X3'`). **IFC4X3 remains out of scope here —
+Pipeline A cannot express it, which is §1.1's open L-8560, not this clause's problem.**
+
+#### The containment AUTHORITY, and why it is not `SpaceEnvelope.group`
+
+**ADR-0385 §2 (accepted 2026-09-09):** `hierarchyStore` is the authority for spatial containment;
+`SpaceEnvelope.group` (ADR-0383 D1) is the massing-stage **authoring** axis that PROJECTS into it,
+exactly as `partOf` does under ADR-0328. **Nothing downstream reads `group` for containment.** The
+exporter, the PRYZM inspect tree and the IFC inspect tree all call **one** resolver —
+`resolveLevelBuilding()` / `buildBuildingRoster()` in
+`packages/core-app-model/src/hierarchy/BuildingResolver.ts` — so the file and the trees cannot give
+two answers (C84 EI-9). ⛔ Four records could have answered *"which building is this element in"*;
+ADR-0328 forbids a second independent hierarchy source of truth, and this is how that ruling is
+kept here.
+
+The resolver is **three-valued and the third value is load-bearing** (§CONTEXT-DATA-HONESTY,
+L-581/L-616): `carried` (the substrate records it) · `derived` (it records nothing, so the single
+default building — **every project authored before ADR-0385 takes this path**) · `unknown` (it
+cannot answer: unreadable store, a **dangling** `buildingId`, or two buildings claiming one
+`bimLevelId`). ⛔ An `unknown` still writes a storey — no element may be lost — but MUST raise an
+`UNRESOLVED_BUILDING` diagnostic. **An unreadable hierarchy and a genuinely ungrouped project must
+never produce the same report.**
+
+#### ⛔ THE BACK-COMPATIBILITY PIN, AND IT IS LOAD-BEARING
+
+`storeyKey()` seeds `ifcGlobalId()`. **The slot MUST degenerate to the bare `levelId` when the
+building is the default (`DEFAULT_BUILDING_ID = 'building-1'`)**, so `storey:L0`,
+`relcontained:L0` and `relaggregates:storey-spaces:L0` come out **byte-identical** for every
+project that has no hierarchy buildings. Re-keying unconditionally re-churns every storey GlobalId
+in every existing project — the exact defect **L-8501** fixed.
+
+⛔ **The slot MUST NOT depend on how many buildings the model holds.** A rule like *"compose only
+when N > 1"* would re-churn the first building's ids the moment a second was added. The sentinel is
+local to the building and nothing else.
+
+⛔ **The arms asserting `IFCRELAGGREGATES === 4`** in
+`packages/file-format/__tests__/ifc-export-file-validity.test.ts` — the arithmetic of exactly one
+site and exactly one building — **are the ADR-0383 D3 guarantee and are preserved VERBATIM as the
+ungrouped arm.** Editing them to accommodate a change retires the guarantee silently.
+
+#### ⚠ WHAT THIS CLAUSE DOES NOT YET DELIVER, stated before it is believed
+
+**N buildings alone are N correct CONTAINERS with NO CONTENTS.** Measured 2026-09-09:
+`grep -rni "spaceenvelope" packages/file-format/src plugins/ifc-export/src plugins/ifc-import/src
+plugins/ifc-inspector/src` → **0 hits**, and `Wall`/`Slab` carry **no group axis**. So an element's
+building is resolved **through its level**, and when two buildings claim one PRYZM `levelId` the
+element is genuinely unroutable — that resolves `unknown` and is reported, never guessed.
+*Exit condition:* elements carry a building axis of their own (the group→element join), at which
+point `resolveElementBuilding` stops going through the level.
+
 ### §1.3.1 — Hosted openings resolve to a storey THROUGH THEIR HOST (added 2026-08-23, L-8900)
 
 ⚠ §1.3's completeness invariant — *"every element resolves to a storey"* — must NOT

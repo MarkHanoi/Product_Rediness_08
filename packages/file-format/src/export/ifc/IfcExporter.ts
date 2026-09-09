@@ -37,7 +37,21 @@ export type IfcExportScope = 'native-only' | 'native-and-imported';
 
 export interface ExportOptions {
     projectName?: string;
+    /**
+     * ⛔ DECLARED AND NEVER READ. Measured 2026-09-09:
+     * `grep -rn "siteName|buildingName" packages/file-format/src` returns these two
+     * declarations and NOTHING else. `export()` overrides only `project.name`.
+     */
     siteName?: string;
+    /**
+     * ⛔ DECLARED AND NEVER READ — and after ADR-0385 it is also the WRONG SHAPE.
+     * A project may hold N buildings, and each one's name comes from the
+     * containment authority (`hierarchyStore.BuildingData.name`, via
+     * `buildingContainment.applyBuildingContainment`), not from a single export
+     * option. Kept only so removing it is a separate, deliberate change; do not
+     * wire it — wiring it would mint a second answer to "what is this building
+     * called".
+     */
     buildingName?: string;
     schema?: 'IFC2X3' | 'IFC4';
     exportScope?: IfcExportScope;
