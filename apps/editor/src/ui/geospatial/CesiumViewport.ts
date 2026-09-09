@@ -675,6 +675,29 @@ const SITE_ARRIVAL_FLY_DURATION_S = 5;
 const SITE_ARRIVAL_HIGH_ALT_M = 9000;
 
 /**
+ * §ARRIVAL-EASES-AT-THE-SEAT (founder 2026-09-09 · L-13291) — seconds the start-up arrival eases
+ * onto the site seat, instead of snapping onto it with `setView`.
+ *
+ * FOUNDER: *"when the user adds the location - that it moves slower - first so that the quality is
+ * better - it is too quick … try 30% slower"*.
+ *
+ * ⭐ 2.08 = `SITE_ENTRY_FLIGHT_DURATION_S` (1.6, siteEntryModel.ts:196) x 1.3 — his "30% slower",
+ * taken against the entry model's own DECLARED flight rather than against an instant snap, because
+ * 30% slower than instant is not a number.
+ *
+ * ⛔ IT IS NOT `SITE_ARRIVAL_FLY_DURATION_S` (5 s) AND NOT `STARTUP_DESCENT_FLY_DURATION_S` (12 s).
+ * Both of those cover a descent FROM ALTITUDE, and §STARTUP-ARRIVES-DIRECTLY (L-13262) excluded
+ * that leg on the founder's own instruction one day earlier. This is a short ease AT the seat, and
+ * that distinction is what lets both rulings stand together.
+ *
+ * ⚠ IT MUST STAY BELOW `REVEAL_GATE_DEADLINE_MS` (siteRevealSequence.ts:66). If the ease outlasts
+ * the gate, the gate becomes unsatisfiable and the split mounts by TIMEOUT mid-flight — which is
+ * the exact "stop before the split view" this change exists to remove. The two are a PAIR; move
+ * one and you must move the other.
+ */
+const SITE_ARRIVAL_SEAT_EASE_S = 2.08;
+
+/**
  * §STARTUP-SLOW-DESCENT (founder 2026-09-07) — the arrival duration for the ONE-SHOT **start-up**
  * descent, seconds. Every other caller of `frameSiteLocation` keeps `SITE_ARRIVAL_FLY_DURATION_S`.
  *
@@ -4917,25 +4940,68 @@ export class CesiumViewport {
     // waiting on an animation that now never runs. A new "fast flight" branch would be a
     // second arrival implementation to keep in step with the seat.
     // ══════════════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════════════
+    // §ARRIVAL-EASES-AT-THE-SEAT (founder 2026-09-09 · L-13291)
+    //
+    // *"can you please do the move - when the user adds the location - that it moves slower -
+    // first so that the quality is better - it is too quick - also that there is no stop before
+    // the split view to selects the parcel renders - try 30% slower"*
+    //
+    // ⛔ THIS DOES **NOT** REVERSE §STARTUP-ARRIVES-DIRECTLY (L-13262, ONE DAY OLD, above).
+    // That ruling excluded the `SITE_ARRIVAL_HIGH_ALT_M` (9 000 m) ESTABLISHING VANTAGE and the
+    // 12 s "globe to zone" glide — and both stay excluded. The camera still parks at NO
+    // intermediate altitude and still enters ONE frustum, at the destination. What changes is
+    // only the last beat: the SNAP at that seat becomes a short EASE at that same seat.
+    // Same destination, same orientation, same frustum, no second arrival path.
+    //
+    // ⭐ WHY AN EASE IS NOT MERELY COSMETIC HERE, WHICH IS THE FOUNDER'S ACTUAL POINT.
+    // A `setView` presents the final frustum on frame one, so every LOD, terrain tile and
+    // building the seat needs is requested at the instant the user is already looking at the
+    // result — the first painted frames are the coarsest the session will ever show. A short
+    // flight requests the same tiles a beat earlier and spends that beat streaming, so the frame
+    // the user actually stops on is materially better. "It is too quick" is a QUALITY report,
+    // not a taste report, and this is the mechanism behind it.
+    //
+    // ⭐⭐ AND IT REMOVES THE "STOP", WHICH IS THE SAME DEFECT SEEN FROM THE OTHER END.
+    // `REVEAL_GATE_DEADLINE_MS` was 1 500 ms while `SITE_ENTRY_FLIGHT_DURATION_S` is 1.6 s —
+    // 1500 < 1600, so the reveal gate was UNSATISFIABLE and EXPIRED on every run, warm or cold
+    // (§UNSATISFIABLE-GATE, L-716). The split therefore mounted by TIMEOUT, mid-flight, which is
+    // precisely the "stop before the split view" he is describing. The deadline is raised beside
+    // this constant so the gate can be met by the flight completing, not by giving up on it.
+    //
+    // ⛔ THE PROMISE NOW RESOLVES ON COMPLETION, NOT BEFORE. Resolving up-front would keep the
+    // reveal racing an animation that is still running — the very thing being fixed. `flyTo`'s
+    // `cancel` fires when a later navigation supersedes this one, and it must settle too, or a
+    // superseded arrival dangles the reveal for ever.
+    // ══════════════════════════════════════════════════════════════════════════
     const arriveDirectly = opts.instant === true || this.startupDescentArmed;
     if (arriveDirectly) {
-      // §STARTUP-SLOW-DESCENT — an INSTANT framing is not a descent. Disarm and settle, so a
-      // start-up arming that lands on the mount-framing path resolves rather than dangling.
       if (this.startupDescentArmed) {
         this.startupDescentArmed = false;
         const resolve = this.resolveStartupDescent;
         this.resolveStartupDescent = null;
-        resolve?.();
         console.log(
-          '[CesiumViewport] §STARTUP-ARRIVES-DIRECTLY (L-13262) — the start-up arrival is a ' +
-          `direct setView onto the site seat: no ${SITE_ARRIVAL_HIGH_ALT_M} m establishing ` +
-          `vantage and no ${STARTUP_DESCENT_FLY_DURATION_S}s glide. Founder 2026-09-08: ` +
-          '"remove the legacy zoom in part from the globe to zone". Same seat, one frustum. ' +
-          'The tile wait this used to cover is now visible — §STARTUP-QUIET-ACTIVATION ' +
-          'carries it in view, without a splash.',
+          '[CesiumViewport] §ARRIVAL-EASES-AT-THE-SEAT (L-13291) — the start-up arrival eases ' +
+          `onto the site seat over ${SITE_ARRIVAL_SEAT_EASE_S}s instead of snapping. STILL no ` +
+          `${SITE_ARRIVAL_HIGH_ALT_M} m establishing vantage and no ` +
+          `${STARTUP_DESCENT_FLY_DURATION_S}s glide (§STARTUP-ARRIVES-DIRECTLY L-13262 stands): ` +
+          'same seat, one frustum. Founder 2026-09-09: "it is too quick … try 30% slower" — the ' +
+          'ease spends that beat STREAMING the seat\'s tiles, so the frame he stops on is not ' +
+          'the coarsest of the session.',
         );
+        // ⛔ Settle on BOTH outcomes. A superseded flight that never settles hangs the reveal.
+        viewer.camera.flyTo({
+          destination,
+          orientation,
+          duration: SITE_ARRIVAL_SEAT_EASE_S,
+          complete: () => resolve?.(),
+          cancel: () => resolve?.(),
+        });
+      } else {
+        // The mount-framing path (`opts.instant`) is a LAYOUT operation, not an arrival — it
+        // must not animate, or every reflow would drag the camera. Unchanged.
+        viewer.camera.setView({ destination, orientation });
       }
-      viewer.camera.setView({ destination, orientation });
     } else {
       // §SITE-CINEMATIC-ARRIVAL — slow two-stage establishing descent. (a) Jump
       // high straight above the target so the slow flyTo starts from altitude

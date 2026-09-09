@@ -186,6 +186,73 @@ describe('§SWAP-NOT-VACATE — the live placeholder in the shell', () => {
         expect(el(RIGHT_PANE).hidden).toBe(true);
     });
 
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // §HIDDEN-LOSES-TO-INLINE-DISPLAY (L-13289) — the founder's blank-screen blocker
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // FOUNDER, 2026-09-09, on a PRYZM-3D + PRYZM-2D split, after clicking the split control:
+    //   > "THEN THIS SCREEN WENT OF - NO VIEWA ACCESSIBLE"
+    // Both panes showed the placeholder, over a workspace that had two views a moment earlier.
+    //
+    // ⭐⭐ EVERY ARM ABOVE WAS GREEN THROUGHOUT, AND THAT IS THE POINT OF THESE TWO.
+    // They assert `.hidden`, and `.hidden` was ALWAYS SET CORRECTLY. The attribute was right and
+    // the pixels were wrong: the root carries an INLINE `display:flex`, and an inline declaration
+    // outranks the user-agent rule `[hidden]{display:none}` (UA origin, specificity 0,1,0). So the
+    // opaque full-bleed white overlay was never actually hidden — only COVERED by whatever
+    // renderer stacked above its z-index 5. Hide the renderers and the sheets are all that is left.
+    //
+    // ⛔ AN ASSERTION ON THE ATTRIBUTE CANNOT SEE THIS DEFECT. Only an assertion on what the
+    // browser will actually paint can. That is the axis these arms add
+    // ([[gate-blind-on-the-wrong-axis]] — green ≠ right).
+    it('⭐ hidden means NOT PAINTED, not merely flagged — the inline display moves with the attribute', () => {
+        const shell = buildShell();
+        shell.store.dispatch({ type: 'view.pane.set-layout', layout: siteAuthoringDefaultLayout() });
+        for (const pane of [LEFT_PANE, RIGHT_PANE]) {
+            const root = el(pane);
+            expect(root.hidden, `${pane} attribute`).toBe(true);
+            // ⛔ THE ARM THAT WOULD HAVE CAUGHT IT. Before the fix this read 'flex'.
+            expect(root.style.display, `${pane} is an OPAQUE full-bleed overlay — a truthy `
+                + `hidden attribute does not stop it painting over the pane`).toBe('none');
+        }
+    });
+
+    it('⛔ is NOT PAINTED at birth — before any mounter is registered, an empty set is not "all on screen"', () => {
+        // The shell mounts placeholders ~168 lines BEFORE the three renderer mounters register,
+        // and `registerMounter` notifies nobody. So the first render ran against an EMPTY
+        // mountable set, concluded that nothing could fill the pane, and printed
+        //   "No view has been assigned to either pane yet. Every view this workspace can host is
+        //    already on screen"
+        // — a sentence that contradicts itself, because it reported a WIRING FAILURE in an
+        // EMPTINESS's words (§CONTEXT-DATA-HONESTY, L-581/L-616). Those words then stayed on the
+        // glass, since the later hide was the no-op above.
+        //
+        // Starting hidden means the worst case is a blank pane for a few frames, never a
+        // confident false sentence.
+        const parent = document.createElement('div');
+        document.body.appendChild(parent);
+        const paneEl = document.createElement('div');
+        parent.appendChild(paneEl);
+        // ⭐ AN EMPTY SET, NOT `null`, AND THAT DISTINCTION IS THE DEFECT ITSELF.
+        // `PaneLayoutStore.mountableKinds()` (paneLayoutStore.ts:113-114) returns `null` for
+        // "the applier CANNOT SAY" — an honest unknown — and `paneViewOptions.ts:409`
+        // (`!mountable || mountable.has(...)`) correctly lets everything through on `null`.
+        // But `PaneHost` (PaneHost.ts:372-374) hands back `new Set(this.mounters.keys())`, which
+        // during the zero-mounter window is an EMPTY SET — and an empty Set is truthy, so every
+        // renderer kind is excluded and the code concludes "nothing can ever fill this pane".
+        // ⛔ A NOT-YET and a NONE share a value. This fixture reproduces that exact state.
+        const store = new PaneLayoutStore({ [LEFT_PANE]: null }, {
+            applier: { applyLayout: () => {}, registeredKinds: () => new Set<RendererKind>() },
+        });
+        mountPaneEmptyState({ paneId: LEFT_PANE, paneEl, store });
+
+        const root = paneEl.querySelector<HTMLElement>(`[data-testid="pane-empty-state-${LEFT_PANE}"]`)!;
+        // It may legitimately have words — the pane IS empty. What it may never do is paint the
+        // "everything is already on screen" verdict computed from a set nothing has filled yet.
+        if (!root.hidden) {
+            expect(root.textContent ?? '', 'an empty mountable set is UNKNOWN, not "all on screen"')
+                .not.toMatch(/already on screen/i);
+        }
+    });
+
     it('a REJECTED recovery says why, instead of a button that does nothing', () => {
         // The store rejects an intent the applier refuses, and a rejected intent mutates
         // nothing — so without this the one button an empty pane offers would look broken.

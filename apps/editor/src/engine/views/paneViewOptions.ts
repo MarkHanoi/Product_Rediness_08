@@ -132,10 +132,38 @@ export function describePaneName(paneId: PaneId): string {
  *      exchange (§SWAP-NOT-VACATE; this line read "which pane empties")
  *   6. otherwise                            → `available`
  */
+// ⛔⛔ §EMPTY-MOUNTABLE-SET-IS-UNKNOWN (L-13290 · §CONTEXT-DATA-HONESTY, L-581/L-616)
+//
+// ONE reading of `mountableKinds`, shared by BOTH consumers below. It was written out twice —
+// identically — and both copies were wrong in the same way, which is this repo's dominant defect
+// shape (one rule, two implementations) reproduced inside a single file.
+//
+// `PaneLayoutStore.mountableKinds()` returns `null` for "the applier CANNOT SAY"
+// (paneLayoutStore.ts:113-114), and both consumers correctly let everything through on `null`.
+// But `PaneHost` hands back `new Set(this.mounters.keys())` (PaneHost.ts:372-374) — and in the
+// window between the shell mounting its placeholders and the three renderer mounters registering
+// (~168 lines later in GISAreaLayout, with `registerMounter` notifying nobody) that Set is EMPTY.
+//
+// ⭐ AN EMPTY SET IS TRUTHY. So `mountable.has(kind)` was false for maplibre, cesium AND canvas2d;
+// `describeEmptyPane` concluded nothing could ever fill the pane and printed
+//     "Every view this workspace can host is already on screen"
+// over a workspace hosting nothing at all, and `describePaneViewOptions` marked EVERY view
+// unavailable "no mounter registered for its kind". Both reported a WIRING FAILURE in an
+// EMPTINESS's words — the confusion L-581 exists to forbid, and what the founder read on a blank
+// screen: "THEN THIS SCREEN WENT OF - NO VIEWA ACCESSIBLE".
+//
+// A NOT-YET IS NOT A NONE. An empty set is the applier describing ITSELF, not what this pane can
+// host, so it collapses onto the same `null` the store already uses for "cannot say".
+function resolveMountable(
+    kinds: ReadonlySet<RendererKind> | null | undefined,
+): ReadonlySet<RendererKind> | null {
+    return kinds && kinds.size > 0 ? kinds : null;
+}
+
 export function describePaneViewOptions(input: PaneViewOptionsInput): PaneViewOption[] {
     const registry = input.registry ?? VIEW_TYPE_REGISTRY;
     const { layout, paneId } = input;
-    const mountable = input.mountableKinds ?? null;
+    const mountable = resolveMountable(input.mountableKinds);
     const pinned = input.pinnedViews ?? null;
 
     return listPaneViewTypes(registry).map((viewType): PaneViewOption => {
@@ -398,7 +426,7 @@ export function describeEmptyPane(input: {
     const { layout, paneId } = input;
     if (layout[paneId] != null) return null;
 
-    const mountable = input.mountableKinds ?? null;
+    const mountable = resolveMountable(input.mountableKinds);
     const others = Object.keys(layout).filter((p) => p !== paneId);
     const occupiedOther = others.find((p) => layout[p] != null) ?? null;
     const onScreen = new Set(Object.values(layout).filter((v): v is ViewType => v != null));

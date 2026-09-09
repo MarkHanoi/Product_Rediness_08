@@ -63,7 +63,32 @@ const _tracer = trace.getTracer('pryzm.site-entry.site-reveal-sequence');
  * introduces a minimum wait, and turning it into one would be the §REVEAL-CONTENT-READY mistake
  * inverted (that dep's own note already forbids a timer standing in for a readiness signal).
  */
-export const REVEAL_GATE_DEADLINE_MS = 1_500;
+/**
+ * ⛔⛔ §UNSATISFIABLE-GATE, AGAIN (L-13292 · L-716) — RAISED 1_500 -> 2_600 ON 2026-09-09.
+ *
+ * 1 500 ms was BELOW the flight it was gating. `SITE_ENTRY_FLIGHT_DURATION_S` is 1.6 s
+ * (siteEntryModel.ts:196) and `awaitFlightComplete` resolves on it, so 1500 < 1600 meant the gate
+ * COULD NEVER BE MET. It expired on every single run, warm or cold, and the split mounted by
+ * TIMEOUT — mid-flight, every time.
+ *
+ * ⭐ THAT TIMEOUT IS WHAT THE FOUNDER SEES: *"there is no stop before the split view to selects the
+ * parcel renders"*. He read it as a stall; it is the reveal giving up on a flight it was never
+ * given long enough to wait for.
+ *
+ * ⚠ AND THE COMMENT BELOW WAS THEREFORE FALSE IN EVERY CASE, NOT SOME. *"IT IS A CEILING, NOT A
+ * DELAY"* is only true of a gate that can be satisfied early; one that always expires is a pure
+ * delay wearing a ceiling's words. It is true again now.
+ *
+ * 2 600 = `SITE_ARRIVAL_SEAT_EASE_S` (2.08 s, CesiumViewport.ts) + ~500 ms of settle headroom.
+ * ⛔ THE TWO ARE A PAIR. Raise the ease and this MUST rise with it, or the gate goes unsatisfiable
+ * again — this is the second time this class of bug has been recorded (L-716), and the first fix
+ * did not survive a change to the other number.
+ *
+ * ⭐ The ceiling still does its real job: a COLD `buildings` read measured 22 544 ms for 81 tiles
+ * at Barcelona, and no value in the seconds range changes that outcome — only how much of it the
+ * user spends on a globe.
+ */
+export const REVEAL_GATE_DEADLINE_MS = 2_600;
 
 /** The resolved location the reveal is anchored to — the `search()` outcome's `picked`. */
 export interface SiteRevealTarget {
