@@ -234,6 +234,71 @@ answering a bbox/circle query cleanly (ES 120 parcels / 277 KB, FR 96, NL 435 / 
 150 m). The capability exists; what did not exist was any way for a provider to state that it
 LACKS it, which is the only reason an overlay can lie.
 
+### §1.14 — An AREA query is a DECLARED CAPABILITY of every provider, never an optional method
+
+**Added 2026-09-09 (lane CADASTRAL, §CADASTRAL-AREA-IS-A-DECLARED-CAPABILITY).** §1.13 made the
+POINT lookup provider-invariant. This makes the AREA lookup provider-invariant in the only way that
+survives contact with 40-odd registers that do not all publish one: by forcing every provider to
+STATE whether it can answer, instead of letting the ones that cannot stay silent.
+
+1. **`fetchParcelsInArea(centre, radiusM)` is on the interface and is REQUIRED.** Not `?:`. A
+   provider that cannot serve an area query implements it and returns `unsupported` with a reason.
+   ⛔ **An optional method is the defect, not the convenience.** `fetchParcelOutcomeAtPoint` was
+   minted optional-in-practice — one adapter of five was honest, and the one honest branch sat
+   behind an identity check that was false at every click in production (§L-13299,
+   [[same-rule-two-implementations]], [[committed-is-not-reachable]]). An optional area method
+   re-creates exactly that: *some providers are honest, some are not*, with no way for a caller —
+   or a compiler — to tell which. **Required means a dishonest provider cannot compile.**
+
+2. **THREE OUTCOMES, AND THEY ARE NOT RANKED — they are different facts** (the §1.5 /
+   §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS shape, applied to the area question):
+
+   | `status` | Means | The user must be told |
+   |---|---|---|
+   | `ok` | the register answered with its parcels for this area | draw them |
+   | `unsupported` | **this cadastre publishes no area/bbox query at all.** An answer about the SOURCE, permanent, and not a failure of anything | name the country and say the register serves one parcel at a time |
+   | `unreachable` | it *does* publish one, and it did not answer | name the outage; never render it as "no parcels here" |
+
+   ⛔ **`unsupported` and `unreachable` MUST NOT collapse into one value, and neither may collapse
+   into an empty list.** An empty `parcels` array on `ok` is a real finding about the land ("the
+   register answered, and it holds nothing in this circle"); `unsupported` is a finding about the
+   register; `unreachable` is not a finding at all. Three states, three sentences (C84 EI-1b).
+
+3. **`truncated` is a fourth fact and rides on `ok`.** Every upstream area query carries a count
+   cap. `truncated: true` says *"we hit the cap — there are more parcels here than we drew"*;
+   `truncated: false` says *"that is all of them"*. A UI that draws a capped collection without
+   saying so is asserting a complete cadastral picture it does not have — the C58 §16 /
+   [[envelope-solid-overstates-partial-data]] overstatement, one layer down.
+
+4. **The area leg REUSES the point leg's URL builder, parser and normaliser — it never forks a
+   second one.** The two answer the same question at different cardinalities; a second parser
+   drifts, and the drift is invisible because both keep returning plausible rings
+   ([[same-rule-two-implementations]]). Concretely: Spain reuses `buildParcelBboxUrl` +
+   `parseParcelCollectionGml` (both already exported for the *manzana* route); the EU proxy
+   parameterises its existing per-source `url(lat, lon)` builders for half-window and count and
+   returns the whole normalised collection *instead of* `pickCandidate`'s single winner. Every
+   normalisation rule that binds a point answer (§1.1 WGS84 at the edge, §1.4 provenance, §1.6 the
+   single C12 projector) binds every member of an area answer identically.
+
+5. **An area answer is BOUNDED BY THE SITE SCOPE, never by the camera.** The bound is
+   `getContextScope()` / `getResolvedSiteScope()` — the same unit every other context layer is
+   bounded by (C12 §13.4). There is no visible-rectangle API, and inventing one would make the
+   number of upstream requests a function of how the user moves the mouse. In-flight requests for
+   the same bound MUST be de-duplicated: context was measured being read 2–3× per bbox and
+   cancelled ([[context-one-read-per-bbox]]), and a public register is a shared resource (§7.2).
+
+6. **The per-country capability verdict is REMEMBERED and SURFACED, not re-derived per draw.** The
+   overlay owner (§5.5) holds the last verdict so the affordance can say *"Spain: 34 parcels"* or
+   *"Portugal: this register serves one parcel at a time"* without re-asking. ⚠ An absent verdict is
+   `unreported`, never `unsupported` — nobody has asked yet is not the same as the register cannot
+   answer, and the two must not print the same sentence.
+
+**Why**: the founder asked for a cadastral-boundaries toggle, and the honest reason it did not
+exist is not coverage — the point lookup was measured live at HTTP 200 in ES/FR/NL/DK — it is that
+no provider could be *asked* for more than one parcel. Adding the method optionally would have
+shipped a toggle that silently draws nothing in most of the world. Making it a declared capability
+means the toggle's failure mode is a sentence, not an empty map.
+
 ---
 
 ## §2 — Schema
@@ -396,6 +461,60 @@ The parcel-select interaction is specified in [SPEC-PARCEL-SELECTION](../../03-e
 - **§5.2 — Attribution surfaced.** The provider `label` (§1.9) and the parcel `provenance` (source / license / ingest time) MUST be shown on the info card.
 - **§5.3 — Honest fallback.** A `null` fetch (§1.5) surfaces the "no parcel here — draw instead" affordance; it MUST NOT read as an error.
 - **§5.4 — Select-vs-draw default.** Select-parcel is the default mode only where the active jurisdiction has a `ParcelProvider`; Draw otherwise.
+
+### §5.5 — The cadastral-boundaries overlay: ONE owner, N surfaces, and a verdict it can state
+
+**Added 2026-09-09 (lane CADASTRAL, §CADASTRAL-BOUNDARIES-ONE-OWNER).** The §1.14 area query exists
+to be *drawn*. This binds how.
+
+1. **ONE owner module holds the flag and the verdict.**
+   `apps/editor/src/ui/site/cadastralBoundariesLayer.ts` — `getCadastralBoundaries()` /
+   `setCadastralBoundaries(on)` / `subscribeCadastralBoundaries(fn)`, plus the last per-country
+   §1.14 capability verdict. Modelled line-for-line on `siteGeometryHighlight.ts`, which already
+   solved this exact shape. ⛔ **No surface owns the flag, and no second module writes it** — the
+   C59 §2.10 rule ("the view region has exactly ONE owner … a second module writing that box is a
+   violation of this invariant, not a workaround for a timing problem") applied to overlay state.
+   Two surfaces reading one channel cannot desynchronise; two surfaces each holding a boolean will,
+   and the repair for that is never a re-assert pass ([[view-region-one-owner]]).
+
+2. **The overlay is NOT site state and NEVER commits.** It draws the *neighbours* of the plot. It
+   does not touch `site.parcel-boundary-set` (C19 §1.4, one-shot immutable), does not enter the
+   `SiteModel`, is not serialised, and survives no reload. A parcel the user CLICKS still goes down
+   the identical C19 path (§1.3) — clicking is selection, drawing is context, and the overlay never
+   converts one into the other.
+
+3. **Both surfaces read that one channel, and each DECLARES itself.**
+   - **2D** — `SiteBoundaryMap2D.ts`: a MapLibre `geojson` source + fill/line layers, installed
+     beside the existing site-highlight layers and **below** the drawn boundary and its vertex
+     handles (the overlay is the ground the selection is read against, never on top of it).
+   - **3D Site** — the toggle chip lives in `FormaSiteAnalysisControls.ts`'s `mkToggle` row (the
+     one toggle factory in the repo), backed by a `setX`/`isX` pair on `CesiumViewport` and two
+     OPTIONAL lines on the `FormaSunViewport` interface, so an older build or a test stub degrades
+     to a **disabled chip** rather than a dead one.
+   - ⚠ **The 3D geometry is seated at an ABSOLUTE height with `clampToGround: false`**
+     (§CTX-ABS-SEAT, L-635): clamped geometry renders NOTHING on the baked terrain, and the
+     resulting "the toggle does nothing" is indistinguishable from an empty register.
+   - Each surface calls `registerCadastralSurface(id, viewLabel)` beside its subscription and
+     disposes it with that subscription, so `describeCadastralReach()` derives *where a click will
+     be visible* from who actually wired it — never from a hard-coded sentence that rots silently
+     the first time a lane adds a view.
+
+4. **An empty registry is `unreported`, never `none`.** Copied verbatim from
+   `siteGeometryHighlight.ts`'s §SITE-HIGHLIGHT-REACH for the same reason: a renderer can subscribe
+   without registering, and the scene may not have initialised yet. Printing "nothing will happen"
+   from an absence of reporting asserts a fact about the product the registry cannot support.
+
+5. **If the source cannot answer for the current country, the toggle SAYS SO.** ⛔ A toggle that
+   turns on and draws nothing is the worst of the three outcomes, because it reads as *"there are no
+   parcels here"*. The chip's own note carries the §1.14 verdict — `unsupported` names the register
+   and says it serves one parcel at a time; `unreachable` names the outage; `ok` with
+   `truncated: true` says the drawn set is capped. **The toggle is never allowed to be silent about
+   which of those it is.**
+
+6. **Brand colour.** The overlay uses the §5.1 PRYZM purple family at a *receded* weight — it is
+   context, and the user's own selection (§5.1, full-weight `#6600FF`) must remain the most salient
+   thing on the map. Colour is never the only channel: the overlay is a thin line, the selection a
+   thick line with handles.
 - **§5.5 — The cadastral-boundaries overlay: ONE owner, read by every view.** The user-facing
   toggle that draws the surrounding parcels' boundary lines is bound by these five rules.
   1. **One state, one owner.** The on/off flag and the per-country capability verdict live in ONE
@@ -507,6 +626,9 @@ The Denmark reference proposes an optional PostGIS + Martin MVT tier (normalise 
 - [C23 Provenance & AI Audit](./C23-PROVENANCE-AND-AI-AUDIT.md) — consumes `ParcelProvenance`.
 - [C58 Zoning Rules & Buildable Envelope](./C58-ZONING-RULES-AND-BUILDABLE-ENVELOPE.md) — the sibling; consumes the fetched parcel.
 - [C18 Element Preview Visual Contract](./C18-ELEMENT-PREVIEW-VISUAL-CONTRACT.md) — `#6600FF` highlight.
+- [C59 Multi-Pane View System](./C59-MULTI-PANE-VIEW-SYSTEM.md) §2.10 — **one owner** for a piece of view state; §5.5's overlay store is that rule applied to an overlay flag, and the reason no surface holds its own boolean.
+- [C12 Geospatial](./C12-GEOSPATIAL.md) §1.6 (the single projector, reused for every ring in an area answer) and §13.4 (the SITE SCOPE, which is what bounds an area query — never the camera).
+- [C19 Site Model & Parcel](./C19-SITE-MODEL-AND-PARCEL.md) §1.4 — the one-shot immutable boundary the §5.5 overlay is explicitly NOT: it draws neighbours, is never persisted, and never commits.
 - [ADR-0269](../adrs/ADR-0269-compliance-authoring-parcel-zoning-envelope-strategy.md) — the strategy decision.
 - [SPEC-PARCEL-SELECTION](../../03-execution/specs/SPEC-PARCEL-SELECTION.md) (proposed) · [SPEC-COMPLIANCE-REPORT](../../03-execution/specs/SPEC-COMPLIANCE-REPORT.md).
 
@@ -523,6 +645,7 @@ External (non-contract): ARCHISTAR-EUROPE-COMPETITIVE-GAP-AUDIT-2026-07-17.md (a
 | 2026-07-24 | Added **§1.13** (provider-invariant parcel-select + one dispatch registry routed by the shared C58 predicates + Catastro as the reference clone + universal footprint fallback) and **§3.4** (the standardized add-a-jurisdiction recipe). Promoted **§10.1** from open-question to RESOLVED. Grounds on the founder-confirmed "Spain works 100%" reference + L-613 (parcel-select was Catastro-only, blocking every non-Spanish demo). Author: geospatial rollout track. |
 | 2026-07-29 | **§L-640 Phase 1 — `ParcelFeature.metrics` + `ParcelFeature.confidence` schema addition (§2.4); KV-3 RESOLVED.** Added `ParcelGeometryMetrics` and `ParcelConfidence` to the `ParcelFeature` schema (§2.1 updated, §2.4 new). All three shipped adapters (`CatastroParcelProvider`, `WfsParcelProvider`, footprint-fallback via `footprintPick`) now attach `metrics` + `confidence`. The match tier is built ONLY from categorical facts; raw numeric fields (`pointToParcelM`, `candidateMarginM`, `areaDeltaPct`) are shipped untiered with an explicit Phase-1 limitation recorded in §2.4. Server-side fix: `server/jurisdiction/parcelZoningProxy.js` returns `areaOfficialM2` + `areaSigM2` separately, plus `pointToParcelM`/`candidateMarginM` (no longer discarded). Verified by `apps/editor/__tests__/parcelConfidence.test.ts` (15 tests, all passing). KV-3 (area-collapse honesty violation) marked RESOLVED in §13. |
 | 2026-09-09 | **§1.14 (area query is a declared capability) + §5.5 (the cadastral-boundaries overlay), lane CADASTRAL-COVERAGE / §L-13300.** Grounded on a live coverage audit of ES/FR/NL/DK: every point route measured HTTP 200 with a real ring, and every one of the four upstreams answered a bbox/circle AREA query (ES 120 parcels/277 KB · FR 96 · NL 435/804 KB · DK 34 @150 m). The gap was never coverage; it was that `ParcelProvider` had no way to express the area question, and no way for a point-only cadastre (CH/AU/US ArcGIS `identify` legs) to SAY it lacks one — so an overlay would have drawn `unsupported` and `empty` as the same blank map. §1.14 makes the method required and four-armed (`ok`+`truncated` / `unsupported` / `unreachable`); §5.5 binds the overlay to one owner read by both chromes, because the 2D MapLibre map and the Forma Cesium panel are mounted in mutually exclusive modes. Author: lane CADASTRAL-COVERAGE. |
+| 2026-09-09 | **§1.14 (the AREA query is a DECLARED CAPABILITY) + §5.5 (the cadastral-boundaries overlay).** Lane CADASTRAL. The founder asked for a "show cadastral boundaries" toggle; a live probe of the shipped point lookup measured HTTP 200 in ES/FR/NL/DK with exactly one candidate per point, so the gap was never COVERAGE — it was that no provider could be asked for more than ONE parcel. §1.14 makes `fetchParcelsInArea` a REQUIRED interface method with three unranked outcomes (`ok` / `unsupported` / `unreachable`) plus a `truncated` flag, so a register that publishes no area query must SAY so and a dishonest provider cannot compile — the §L-13299 defect (one honest arm behind an identity check that was never true) refused by construction rather than repeated. §5.5 binds the overlay to ONE owner module (C59 §2.10), keeps it out of site state (C19 §1.4), requires ABSOLUTE seating in 3D (§CTX-ABS-SEAT / L-635), bounds fetches by the SITE SCOPE rather than the camera, and forbids a silently-empty toggle. |
 
 ---
 
