@@ -515,3 +515,326 @@ describe('UNASSIGNED_LEVEL_ID is a reserved sentinel', () => {
         expect(UNASSIGNED_LEVEL_ID).toBe('__PRYZM_UNASSIGNED__');
     });
 });
+
+// ── ADR-0385: N IfcBuilding, each owning its own storeys ────────────────────
+
+/**
+ * The spatial decomposition graph, read THROUGH the IFC parser rather than by
+ * regex — the same discipline `globalIds()` above adopted after a regex produced
+ * a false positive. Returns, for every `IfcRelAggregates`, the express id of the
+ * relating object and of each related object.
+ *
+ * IFC4 §5.1.3.3 / IFC2x3 IfcKernel: `IfcRelAggregates(RelatingObject,
+ * RelatedObjects)` is the ONE relationship that decomposes site into buildings and
+ * building into storeys.
+ */
+function aggregations(step: string): { relating: number; related: number[] }[] {
+    const reopened = api.OpenModel(new TextEncoder().encode(step));
+    openModels.push(reopened);
+    const out: { relating: number; related: number[] }[] = [];
+    const ids = api.GetLineIDsWithType(reopened, WEBIFC.IFCRELAGGREGATES);
+    for (let i = 0; i < ids.size(); i += 1) {
+        const line = api.GetLine(reopened, ids.get(i)) as {
+            RelatingObject?: { value?: number };
+            RelatedObjects?: { value?: number }[];
+        };
+        out.push({
+            relating: line.RelatingObject?.value ?? -1,
+            related: (line.RelatedObjects ?? []).map((r) => r?.value ?? -1),
+        });
+    }
+    return out;
+}
+
+/** Express ids of every line of one type, via the parser. */
+function idsOfType(step: string, type: number): number[] {
+    const reopened = api.OpenModel(new TextEncoder().encode(step));
+    openModels.push(reopened);
+    const v = api.GetLineIDsWithType(reopened, type);
+    const out: number[] = [];
+    for (let i = 0; i < v.size(); i += 1) out.push(v.get(i));
+    return out;
+}
+
+describe('ADR-0385 — each building is its own IfcBuilding, with its OWN storeys', () => {
+    it('THE BACK-COMPAT ARM: an ungrouped model still emits exactly ONE IfcBuilding', () => {
+        // ADR-0383 D3 / ADR-0385 §3. This is the guarantee the whole change is
+        // built around, and it is stated as its own arm rather than left implied by
+        // the two `IFCRELAGGREGATES === 4` arms above (which are preserved verbatim).
+        const { step } = emit(model([el({ id: 'wall_1', ifcClass: 'IfcWall' })]));
+        expect(countOf(step, 'IFCBUILDING')).toBe(1);
+        expect(countOf(step, 'IFCBUILDINGSTOREY')).toBe(1);
+        expect(countOf(step, 'IFCRELAGGREGATES')).toBe(3); // project->site, site->building, building->storey
+    });
+
+    it('THE PIN: an ungrouped storey GlobalId is byte-identical to the pre-ADR-0385 key', () => {
+        // `storeyKey()` seeds `ifcGlobalId()`, and re-keying storeys by
+        // (building, level) without preserving the default building's seed re-churns
+        // every storey GlobalId in every existing project — the exact defect L-8501
+        // fixed. The expected value is recomputed here from the OLD formula
+        // (`storey:${levelId}`, no building anywhere in it), INDEPENDENTLY of the
+        // production code path, so this cannot pass by agreeing with itself.
+        const { step } = emit(model(
+            [el({ id: 'wall_1', ifcClass: 'IfcWall', levelId: 'L0' })],
+            [{ id: 'L0', name: 'Ground Floor', elevation: 0, height: 3 },
+             { id: 'L1', name: 'First Floor', elevation: 3, height: 3 }],
+        ));
+        for (const levelId of ['L0', 'L1']) {
+            const preAdr0385 = globalIdFromStableKey(`storey:${levelId}`);
+            expect(step, `storey ${levelId} GlobalId churned`).toContain(preAdr0385);
+        }
+        // …and the slot itself is the bare levelId for the default building.
+        expect(storeySlot(DEFAULT_BUILDING_ID, 'L0')).toBe('L0');
+        expect(storeyKey(storeySlot(DEFAULT_BUILDING_ID, 'L0'))).toBe('storey:L0');
+    });
+
+    it('three blocks sharing PRYZM level ids emit 3 buildings and NINE storeys, not three', () => {
+        // ⭐ ADR-0385 §3's headline case. Block A "Level 1" and Block B "Level 1" are
+        // ONE PRYZM levelId and TWO IfcBuildingStorey entities. A `Map<levelId, …>`
+        // collapses these to three storeys; the composite slot is what makes nine.
+        const lv = (): ExportLevel[] => [
+            { id: 'L1', name: 'Level 1', elevation: 0, height: 3 },
+            { id: 'L2', name: 'Level 2', elevation: 3, height: 3 },
+            { id: 'L3', name: 'Level 3', elevation: 6, height: 3 },
+        ];
+        const { step } = emit(multiBuildingModel([
+            { id: 'block-a', name: 'Block A', levels: lv() },
+            { id: 'block-b', name: 'Block B', levels: lv() },
+            { id: 'block-c', name: 'Block C', levels: lv() },
+        ]));
+
+        expect(countOf(step, 'IFCBUILDING')).toBe(3);
+        expect(countOf(step, 'IFCBUILDINGSTOREY')).toBe(9);
+        for (const name of ['Block A', 'Block B', 'Block C']) expect(step).toContain(name);
+
+        // Nine DISTINCT storey GlobalIds — a collision would mean two blocks share
+        // an entity, which is the failure this composite key exists to prevent.
+        const storeyGuids = new Set(
+            [...step.matchAll(/=\s*IFCBUILDINGSTOREY\(\s*'([^']*)'/g)].map((m) => m[1]),
+        );
+        expect(storeyGuids.size).toBe(9);
+    });
+
+    it('every storey is aggregated under EXACTLY ONE building, and the site under all three', () => {
+        const lv = (): ExportLevel[] => [
+            { id: 'L1', name: 'Level 1', elevation: 0, height: 3 },
+            { id: 'L2', name: 'Level 2', elevation: 3, height: 3 },
+        ];
+        const { step } = emit(multiBuildingModel([
+            { id: 'block-a', name: 'Block A', levels: lv() },
+            { id: 'block-b', name: 'Block B', levels: lv() },
+            { id: 'block-c', name: 'Block C', levels: lv() },
+        ]));
+
+        const buildings = new Set(idsOfType(step, WEBIFC.IFCBUILDING));
+        const storeys = new Set(idsOfType(step, WEBIFC.IFCBUILDINGSTOREY));
+        const sites = idsOfType(step, WEBIFC.IFCSITE);
+        expect(buildings.size).toBe(3);
+        expect(storeys.size).toBe(6);
+        expect(sites).toHaveLength(1);
+
+        const aggs = aggregations(step);
+
+        // site -> all three buildings, in ONE relationship (IFC4 §5.1.2.5).
+        const siteAgg = aggs.filter((a) => a.relating === sites[0]);
+        expect(siteAgg).toHaveLength(1);
+        expect(new Set(siteAgg[0]!.related)).toEqual(buildings);
+
+        // Each building aggregates its OWN two storeys…
+        const owners = new Map<number, number[]>();
+        for (const a of aggs) {
+            if (!buildings.has(a.relating)) continue;
+            expect(a.related, 'a building must own exactly its own storeys').toHaveLength(2);
+            for (const s of a.related) {
+                owners.set(s, [...(owners.get(s) ?? []), a.relating]);
+            }
+        }
+        // …and every storey has exactly one owner. Three of three, never one of six.
+        expect(owners.size).toBe(6);
+        for (const [storey, os] of owners) {
+            expect(storeys.has(storey), 'aggregated a non-storey').toBe(true);
+            expect(os, `storey ${storey} is owned by ${os.length} buildings`).toHaveLength(1);
+        }
+    });
+
+    it('an element lands in the storey OF ITS OWN BUILDING, not the first one with that levelId', () => {
+        // The containment half. Two blocks both have "L1"; a wall stamped with
+        // block-b must be contained by block-b's L1 storey.
+        const lv = (): ExportLevel[] => [{ id: 'L1', name: 'Level 1', elevation: 0, height: 3 }];
+        const { step, diagnostics } = emit(multiBuildingModel(
+            [
+                { id: 'block-a', name: 'Block A', levels: lv() },
+                { id: 'block-b', name: 'Block B', levels: lv() },
+            ],
+            [
+                el({ id: 'wall_a', ifcClass: 'IfcWall', levelId: 'L1', buildingId: 'block-a' }),
+                el({ id: 'wall_b', ifcClass: 'IfcWall', levelId: 'L1', buildingId: 'block-b' }),
+            ],
+        ));
+
+        // No element was relocated: two storeys, two containments, no diagnostics.
+        expect(diagnostics.all()).toEqual([]);
+        expect(countOf(step, 'IFCRELCONTAINEDINSPATIALSTRUCTURE')).toBe(2);
+
+        const reopened = api.OpenModel(new TextEncoder().encode(step));
+        openModels.push(reopened);
+        const buildings = idsOfType(step, WEBIFC.IFCBUILDING);
+        const nameOf = (id: number) =>
+            String((api.GetLine(reopened, id) as { Name?: { value?: string } }).Name?.value ?? '');
+
+        // storey -> owning building name, from the aggregations.
+        const storeyOwner = new Map<number, string>();
+        for (const a of aggregations(step)) {
+            if (!buildings.includes(a.relating)) continue;
+            for (const s of a.related) storeyOwner.set(s, nameOf(a.relating));
+        }
+
+        // element -> containing storey, from IfcRelContainedInSpatialStructure.
+        const contained = api.GetLineIDsWithType(reopened, WEBIFC.IFCRELCONTAINEDINSPATIALSTRUCTURE);
+        const seen = new Map<string, string>();
+        for (let i = 0; i < contained.size(); i += 1) {
+            const rel = api.GetLine(reopened, contained.get(i)) as {
+                RelatedElements?: { value?: number }[];
+                RelatingStructure?: { value?: number };
+            };
+            const storey = rel.RelatingStructure?.value ?? -1;
+            for (const e of rel.RelatedElements ?? []) {
+                seen.set(nameOf(e.value ?? -1), storeyOwner.get(storey) ?? '(no owning building)');
+            }
+        }
+        expect(seen.get('wall_a')).toBe('Block A');
+        expect(seen.get('wall_b')).toBe('Block B');
+    });
+});
+
+// ── ADR-0385: the containment JOIN, and its honesty ─────────────────────────
+
+describe('ADR-0385 — applyBuildingContainment reads the ONE authority, and reports what it cannot answer', () => {
+    /** A model shaped like a real read: three PRYZM levels, no buildings stamped. */
+    const threeLevels = (): IntermediateModel => model(
+        [
+            el({ id: 'wall_1', ifcClass: 'IfcWall', levelId: 'L1' }),
+            el({ id: 'wall_2', ifcClass: 'IfcWall', levelId: 'L2' }),
+        ],
+        [
+            { id: 'L1', name: 'Level 1', elevation: 0, height: 3 },
+            { id: 'L2', name: 'Level 2', elevation: 3, height: 3 },
+        ],
+    );
+
+    const hs = () => new HierarchyStore();
+    const node = (over: Record<string, unknown>) => ({
+        code: undefined, description: undefined, templateId: undefined,
+        plannedData: { customProperties: {} }, syncState: 'no-template',
+        metadata: { createdAt: 0, modifiedAt: 0, createdBy: 't', version: 1 },
+        ...over,
+    }) as never;
+
+    it('AN EMPTY STORE IS AN EMPTINESS: one default building, and NO diagnostic', () => {
+        // The overwhelmingly common case, and the D3 guarantee. Nothing is wrong
+        // here, so nothing may be reported as wrong.
+        const m = threeLevels();
+        const diagnostics = new ExportDiagnostics();
+        const report = applyBuildingContainment(m, diagnostics, readBuildingSubstrate(hs()));
+        expect(report.buildingCount).toBe(1);
+        expect(m.buildings).toEqual([{ id: DEFAULT_BUILDING_ID, name: 'Default Building' }]);
+        expect(m.levels.every((l) => l.buildingId === undefined)).toBe(true);
+        expect(diagnostics.all()).toEqual([]);
+    });
+
+    it('AN UNREADABLE STORE IS A FAILURE: same one building, but a diagnostic PER LEVEL', () => {
+        // ⛔ §CONTEXT-DATA-HONESTY (L-581/L-616). This is the arm that matters: the
+        // FILE looks identical to the empty-store case above — it must, or the
+        // export would be lost — and the two are told apart by the diagnostics, not
+        // by the geometry. If these two arms ever produce the same diagnostics, a
+        // failure is being reported as an emptiness.
+        const m = threeLevels();
+        const diagnostics = new ExportDiagnostics();
+        const report = applyBuildingContainment(m, diagnostics, UNREADABLE_SUBSTRATE);
+        expect(report.buildingCount).toBe(1);
+        expect(report.unresolvedLevels).toHaveLength(2);
+        expect(diagnostics.count('UNRESOLVED_BUILDING')).toBe(2);
+        expect(report.unresolvedLevels[0]!.why).toContain('unreadable');
+    });
+
+    it('a store with two buildings splits the levels between them', () => {
+        const store = hs();
+        store.add(node({ id: 'site-1', type: 'site', name: 'Site' }));
+        store.add(node({ id: 'b-a', type: 'building', name: 'Block A', siteId: 'site-1' }));
+        store.add(node({ id: 'b-b', type: 'building', name: 'Block B', siteId: 'site-1' }));
+        store.add(node({ id: 'hl-1', type: 'level', name: 'A/L1', buildingId: 'b-a', bimLevelId: 'L1' }));
+        store.add(node({ id: 'hl-2', type: 'level', name: 'B/L2', buildingId: 'b-b', bimLevelId: 'L2' }));
+
+        const m = threeLevels();
+        const diagnostics = new ExportDiagnostics();
+        const report = applyBuildingContainment(m, diagnostics, readBuildingSubstrate(store));
+
+        expect(report.buildingCount).toBe(2);
+        expect(m.buildings.map((b) => b.name).sort()).toEqual(['Block A', 'Block B']);
+        expect(m.levels.find((l) => l.id === 'L1')!.buildingId).toBe('b-a');
+        expect(m.levels.find((l) => l.id === 'L2')!.buildingId).toBe('b-b');
+        // …and the elements follow their levels.
+        expect(m.elements.find((e) => e.id === 'wall_1')!.buildingId).toBe('b-a');
+        expect(m.elements.find((e) => e.id === 'wall_2')!.buildingId).toBe('b-b');
+        expect(diagnostics.all()).toEqual([]);
+    });
+
+    it('A DANGLING buildingId is unknown, NOT a quietly-defaulted level', () => {
+        const store = hs();
+        store.add(node({ id: 'hl-1', type: 'level', name: 'A/L1', buildingId: 'ghost', bimLevelId: 'L1' }));
+        const m = threeLevels();
+        const diagnostics = new ExportDiagnostics();
+        const report = applyBuildingContainment(m, diagnostics, readBuildingSubstrate(store));
+        expect(report.unresolvedLevels).toHaveLength(1);
+        expect(report.unresolvedLevels[0]!.levelId).toBe('L1');
+        expect(report.unresolvedLevels[0]!.why).toContain('resolves to no building');
+        expect(diagnostics.count('UNRESOLVED_BUILDING')).toBe(1);
+    });
+
+    it('TWO buildings claiming one bimLevelId is unknown — the element is unroutable and says so', () => {
+        // ADR-0385 §4's named gap. The two STOREYS are fine; it is the ELEMENT that
+        // cannot be routed, because no element schema carries a building axis.
+        // Arbitrating between the two would be the "answer confidently and be wrong"
+        // failure C84 §9 records.
+        const store = hs();
+        store.add(node({ id: 'b-a', type: 'building', name: 'Block A', siteId: 's' }));
+        store.add(node({ id: 'b-b', type: 'building', name: 'Block B', siteId: 's' }));
+        store.add(node({ id: 'hl-1', type: 'level', name: 'A/L1', buildingId: 'b-a', bimLevelId: 'L1' }));
+        store.add(node({ id: 'hl-2', type: 'level', name: 'B/L1', buildingId: 'b-b', bimLevelId: 'L1' }));
+
+        const m = threeLevels();
+        const diagnostics = new ExportDiagnostics();
+        const report = applyBuildingContainment(m, diagnostics, readBuildingSubstrate(store));
+        const bad = report.unresolvedLevels.find((u) => u.levelId === 'L1');
+        expect(bad, 'the ambiguous level was silently resolved').toBeDefined();
+        expect(bad!.why).toContain('claimed by 2 buildings');
+        expect(diagnostics.count('UNRESOLVED_BUILDING')).toBeGreaterThan(0);
+    });
+
+    it('a building owning NO exported storey is reported, never written as an empty container', () => {
+        const store = hs();
+        store.add(node({ id: 'b-a', type: 'building', name: 'Block A', siteId: 's' }));
+        store.add(node({ id: 'b-z', type: 'building', name: 'Block Z', siteId: 's' }));
+        store.add(node({ id: 'hl-1', type: 'level', name: 'A/L1', buildingId: 'b-a', bimLevelId: 'L1' }));
+        store.add(node({ id: 'hl-2', type: 'level', name: 'A/L2', buildingId: 'b-a', bimLevelId: 'L2' }));
+
+        const m = threeLevels();
+        const diagnostics = new ExportDiagnostics();
+        const report = applyBuildingContainment(m, diagnostics, readBuildingSubstrate(store));
+        expect(report.buildingCount).toBe(1);
+        expect(report.unusedBuildingIds).toEqual(['b-z']);
+        expect(diagnostics.count('UNRESOLVED_BUILDING')).toBe(1);
+    });
+
+    it('is IDEMPOTENT — containment is re-derived, never accumulated (ADR-0328 discipline)', () => {
+        const store = hs();
+        store.add(node({ id: 'b-a', type: 'building', name: 'Block A', siteId: 's' }));
+        store.add(node({ id: 'hl-1', type: 'level', name: 'A/L1', buildingId: 'b-a', bimLevelId: 'L1' }));
+        const m = threeLevels();
+        applyBuildingContainment(m, undefined, readBuildingSubstrate(store));
+        const first = JSON.stringify({ b: m.buildings, l: m.levels.map((l) => l.buildingId) });
+        applyBuildingContainment(m, undefined, readBuildingSubstrate(store));
+        applyBuildingContainment(m, undefined, readBuildingSubstrate(store));
+        expect(JSON.stringify({ b: m.buildings, l: m.levels.map((l) => l.buildingId) })).toBe(first);
+    });
+});
