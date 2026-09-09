@@ -286,6 +286,21 @@ import {
   type SiteHighlightRole,
   type SiteHighlightSubject,
 } from "../site/siteGeometryHighlight";
+// ADR-0383 S8 / D6 — the ONE group-selection channel, shared with the site panel and the 2D map.
+// ⛔ This viewport owns NO selection of its own: C59 §2.10 rules one owner per view region, and
+// [[view-region-one-owner]] measured what the alternative costs (six writers of one property,
+// oscillating). It reads the id and writes through the one setter.
+import {
+  setMassingGroupSelection,
+  subscribeMassingGroupSelection,
+  getSelectedMassingGroupId,
+} from "../site/massingGroupSelectionState";
+// ⛔ AND IT PARSES NO `group` OF ITS OWN, and computes no recede factor of its own —
+// `readMassingGroupRef` is the reader the panel's roster uses, and `composeMassingGroupEmphasis`
+// is the ONE place the highlight channel and the group channel are multiplied together (see that
+// file's header for what applying the factor twice would cost).
+import { readMassingGroupRef } from "../site/massingGroupRoster";
+import { composeMassingGroupEmphasis } from "../site/massingGroupEmphasis";
 // §ROOMS-ON-THE-VIEWS (§26.6.4) — the ONE read of a room's detected outline, shared with the BIM
 // scene and the 2D site map so the three views cannot light three different shapes for one row.
 import { resolveRoomOutline } from "../site/roomOutlineSource";
@@ -1773,8 +1788,22 @@ export class CesiumViewport {
    * re-render — the class of coupling §SITE-OVERLAY-NOT-BUILDING (L-464/L-468) exists to undo.
    */
   private spaceEnvelopeEntities: Cesium.Entity[] = [];
+  /**
+   * ADR-0383 S8 — WHICH BLOCK each authored prism belongs to, so a LEFT_CLICK can resolve the
+   * picked entity to a group. Mirrors `contextFeatureByEntity`, which answers the same shape of
+   * question for context buildings one channel over.
+   *
+   * ⛔ IT IS NOT A MEMBERSHIP CACHE. It maps ONE entity to ONE group id and is rebuilt from the
+   * store on every `renderSpaceEnvelopes` pass, exactly as `spaceEnvelopeEntities` is. The thing
+   * ADR-0383 D6 forbids is a captured LIST of a group's members, which goes stale the instant
+   * `setStoreys` adds a storey; this is a per-entity label written in the same beat the entity is
+   * created, and cleared with it (C84 EI-9).
+   */
+  private massingGroupByEntity = new Map<Cesium.Entity, { id: string; label: string }>();
   /** §SPACE-ENVELOPE-IN-CESIUM — the store's dirty-channel unsubscribe, or null while unsubscribed. */
   private spaceEnvelopeSub: (() => void) | null = null;
+  /** ADR-0383 S8 — the group-selection channel's unsubscribe. Released in the same dispose block. */
+  private massingGroupSelectionSub: (() => void) | null = null;
   /**
    * §ENVELOPE-FACE-DRAG-ON-SITE-VIEWS (lane FACE-DRAG, 2026-09-07) — THE PREVIEW CHANNEL, and it
    * is deliberately the SMALLEST correct one: a per-id override consulted inside the existing
@@ -4262,6 +4291,28 @@ export class CesiumViewport {
               if (feature) {
                 if (this.currentModel) this.currentModel.silhouetteSize = 0;
                 this.showContextBuildingQuery(feature);
+                return;
+              }
+              // ⭐ ADR-0383 S8 — CLICKING A PRISM SELECTS ITS WHOLE BLOCK, ACROSS ALL ITS LEVELS.
+              //
+              // The founder's unit of selection: *"select the envelopes AS A GROUP FOR ALL THE
+              // LEVELS … this in 2d site / 3D SITE / site panel"*. One press here lights the row in
+              // the site panel and dims the other blocks on the 2D map, because all three read the
+              // ONE owner (C59 §2.10 / ADR-0383 D6) rather than each keeping a selection.
+              //
+              // ⛔ IT MIRRORS THE RESOLVE ABOVE RATHER THAN INVENTING A SELECTION FRAMEWORK. The
+              // comment above this block records that the 3D-Site scene has its own ad-hoc pick
+              // path and that no contract owns a unified one; a second framework here would make
+              // that gap worse. This is one more `Map<Entity, …>` lookup on the same picked entity.
+              //
+              // ⛔ AND IT DISPATCHES NOTHING (P6). Selecting changes no geometry.
+              const massingGroup = this.massingGroupByEntity.get(pickedEntity);
+              if (massingGroup) {
+                setMassingGroupSelection({
+                  groupId: massingGroup.id,
+                  label: massingGroup.label,
+                  source: 'site-3d',
+                });
                 return;
               }
             }
@@ -8801,6 +8852,30 @@ export class CesiumViewport {
    * (`setRuntime`, §L-446), so the first few calls legitimately find no store.
    */
   private ensureSpaceEnvelopeSubscription(): void {
+    // ⭐ ADR-0383 S8 / D6 — repaint when the SELECTED BLOCK changes, wherever it changed. This is
+    // what makes the three surfaces one: pressing a row in the site panel, or a prism on the 2D
+    // map, dims the non-members here without either of them knowing this viewport exists.
+    //
+    // ⚠ IT IS A FULL RE-RENDER, AND THAT IS A MEASURED COST, NOT AN OVERSIGHT.
+    // `renderSpaceEnvelopes` is a teardown-and-rebuild of every prism, so a selection change on a
+    // real master plan (3 profiles x 8 storeys) rebuilds ~24 entities per click. Cesium's
+    // `material` and `outlineWidth` are `Property` objects that CAN be reassigned in place, so a
+    // cheaper repaint is available and is the right fix IF this is ever measured as slow — it is
+    // deliberately not done pre-emptively, because a second, partial painting path would be a
+    // second answer to "what does this prism look like", and the rebuild path is the one every
+    // other change already takes. Recorded here so the decision is legible rather than assumed.
+    if (this.massingGroupSelectionSub === null) {
+      try {
+        this.massingGroupSelectionSub = subscribeMassingGroupSelection(() => {
+          // Guarded on the VIEWER, the same way the store subscription's callback is — this class
+          // carries no `disposed` flag and inventing one here would be a second liveness answer.
+          if (!this.viewer) return;
+          try { this.renderSpaceEnvelopes(); } catch { /* viewer may be mid-teardown */ }
+        });
+      } catch (e) {
+        console.warn('[CesiumViewport] ADR-0383 S8 group-selection subscribe failed (non-fatal):', e);
+      }
+    }
     if (this.spaceEnvelopeSub) return;
     const store = this.runtime?.stores?.spaceEnvelope as DirtySpaceEnvelopeStore | undefined;
     // The same narrowing `initTools` performs, and for the same reason: `PluginDtoStoreHandle`
@@ -8891,6 +8966,9 @@ export class CesiumViewport {
       try { viewer?.entities.remove(ent); } catch { /* already gone */ }
     }
     this.spaceEnvelopeEntities = [];
+    // ADR-0383 S8 — cleared with the entities it labels. A surviving entry would resolve a click
+    // on a REPLACED prism to the group its predecessor was in.
+    this.massingGroupByEntity.clear();
   }
 
   /**
@@ -8911,6 +8989,10 @@ export class CesiumViewport {
    * same convention the buildable-envelope solids already use — and claims nothing more.
    */
   private renderSpaceEnvelopes(): void {
+    // ⭐ ADR-0383 S8 / D6 — READ ONCE PER PASS, never per entity, for the same reason
+    // `getSiteHighlight()` is read once in the massing rasteriser: a store write landing mid-pass
+    // would otherwise emphasise half the scene against one selection and half against another.
+    const selectedMassingGroupId = getSelectedMassingGroupId();
     const viewer = this.viewer;
     if (!viewer) return;
     this.clearSpaceEnvelopes();
@@ -8983,19 +9065,36 @@ export class CesiumViewport {
         const top = bottom + height;
         const positions = ring.map((p) => toCartesian(p.x, p.z, bottom));
         const colour = Cesium.Color.fromCssColorString(appearance.colour);
+        // ⭐ ADR-0383 S8 — WHICH BLOCK, and how much it recedes for not being the selected one.
+        //
+        // ⛔ THE TWO EMPHASIS CHANNELS COMPOSE IN ONE PLACE, AND IT IS NOT THIS FILE.
+        // `composeMassingGroupEmphasis` is the same composer the 2D map derives its GPU-expression
+        // pair from, so the two surfaces cannot dim a block differently. Applying
+        // `SITE_HIGHLIGHT_RECEDE_FACTOR` here as well as in the highlight channel would render a
+        // non-member during a highlight at 0.0484 of its authored alpha — a solid the user drew,
+        // effectively vanishing because they clicked a number on a card.
+        //
+        // ⛔ AND THE HUE IS UNTOUCHED. `appearance.colour` is the CONFIDENCE signal
+        // (`envelopeRenderStyle.ts`) and §L-616 forbids emphasis that recolours a solid: it would
+        // make an estimate read as a determination. The block is carried by ALPHA and OUTLINE
+        // WEIGHT, which is what `massingGroupSelectionState.ts:56-66` requires of S8.
+        const groupRef = readMassingGroupRef(rec);
+        const groupEmphasis = composeMassingGroupEmphasis(
+          1, selectedMassingGroupId, groupRef?.id ?? null);
         const ent = viewer.entities.add({
           name: appearance.labelTitle ?? id,
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
             height: bottom,
             extrudedHeight: top,
-            material: colour.withAlpha(appearance.opacity),
+            material: colour.withAlpha(appearance.opacity * groupEmphasis.alphaFactor),
             outline: true,
             // The outline is the second channel, and on a LEVEL envelope at 0.12 fill it is the
             // channel that actually carries the volume — the same reason the buildable-envelope
             // solids outline at full alpha over a translucent fill.
-            outlineColor: colour.withAlpha(1.0),
-            outlineWidth: 2,
+            outlineColor: colour.withAlpha(groupEmphasis.alphaFactor),
+            // ⭐ The selected block gains WEIGHT — the one channel hue is not already spending.
+            outlineWidth: groupEmphasis.outlineWidth,
             // A design-intent study volume must not cast a building's shadow: it is not a building.
             shadows: Cesium.ShadowMode.DISABLED,
             perPositionHeight: false,
@@ -9004,6 +9103,9 @@ export class CesiumViewport {
           },
         });
         this.spaceEnvelopeEntities.push(ent);
+        // ADR-0383 S8 — written in the SAME beat the entity is created, so a click can never
+        // resolve an entity this pass did not label.
+        if (groupRef !== null) this.massingGroupByEntity.set(ent, groupRef);
         drawn += 1;
         roles.push(`${rec?.role ?? 'room'}@${height.toFixed(1)}m`);
       } catch (e) {
@@ -19165,6 +19267,17 @@ export class CesiumViewport {
         console.warn('[CesiumViewport] space-envelope subscription dispose failed:', e);
       }
       this.spaceEnvelopeSub = null;
+    }
+    // ADR-0383 S8 — released with its sibling, and for the same reason: a selection listener that
+    // outlived this viewport would call `renderSpaceEnvelopes` into a destroyed viewer on the next
+    // click in the site panel or the 2D map.
+    if (this.massingGroupSelectionSub) {
+      try {
+        this.massingGroupSelectionSub();
+      } catch (e) {
+        console.warn('[CesiumViewport] ADR-0383 S8 group-selection dispose failed:', e);
+      }
+      this.massingGroupSelectionSub = null;
     }
     try { this.clearSpaceEnvelopes(); } catch { /* viewer already gone */ }
     // §ENVELOPE-FACE-DRAG — a viewport torn down MID-DRAG must not hand its successor a preview.
