@@ -57,7 +57,15 @@ import {
     // literal in a file that no longer owns it.
     buildStoredDeterminationNoticeHtml,
     STORED_DETERMINATION_TESTID,
+    // ⭐ §MASSING-ON-EVERY-ARM (L-13281) — the fold's THIRD state and the pure predicate that
+    // decides it. Imported from the SAME module the card calls, never re-implemented here.
+    buildMassingOptionsFold,
+    resolveNoPermittedFootprint,
+    MASSING_OPTIONS_SECTION_TESTID,
+    MASSING_OPTIONS_GENERATE_BTN_TESTID,
+    MASSING_OPTIONS_UNAVAILABLE_TESTID,
 } from '../envelopeCardSections';
+import { MASSING_AUTHOR_BTN_TESTID, MASSING_AUTHOR_OPTION_TESTID } from '../massingAuthoredOptionSection';
 import { CONTEXT_STUDY_DEFAULT_MIN_SAMPLE_SIZE, type ContextDerivedStudyEnvelopeResult } from '@pryzm/site-parcel-data';
 import type { UserSuppliedStudyHeightRecord } from '../userSuppliedStudyHeightState';
 
@@ -805,5 +813,134 @@ describe('§MANUALENV159 — SOURCE PINS: the card actually calls these builders
         const match = src.match(/const safeStudyHeightEntry = \(([^)]+)\)/);
         expect(match).not.toBeNull();
         expect(match![1].replace(/\s+/g, ' ').trim()).toBe('isAbsent || isGap');
+    });
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §MASSING-ON-EVERY-ARM (founder 2026-09-09 · L-13281 · C58 §1.20 clauses 1+4 · C115 §4.1)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+//
+// THE DEFECT, MEASURED BEFORE THE FIX: the `massing-options` fold rendered on ONE of the card's
+// THREE whole-`innerHTML` arms (C115 §3.B). `GISAreaLayout` listed the key in the FULL
+// determination's staged-section map and in neither of the other two, so on a REFUSED envelope
+// (half of Barcelona's buildable land, since the coverage-gap refusal was switched on) and on an
+// ABSENT one (every old project, PR-B-03) the massing step did not exist — including the
+// *"create it myself"* route into the draw tool, which needs no envelope at all.
+//
+// ⛔ THAT MADE THE ENVELOPE A GATE, which C58 §1.20 clause 1 forbids in the founder's own words:
+// *"even if the envelope is not available - I want to be able to create the massing and move
+// forwards."* Clause 4 names the correct shape in advance — a null envelope is a STATE TO RENDER.
+//
+// ⚠ WHY THIS SUITE IS BEHAVIOURAL **AND** A SOURCE PIN. The fold is pure and testable here; the
+// three ARMS are three `panel.innerHTML =` templates inside an 8,600-line closure that no spec can
+// mount. So the arms are pinned at the source level — the same compromise `massingOptionModel.spec`
+// already makes for `buildMassingOptionsFold(`, and the same one that let this defect ship: a pin
+// on ONE arm proves nothing about the other two, so all three are pinned by NAME below.
+describe('§MASSING-ON-EVERY-ARM — the fold states an impossible generation instead of hiding', () => {
+    const HAS_FOOTPRINT = {
+        hasEnvelope: true, isRefused: false, permittedRingVertices: 4, footprintM2: 240,
+    } as const;
+
+    it('CONTROL — a real permitted footprint resolves to NULL, so the third state is unreachable when generation would work', () => {
+        // ⛔ THE SCRAMBLE CONTROL FOR THIS PREDICATE. Without it, a resolver that returned a
+        // reason unconditionally would pass every assertion below while replacing the WORKING
+        // Generate button with an absence notice on every card in the product.
+        expect(resolveNoPermittedFootprint(HAS_FOOTPRINT)).toBeNull();
+    });
+
+    it('the four impossible-generation arms are DISTINCT, and each names what would supply it', () => {
+        const arms = {
+            absent: resolveNoPermittedFootprint({ ...HAS_FOOTPRINT, hasEnvelope: false }),
+            refused: resolveNoPermittedFootprint({ ...HAS_FOOTPRINT, isRefused: true }),
+            noRing: resolveNoPermittedFootprint({ ...HAS_FOOTPRINT, permittedRingVertices: 2 }),
+            unread: resolveNoPermittedFootprint({ ...HAS_FOOTPRINT, footprintM2: null }),
+            zero: resolveNoPermittedFootprint({ ...HAS_FOOTPRINT, footprintM2: 0 }),
+        };
+        for (const [name, arm] of Object.entries(arms)) {
+            expect(arm, name).not.toBeNull();
+            // C115 §4.1 `C115-31` — a non-value is STATED. Both halves, always.
+            expect(arm!.missing.length, name).toBeGreaterThan(40);
+            expect(arm!.supplies.length, name).toBeGreaterThan(40);
+            // ⭐ L-942 — the refusing half needs its escape hatch. EVERY arm points at the one
+            // route that needs no envelope, or the stated absence is a dead end with a citation.
+            expect(arm!.supplies, name).toContain('draw your own massing');
+        }
+        // ⛔ FIVE READINGS, FIVE SENTENCES. Collapsing any two would re-create the
+        // §CONTEXT-DATA-HONESTY conflation the whole state exists to remove.
+        const missing = Object.values(arms).map((a) => a!.missing);
+        expect(new Set(missing).size).toBe(5);
+    });
+
+    it('⭐ L-616 — a MEASURED zero says so, and an UNREAD footprint refuses to be called zero', () => {
+        const zero = resolveNoPermittedFootprint({ ...HAS_FOOTPRINT, footprintM2: 0 })!;
+        const unread = resolveNoPermittedFootprint({ ...HAS_FOOTPRINT, footprintM2: null })!;
+        expect(zero.missing).toContain('MEASURED zero');
+        expect(unread.missing).toContain('NOT zero');
+    });
+
+    it('the REFUSED arm calls a refusal an ANSWER — C115 §4.1 REFUSED is a positive result', () => {
+        const refused = resolveNoPermittedFootprint({ ...HAS_FOOTPRINT, isRefused: true })!;
+        expect(refused.missing).toContain('cited answer');
+    });
+
+    it('⭐ the third state renders the DRAW ROUTE, states the absence, and offers NO Generate button', () => {
+        const reason = resolveNoPermittedFootprint({ ...HAS_FOOTPRINT, hasEnvelope: false })!;
+        document.body.innerHTML = buildMassingOptionsFold(
+            { kind: 'no-permitted-footprint', missing: reason.missing, supplies: reason.supplies },
+            { kind: 'offer' },
+        );
+        const fold = document.querySelector(`[data-testid="${MASSING_OPTIONS_SECTION_TESTID}"]`);
+        expect(fold, 'the massing fold must exist on this arm').not.toBeNull();
+        expect(fold!.getAttribute('data-state')).toBe('no-permitted-footprint');
+
+        // ⭐ THE ESCAPE HATCH, ON THE ARM THAT MOST NEEDS IT.
+        const entry = document.querySelector(`[data-testid="${MASSING_AUTHOR_OPTION_TESTID}"]`);
+        expect(entry, 'the create-it-myself entry must render with no envelope at all').not.toBeNull();
+        expect(document.querySelector(`[data-testid="${MASSING_AUTHOR_BTN_TESTID}"]`)).not.toBeNull();
+
+        // The absence is STATED, with both halves.
+        const stated = document.querySelector(`[data-testid="${MASSING_OPTIONS_UNAVAILABLE_TESTID}"]`);
+        expect(stated).not.toBeNull();
+        expect(stated!.textContent).toContain('cannot generate massing options here');
+        expect(stated!.querySelector('[data-massing-supplies="1"]')).not.toBeNull();
+
+        // ⛔ AND NO DEAD CLICK. Generation is impossible by construction on this arm.
+        expect(document.querySelector(`[data-testid="${MASSING_OPTIONS_GENERATE_BTN_TESTID}"]`)).toBeNull();
+
+        // ⛔ AND THE ROUTE LEADS. An absence banner above the entry reads as a consolation prize.
+        const following = entry!.compareDocumentPosition(stated!) & Node.DOCUMENT_POSITION_FOLLOWING;
+        expect(following, 'the draw route must come BEFORE the absence notice').toBeTruthy();
+    });
+
+    it('⛔ SOURCE PIN — GISAreaLayout builds the fold ONCE and renders it on ALL THREE card arms', () => {
+        const src = readFileSync(resolve(__dirname, '../../layout/GISAreaLayout.ts'), 'utf8');
+        // ONE producer (C06 §13.3) — never three assemblies of one fold.
+        expect((src.match(/const buildMassingOptionsSectionSafe = /g) ?? []).length).toBe(1);
+        // ARM 1 — the FULL determination.
+        expect(src).toContain("const safeMassingOptionsSection = buildMassingOptionsSectionSafe(env);");
+        // ARM 2 — the REFUSAL card. The key in the staged map is the whole difference: this is the
+        // exact line whose ABSENCE was the shipped defect. Its own local, because the full arm's is
+        // declared ~380 lines further down (the compiler said so — see the comment at the site).
+        expect(src).toContain('const safeRefusalMassingSection = buildMassingOptionsSectionSafe(env);');
+        expect(src).toContain("'massing-options': safeRefusalMassingSection,");
+        // ARM 3 — the ABSENCE card, which does not use the staged map at all.
+        expect(src).toContain('const safeAbsenceMassingSection = buildMassingOptionsSectionSafe(env);');
+        expect(src).toContain('${safeAbsenceMassingSection}');
+        // ⭐ AND THE BUTTON IS WIRED ON EACH. A rendered route nobody wired is L-1187's dead click.
+        expect((src.match(/wireMassingOptions\(panel\)/g) ?? []).length).toBe(3);
+        // ⛔ THE PREDICATE IS MEASURED, NOT DECLARED — the `754bc8fb` outage class.
+        expect(src).toContain('resolveNoPermittedFootprint({');
+        // ⭐ AND THE OUTAGE GUARD STAYS ON ITS ONE CORRECT RUNG. `754bc8fb` did not delete
+        // `panelAbsent('buildable-envelope')`; it moved it OFF the top of `getForma3dHostEl` and
+        // onto the LAST rung — the unconditional `#container` fallback, which is the globe during
+        // onboarding and the only rung the registry row is actually about. Pinning the pair
+        // together is what stops it drifting back up the ladder and taking the panel with it:
+        // `setAppPhase('canvas')` does not fire for the whole site-authoring session, so a guard
+        // any higher is false for every user of this lane's feature.
+        expect((src.match(/panelAbsent\('buildable-envelope'\)/g) ?? []).length).toBe(1);
+        expect(src).toContain(
+            "if (panelAbsent('buildable-envelope')) return null;\n        return document.getElementById('container');",
+        );
     });
 });

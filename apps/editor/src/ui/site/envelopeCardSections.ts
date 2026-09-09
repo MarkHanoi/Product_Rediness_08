@@ -529,6 +529,8 @@ export function buildStagedSectionsHtml(
 export const MASSING_OPTIONS_SECTION_TESTID = 'envelope-section-massing-options';
 export const MASSING_OPTIONS_GENERATE_BTN_TESTID = 'envelope-massing-generate-btn';
 export const MASSING_OPTIONS_CLEAR_BTN_TESTID = 'envelope-massing-clear-btn';
+/** §MASSING-ON-EVERY-ARM (L-13281) — the stated non-value on the `no-permitted-footprint` arm. */
+export const MASSING_OPTIONS_UNAVAILABLE_TESTID = 'envelope-massing-unavailable';
 /** The attribute a per-option "use this plate" button carries. One name, both sides. */
 export const MASSING_PICK_ATTR = 'data-massing-pick';
 /**
@@ -539,6 +541,122 @@ export const MASSING_PICK_ATTR = 'data-massing-pick';
  * pickable would end the compare loop one step later than losing the fold did.
  */
 export const MASSING_CHOSEN_ATTR = 'data-chosen';
+
+/**
+ * §MASSING-ON-EVERY-ARM (founder 2026-09-09 · L-13281 · C58 §1.20 clauses 1+4 · C115 §4.1) —
+ * THE THIRD STATE OF THE MASSING FOLD.
+ *
+ * ⛔ IT IS NOT A FOURTH SPELLING OF "IDLE". `idle` means *"nothing has been generated yet, and
+ * pressing Generate will produce options"*. This state means *"pressing Generate could only ever
+ * refuse, because there is no permitted footprint to divide"* — the two are opposite answers and
+ * an `idle` fold rendered on a refused/absent envelope is a button that exists to fail. That is
+ * the dead click `siteHighlightRowControl` refuses to render, arriving one surface over.
+ *
+ * ⛔ IT FABRICATES NOTHING. C115 §4.1 `C115-31`: a non-value is STATED, never zeroed and never
+ * blanked. So the state carries the two sentences `envelopeAbsenceCard` already proves are the
+ * honest pair — WHAT IS MISSING and WHAT WOULD SUPPLY IT — and no options.
+ *
+ * ⭐ AND THE AUTHORED ROUTE STILL RENDERS ON IT. §ENVELOPE-NOT-A-GATE: *"even if the envelope is
+ * not available - I want to be able to create the massing and move forwards."* Drawing your own
+ * massing needs no permitted footprint, so the one thing this state must NOT do is withhold it.
+ */
+export type MassingOptionsFoldState =
+    | { readonly kind: 'idle' }
+    | { readonly kind: 'computed'; readonly set: MassingOptionSet }
+    | {
+        readonly kind: 'no-permitted-footprint';
+        /** What PRYZM does not hold. Never "0", never a blank — C115 §4.1 `C115-31`, L-616. */
+        readonly missing: string;
+        /** What would supply it. A stated absence with no route out is L-942's regression. */
+        readonly supplies: string;
+    };
+
+/** The state the fold renders when generation is impossible, for a spec to name. */
+export const MASSING_OPTIONS_UNAVAILABLE_STATE = 'no-permitted-footprint';
+
+/**
+ * §MASSING-ON-EVERY-ARM — WHY there is no permitted footprint, resolved from the SAME inputs
+ * `wireMassingOptions` hands `enumerateMassingOptions`, so this can never disagree with the
+ * refusal a press would have produced.
+ *
+ * ⭐ THE PREDICATE IS DERIVED, NOT GUESSED. `enumerateMassingOptions` refuses on
+ * `permittedRing.length < 3`; a zero footprint yields nothing to divide. Those two, plus "there
+ * is no envelope at all" and "the envelope is a cited refusal", are the four ways the Generate
+ * button can only fail — which is exactly when this state applies. ⛔ Do not add an arm keyed on
+ * an app PHASE or a panel-registry declaration: `754bc8fb` is the outage that teaches why (the
+ * declared condition never became true at runtime, and the whole Site panel went with it).
+ *
+ * Returns `null` when a footprint IS available — the caller then renders `idle`/`computed`.
+ */
+export function resolveNoPermittedFootprint(input: {
+    /** `false` ⇒ no determination exists at all (the card's absence arm). */
+    readonly hasEnvelope: boolean;
+    /** `true` ⇒ a CITED refusal: an answer, not a gap (C115 §4.1 REFUSED). */
+    readonly isRefused: boolean;
+    /** Vertices of `env.insetPolygon` — the ring `enumerateMassingOptions` divides. */
+    readonly permittedRingVertices: number;
+    /** `permittedStudyFigures(env).footprintM2`, or `null` when it could not be read. */
+    readonly footprintM2: number | null;
+}): { readonly missing: string; readonly supplies: string } | null {
+    const draw =
+        ' You can draw your own massing on the view right now — it needs no permitted footprint, '
+        + 'and the parcel-law process continues either way.';
+    if (!input.hasEnvelope) {
+        return {
+            missing:
+                'PRYZM holds no buildable envelope for this plot, so there is no permitted footprint '
+                + 'to divide into massing options. This is a missing determination, not a finding that '
+                + 'nothing may be built.',
+            supplies:
+                'Committing a parcel boundary and solving the envelope in question 2 would supply it.'
+                + draw,
+        };
+    }
+    if (input.isRefused) {
+        return {
+            missing:
+                'The buildable envelope is REFUSED for this plot, so there is no permitted footprint '
+                + 'to divide. A refusal is a cited answer, not a number PRYZM failed to produce — see '
+                + 'the reason above.',
+            supplies:
+                'Only a change to the determination itself would supply a permitted footprint — a '
+                + 'zone PRYZM has not yet encoded, or a source that answered nothing, may resolve on a '
+                + 're-check.' + draw,
+        };
+    }
+    if (input.permittedRingVertices < 3) {
+        return {
+            missing:
+                'The envelope carries no permitted footprint RING — fewer than three vertices reached '
+                + 'this card — so there is no outline to divide into massing options. The ceilings above '
+                + 'still stand; it is the shaped footprint that is absent.',
+            supplies:
+                'A ring is produced when the ordinance publishes setbacks or an alignment PRYZM can '
+                + 'inset the parcel by. Re-committing the plot re-solves it.' + draw,
+        };
+    }
+    if (input.footprintM2 === null) {
+        return {
+            missing:
+                'The permitted footprint area could not be read on this render, so PRYZM will not '
+                + 'divide it. ⛔ It is NOT zero — a failure to read and an area of nothing are the same '
+                + 'value only if nobody prints the difference.',
+            supplies: 'Re-committing the plot re-solves the determination and restores it.' + draw,
+        };
+    }
+    if (input.footprintM2 <= 0) {
+        return {
+            missing:
+                'The permitted footprint measures 0 m² — on this plot the setbacks consume the whole '
+                + 'parcel. That is a MEASURED zero, not an unknown, and it leaves nothing to divide into '
+                + 'massing options.',
+            supplies:
+                'A different setback determination (a corrected frontage classification, or a zone '
+                + 'PRYZM re-encodes) would supply a footprint.' + draw,
+        };
+    }
+    return null;
+}
 
 /**
  * The massing-options fold.
@@ -560,7 +678,7 @@ export const MASSING_CHOSEN_ATTR = 'data-chosen';
  * were enumerated would make an absence read as a design decision.
  */
 export function buildMassingOptionsFold(
-    state: { readonly kind: 'idle' } | { readonly kind: 'computed'; readonly set: MassingOptionSet },
+    state: MassingOptionsFoldState,
     /** §CREATE-IT-MYSELF (L-13039) — the ground storey's authored state; `null` ⇒ the route is offered. */
     authored: AuthoredMassingState | null = null,
     /**
@@ -578,8 +696,35 @@ export function buildMassingOptionsFold(
             + `needs and the floor area it reaches. <b>PRYZM does not pick one</b> — the trade between `
             + `floor area and open ground is yours.</div>`;
 
-        // §CREATE-IT-MYSELF — first on both arms: the user's own massing is not something Generate produces.
+        // §CREATE-IT-MYSELF — first on EVERY arm: the user's own massing is not something Generate
+        // produces, so no state of the generator may withhold it (§MASSING-ON-EVERY-ARM, L-13281).
         const authoredCard = buildAuthoredMassingOptionHtml(authored);
+        // ⭐ §MASSING-ON-EVERY-ARM (L-13281 · C58 §1.20 clauses 1+4 · C115 §4.1 `C115-31`) —
+        // GENERATION IS IMPOSSIBLE HERE, AND THAT IS STATED RATHER THAN HIDDEN.
+        //
+        // ⛔ THE ORDER IS THE AUTHORED ROUTE FIRST, THE ABSENCE SECOND, for the reason the refused
+        // arm below already records: an absence banner above the entry reads as *"unavailable, but
+        // here is a consolation"*, and the authored route is an INDEPENDENT way in.
+        //
+        // ⛔ NO GENERATE BUTTON. `resolveNoPermittedFootprint` returns non-null only when
+        // `enumerateMassingOptions` could not succeed, so a Generate control here could only ever
+        // refuse — the dead click this repo refuses to render.
+        if (state.kind === 'no-permitted-footprint') {
+            span.setAttribute('pryzm.massing.foldArm', 'no-permitted-footprint');
+            return fold(
+                MASSING_OPTIONS_SECTION_TESTID,
+                MASSING_OPTIONS_UNAVAILABLE_STATE,
+                'Massing options — draw your own; none can be generated yet',
+                authoredCard
+                + `<div data-testid="${MASSING_OPTIONS_UNAVAILABLE_TESTID}" `
+                + `style="margin-top:7px;color:#8a5a00;background:#fff6e8;border-radius:6px;padding:6px 8px;`
+                + `font-size:10px;line-height:1.5;">`
+                + `<div><b>PRYZM cannot generate massing options here.</b> ${escHtml(state.missing)}</div>`
+                + `<div data-massing-supplies="1" style="margin-top:4px;color:#6b6480;">`
+                + `${escHtml(state.supplies)}</div>`
+                + `</div>`,
+            );
+        }
         if (state.kind === 'idle') {
             span.setAttribute('pryzm.massing.foldArm', 'idle');
             return fold(

@@ -477,6 +477,10 @@ import {
     // §RESI-ORCH-MASSING-OPTIONS (STR §7) — N massings of the permitted footprint, each with its
     // reason. The enumerator is pure and lives next door; this file owns the button and the pick.
     buildMassingOptionsFold,
+    // §MASSING-ON-EVERY-ARM (L-13281) — the PURE predicate that decides the fold's third state.
+    // It reads the same ring + footprint the Generate press would, so the fold can never promise
+    // a generation the press refuses.
+    resolveNoPermittedFootprint,
     MASSING_OPTIONS_GENERATE_BTN_TESTID,
     MASSING_OPTIONS_CLEAR_BTN_TESTID,
     MASSING_PICK_ATTR,
@@ -4816,6 +4820,125 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     };
 
     /**
+     * ⭐ §MASSING-ON-EVERY-ARM (founder 2026-09-09 · L-13281 · C58 §1.20 clauses 1+4) — THE MASSING
+     * FOLD, BUILT ONCE, FOR ALL THREE CARD ARMS.
+     *
+     * ═══════════════════════════════════════════════════════════════════════════════════════
+     * THE DEFECT THIS CLOSES, IN THE FOUNDER'S OWN TERMS
+     * ═══════════════════════════════════════════════════════════════════════════════════════
+     * *"even if the envelope is not available - I want to be able to create the massing and move
+     * forwards."* The fold rendered on ONE of the card's THREE whole-`innerHTML` arms (C115 §3.B
+     * PR-B-01/02/03): the FULL determination. On the REFUSAL arm and on the ABSENCE arm the
+     * `massing-options` key was simply not in the staged-section map, so the entire massing step —
+     * including the *"create it myself"* route into the draw tool, which needs no envelope at all —
+     * was unreachable for exactly the users who most needed it. Barcelona's coverage-gap refusal
+     * alone puts half the city's buildable land on the arm that had no massing.
+     *
+     * ⛔ THIS IS A §1.20 CLAUSE-4 FAILURE, NOT A COSMETIC ONE. A null-or-refused envelope is a STATE
+     * TO RENDER, not a branch to skip; skipping it made the envelope a GATE on the next step, which
+     * clause 1 forbids in words the card's own header already quotes.
+     *
+     * ⭐ ONE BUILDER, THREE ARMS — never three copies. C06 §13.3: a second assembly of this fold is
+     * how two arms of one card come to disagree about what is on the ground storey.
+     *
+     * ⛔ WHAT DECIDES THE ARM IS MEASURED, NEVER DECLARED. `resolveNoPermittedFootprint` reads the
+     * SAME `insetPolygon` / `footprintM2` that `wireMassingOptions` hands `enumerateMassingOptions`,
+     * so the fold cannot promise a generation that the press would refuse. ⛔ It is deliberately NOT
+     * keyed on the app phase or on a panel-registry declaration: `754bc8fb` reverted a guard of
+     * exactly that shape which took the WHOLE Site panel down, because the declared condition never
+     * became true at runtime. Establish WHEN a condition changes, not only WHAT declares it.
+     *
+     * `env` is `null` on the absence arm — that is a first-class input here, not a caller error.
+     *
+     * ⛔ EACH ARM CALLS THIS ITSELF, INSIDE ITS OWN BLOCK. Do NOT "tidy" the three calls into one
+     * shared `const` further down the body of `refreshEnvelopePanel` and read it from the arms
+     * above: the refusal arm RETURNS before a later `const` initialises, so that shape throws
+     * `Cannot access '…' before initialization` and takes the WHOLE refusal card down — strictly
+     * worse than the missing fold this was added to fix, on the arm half of Barcelona lands on.
+     * ⚠ TYPESCRIPT DOES NOT CATCH IT: a cross-block use-before-declaration compiles clean, so
+     * `tsc --noEmit` is GREEN on the broken shape. `envelopeCardMassingArms.spec.ts` is the guard
+     * that is not — it drives all three arms and fails on the throw.
+     */
+    const buildMassingOptionsSectionSafe = (
+        env: ReturnType<typeof getLastBuildableEnvelope>,
+    ): string => {
+        try {
+            // ⛔ THE ARM IS DECIDED FIRST, BEFORE ANY STALENESS BOOKKEEPING. On a refused or absent
+            // envelope there is no footprint for a stale-plate comparison to be ABOUT.
+            const permittedRing = env?.insetPolygon ?? [];
+            const figuresM2 = env === null ? null : permittedStudyFigures(env).footprintM2;
+            const unavailable = resolveNoPermittedFootprint({
+                hasEnvelope: env !== null,
+                // A refusal is identified by its refusal OBJECT, never by the status alone — the
+                // same rule `isRefusedEnvelope` and the card's own refusal branch already apply.
+                isRefused: env !== null && !!env.refusal,
+                permittedRingVertices: permittedRing.length,
+                footprintM2: figuresM2,
+            });
+            // §CREATE-IT-MYSELF (L-13039) — what is on the GROUND storey, resolved before any click,
+            // from the same reads `resolveAdoptResult` makes. A failed read is passed as UNREADABLE,
+            // never as an empty storey. ⭐ Resolved on EVERY arm: the authored route is the one thing
+            // an absent envelope may not withhold.
+            let authoredState: ReturnType<typeof resolveAuthoredMassingState> | null = null;
+            try {
+                const ground = pickGroundLevel(readLevelCandidates(
+                    (window.bimManager as { getLevels?: () => unknown[] } | undefined)?.getLevels?.() ?? [],
+                ));
+                authoredState = resolveAuthoredMassingState(
+                    readLevelEnvelopes(liveRuntime()?.stores?.spaceEnvelope ?? null),
+                    ground?.id ?? null,
+                );
+            } catch (err) {
+                console.warn('[gis][envelope-card] authored-massing state failed (non-fatal):', err);
+            }
+            if (unavailable !== null) {
+                // ⛔ AND ANY OPTIONS HELD FROM A PREVIOUS ENVELOPE ARE DROPPED. Listing plates solved
+                // inside a footprint that no longer exists would narrate geometry that is not on the
+                // ground — the same withdrawal `resolveLiveTargetFootprintProposal` performs.
+                massingOptions = null;
+                massingOptionsForFootprintM2 = null;
+                return buildMassingOptionsFold(
+                    {
+                        kind: 'no-permitted-footprint',
+                        missing: unavailable.missing,
+                        supplies: unavailable.supplies,
+                    },
+                    authoredState,
+                    null,
+                );
+            }
+            const nowFootprintM2 = figuresM2 ?? 0;
+            // The staleness gate — see `massingOptionsForFootprintM2`. 0.5 m² is the same band
+            // `resolveLiveTargetFootprintProposal` uses, so the plate and the options it came
+            // from cannot go stale at different moments.
+            if (
+                massingOptions !== null
+                && (massingOptionsForFootprintM2 === null
+                    || Math.abs(massingOptionsForFootprintM2 - nowFootprintM2) > 0.5)
+            ) {
+                massingOptions = null;
+                massingOptionsForFootprintM2 = null;
+            }
+            // §USE-THIS-PLATE-KEEPS-THE-LOOP (L-13078) — WHICH option the live plate came
+            // from, so the row he clicked says so instead of the pick vanishing into a
+            // second collapsed fold. ⚠ THE STALENESS GATE IS ASKED FIRST, exactly as the
+            // target-area section does: a mark rendered beside a WITHDRAWN plate would be a
+            // tick on a claim that has been retracted. `resolveLiveTargetFootprintProposal`
+            // clears the slot when it withdraws, and clearing the slot clears the id.
+            const liveForMark = resolveLiveTargetFootprintProposal(nowFootprintM2);
+            const chosenId = liveForMark === null ? null : getChosenMassingOptionId();
+            return buildMassingOptionsFold(
+                massingOptions === null ? { kind: 'idle' } : { kind: 'computed', set: massingOptions },
+                authoredState,
+                chosenId,
+            );
+        } catch (err) {
+            console.warn('[gis][envelope-card] massing options fold failed (non-fatal):', err);
+            return '';
+        }
+    };
+
+    /**
      * §ENVELOPE-NOT-A-GATE (L-13041) — THE ONE MEASUREMENT OF THE AUTHORED MODEL.
      *
      * Hoisted out of `refreshEnvelopePanel`'s `capacityJoin` because the NO-ENVELOPE card needs
@@ -4985,6 +5108,13 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             + `letter-spacing:.03em;text-transform:uppercase;">${escHtml(chip.label)}</span>`;
         const safeCloseBtn = envelopeCloseButtonHtml();
         const safeEnvToggle = envelopeToggleHtml();
+        // ⭐ §MASSING-ON-EVERY-ARM (L-13281) — THE ABSENCE ARM CARRIES MASSING TOO, and this is the
+        // arm the founder's own report came from: no envelope at all, and therefore — before this —
+        // no way to reach the massing step or the draw tool from the card that had replaced it.
+        // `env` is passed through as it arrives (it is `null`, or a `status:'none'` with no reason):
+        // the builder's first arm is written for exactly that, and it states the absence rather than
+        // rendering an idle Generate button that could only refuse.
+        const safeAbsenceMassingSection = buildMassingOptionsSectionSafe(env);
         // §FOLD-MEMORY (L-13078) — CAPTURED BEFORE THE SWAP, because the assignment on the next
         // line zeroes it. The card scrolls inside its own `maxHeight`, and with folds now
         // remembering their open state it can be tall — losing the offset on every repaint
@@ -4998,6 +5128,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
              ${safeAbsenceBody}
              ${safeContextStudySection}
              ${safeStudyHeightEntry}
+             ${safeAbsenceMassingSection}
              ${safeDesignStageStrip}
              ${safeEnvToggle}`;
         wireEnvelopeToggle(panel);
@@ -5005,6 +5136,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         restoreEnvelopeCardDisclosure(panel, envScrollBefore);
         wireStudyHeightEntry(panel);
         wireEnvelopeAbsenceSolve(panel);
+        // §MASSING-ON-EVERY-ARM (L-13281) — the draw route on the arm a founder with an old
+        // project actually lands on (C115 §3.B PR-B-03). Generate is not rendered here, so the
+        // only live control this wires is the authored one.
+        wireMassingOptions(panel);
         // §RESI-ORCH-STAGE-WIRE — the "Do this next" pill. On THIS arm the massing control is the
         // study-height entry (`data-stage-control="massing"`); when the arm does not host it the
         // jump prints WHERE the control is rather than doing nothing.
@@ -5393,6 +5528,11 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                      🛠️ Set zone manually (admin)
                    </button>`
                 : '';
+            // ⭐ §MASSING-ON-EVERY-ARM (L-13281) — THE REFUSAL ARM'S OWN BUILD, from the ONE
+            // builder. A separate LOCAL, not a hoist of the full arm's: that constant is declared
+            // ~380 lines below this early return, and reaching it from here would be a
+            // use-before-declaration, which is the compiler telling us these are two arms.
+            const safeRefusalMassingSection = buildMassingOptionsSectionSafe(env);
             const safeCloseBtn = envelopeCloseButtonHtml();
             const safeEnvToggle = envelopeToggleHtml();
             // §FOLD-MEMORY (L-13078) — CAPTURED BEFORE THE SWAP, because the assignment on the next
@@ -5418,6 +5558,14 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                      'designed-vs-permitted': safeCapacitySection,
                      'how-measured': safeMeasuredSection,
                      'intended-area': safeIntendedSection,
+                     // ⭐ §MASSING-ON-EVERY-ARM (L-13281) — THE REFUSAL ARM CARRIES MASSING.
+                     // A cited "no envelope applies here" is an answer about the LAW; it says
+                     // nothing about whether the user may draw a massing and carry on, and
+                     // C58 §1.20 clause 1 says they may. The fold renders its
+                     // `no-permitted-footprint` state: the refusal restated as what is missing
+                     // and what would supply it, with the draw route above it and NO Generate
+                     // button — a control that could only refuse is a dead click.
+                     'massing-options': safeRefusalMassingSection,
                  })}
                  ${safeDesignStageStrip}
                  ${safeEnvToggle}`;
@@ -5426,6 +5574,10 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             restoreEnvelopeCardDisclosure(panel, envScrollBefore);
             wireManualZoneButton(panel);
             wireStudyHeightEntry(panel);
+            // §MASSING-ON-EVERY-ARM (L-13281) — the authored route's ONE button. Generate/clear/pick
+            // are simply not in this arm's DOM, and `wireMassingOptions` is a no-op query for each,
+            // exactly like `wireStudyHeightEntry` is on the arms that do not host the entry.
+            wireMassingOptions(panel);
             // §RESI-ORCH-STAGE-WIRE — the "do this next" pill. On THIS arm the massing control is
             // the study-height entry, which carries `data-stage-control="massing"`; when the arm
             // does not host it the jump prints WHERE the control is rather than doing nothing.
@@ -5826,53 +5978,7 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
                 return '';
             }
         })();
-        const safeMassingOptionsSection = ((): string => {
-            try {
-                // The staleness gate — see `massingOptionsForFootprintM2`. 0.5 m² is the same band
-                // `resolveLiveTargetFootprintProposal` uses, so the plate and the options it came
-                // from cannot go stale at different moments.
-                const nowFootprintM2 = permittedStudyFigures(env).footprintM2;
-                if (
-                    massingOptions !== null
-                    && (massingOptionsForFootprintM2 === null
-                        || Math.abs(massingOptionsForFootprintM2 - nowFootprintM2) > 0.5)
-                ) {
-                    massingOptions = null;
-                    massingOptionsForFootprintM2 = null;
-                }
-                // §CREATE-IT-MYSELF (L-13039) — what is on the GROUND storey, resolved before any click,
-                // from the same reads `resolveAdoptResult` makes. A failed read is passed as UNREADABLE,
-                // never as an empty storey.
-                let authoredState: ReturnType<typeof resolveAuthoredMassingState> | null = null;
-                try {
-                    const ground = pickGroundLevel(readLevelCandidates(
-                        (window.bimManager as { getLevels?: () => unknown[] } | undefined)?.getLevels?.() ?? [],
-                    ));
-                    authoredState = resolveAuthoredMassingState(
-                        readLevelEnvelopes(liveRuntime()?.stores?.spaceEnvelope ?? null),
-                        ground?.id ?? null,
-                    );
-                } catch (err) {
-                    console.warn('[gis][envelope-card] authored-massing state failed (non-fatal):', err);
-                }
-                // §USE-THIS-PLATE-KEEPS-THE-LOOP (L-13078) — WHICH option the live plate came
-                // from, so the row he clicked says so instead of the pick vanishing into a
-                // second collapsed fold. ⚠ THE STALENESS GATE IS ASKED FIRST, exactly as the
-                // target-area section does: a mark rendered beside a WITHDRAWN plate would be a
-                // tick on a claim that has been retracted. `resolveLiveTargetFootprintProposal`
-                // clears the slot when it withdraws, and clearing the slot clears the id.
-                const liveForMark = resolveLiveTargetFootprintProposal(nowFootprintM2);
-                const chosenId = liveForMark === null ? null : getChosenMassingOptionId();
-                return buildMassingOptionsFold(
-                    massingOptions === null ? { kind: 'idle' } : { kind: 'computed', set: massingOptions },
-                    authoredState,
-                    chosenId,
-                );
-            } catch (err) {
-                console.warn('[gis][envelope-card] massing options fold failed (non-fatal):', err);
-                return '';
-            }
-        })();
+        const safeMassingOptionsSection = buildMassingOptionsSectionSafe(env);
         const safeCloseBtn = envelopeCloseButtonHtml();
         const safeEnvToggle = envelopeToggleHtml();
         // §UX1-PROSE-ALTITUDE — the three prose bodies on this card are collapsed behind
