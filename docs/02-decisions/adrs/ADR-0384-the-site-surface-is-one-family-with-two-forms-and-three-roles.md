@@ -21,6 +21,52 @@ per-element contract is absent."*
 
 ---
 
+> ## ⛔⛔ ORCHESTRATOR RULING 2026-09-09 — **THE ELEMENT KIND IS `siteworks`, NOT `siteSurface`**
+>
+> The lane's stage-0 blocker was real and it measured it correctly: **`siteSurface` is already a
+> live UI symbol.** `apps/editor/src/ui/site/SiteSurface.ts` is 25,633 bytes, and the spelling
+> appears across **nine files** — `styles/panels/siteSurface.ts`, `WorkspaceController.ts`,
+> `AppTheme.ts`, `engineLauncher.ts`, `siteSurfaceMount.spec.ts` and the analysis siblings. It is
+> owned by another lane (L-13180 / L-13285).
+>
+> **The ELEMENT KIND yields, not the UI.** Two reasons, in order of weight:
+> 1. **C84 EI-8 — one spelling per subject.** Two unrelated things called `siteSurface` means a
+>    grep for either returns both, permanently, for every future reader. That cost is paid forever;
+>    a rename now is paid once.
+> 2. **Renaming the UI would edit nine files across a live lane's surface** to accommodate a family
+>    that has not shipped a line of code. The thing that exists wins.
+>
+> ### Why `siteworks`
+> It is the industry term for exactly this scope — carriageways, parking, footpaths, hard
+> landscaping — it collides with nothing (`grep -rn "siteworks" --include=*.ts` → 0), and it has
+> room for the family to grow (drainage, kerbs) without a second rename.
+>
+> ⚠ **`pavement` was considered and rejected**, despite being the IFC4x3 entity name
+> (`IfcPavement`). It reads as *footway* in British English and *carriageway* in American, so the
+> one word would mean two different things to the two audiences this product already has. The IFC
+> mapping is still `IfcPavement` / `IfcCourse` on export — **the export mapping and the internal
+> kind do not have to share a spelling, and here they must not.**
+>
+> **Apply:** rename the kind, its `defineElement('siteworks')` literal, the `SITEWORKS_*` constant
+> roster, the brand `SiteworksId`, the verb prefix `siteworks.*`, and the prose of this document.
+> ⛔ **The contract NUMBER does not change** — this stays C116. Edit it **in place** (CLAUDE.md:
+> *"Edit the canonical `C0N-*.md` in place… never write a new `*-AUDIT.md` derivative doc"*), and
+> move the `contracts/README.md` row **in the same commit** — `check-contract-index-equivalence`
+> compares the file set against the row set in both directions and that rule has failed six times.
+>
+> ⭐ **And the other three stage-0 blockers are answered here too:** edit C116 §9e and §0.1 **in
+> place** rather than superseding them by ADR; you do **not** need to touch
+> `apps/editor/src/ui/site/SiteSurface.ts` or its eight siblings at all once the kind is renamed;
+> and the ISSUE-LOG rows are the orchestrator's — hand over the text in your close.
+>
+> ⚠ **One correction to the lane's own audit: Actions is NOT billing-blocked today.** Measured
+> 2026-09-09: three `Deploy to Fly.io` runs completed successfully in 618–648 s. What IS true is
+> that the six red CI jobs block `deploy-fly.yml` via §L-540-CI-GATE for any commit that triggers
+> CI. Do not treat CI as evidence either way — that part of your audit stands.
+
+---
+
+
 ## 1 · THE ASK (verbatim, 2026-09-09)
 
 > *"i need you to add new categories on PRYZM - **roads** - it should be done as linear design -

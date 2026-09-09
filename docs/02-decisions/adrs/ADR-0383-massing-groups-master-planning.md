@@ -205,6 +205,60 @@ irreversible surprise.
 
 ---
 
+### ⭐ §4a — ORCHESTRATOR RULING 2026-09-09: the `setStoreys` payload, and which ring a NEW storey copies
+
+The implementing lane raised two blockers against §4 and both are correct. Ruled here rather than
+left to the handler, because both are decisions and neither is a detail.
+
+**(a) The payload shape.** §4's `{ groupId, targetStoreys, mintedIds[], startStoreyId? }` is **not
+satisfiable by a single-store handler** — deciding *which* storeys to add needs BIM level
+elevations, which the space-envelope store does not hold. Reading them inside the handler would
+make it multi-store and cost the one-`produceCommand`/one-Ctrl-Z property this family exists for.
+
+**The payload is therefore:**
+```
+spaceEnvelope.group.setStoreys
+  { groupId, targetStoreys,
+    added: [{ spaceEnvelopeId, levelId, baseOffset, height }] }   // ⬅ SURFACE-supplied
+```
+⭐ **The SURFACE resolves the storeys and the handler applies them.** That is the same division
+`buildEnvelopeAuthoringPlan` already uses — the planner decides, the verb executes — and it keeps
+ids minted by the caller (C16 CA-2), which a redo-safe handler requires anyway. ⛔ `added` is empty
+when the target is a SHRINK; the handler removes from the top and does not need geometry to do it.
+
+**(b) Which ring does a grown storey copy? THE TOP-SEATED MEMBER'S.**
+You are stacking onto what is there, and on a set-back or cantilevered block the top ring is what a
+designer is looking at when they press "+". Copying the GROUND ring would silently undo a set-back
+they had already drawn.
+
+⛔ **AND THE ASSUMPTION IS STATED, NEVER SILENT.** When the top ring differs from the ground ring —
+i.e. exactly when the choice changes the building — the summary says which ring was used and names
+the alternative in words. That is the shape already shipped and proven in
+`BuildFromEnvelope.ts` §WHOSE-FOOTPRINT-IS-THE-SLAB (L-13296): **ask or disclose only when the
+ambiguity is REAL**, because a message the user must dismiss on every press is a message they stop
+reading. When every ring in the group matches, say nothing — there is nothing to choose.
+
+⚠ This is a reversible default, not a law. If the founder wants the ground ring, it is one constant.
+
+### ⭐ §4b — FILE-OWNERSHIP GRANTS for the implementing lane
+Granted, with the reason each is unavoidable:
+- **`apps/editor/src/ui/site/envelopeAuthoringPlan.ts`** — thread an ADDITIVE `group` input through
+  to the supersession call. ⛔ The alternative the lane correctly refused — post-processing the
+  planner's output — would re-implement the group rule a second time, which is this repository's
+  dominant defect. Additive only: no existing caller changes behaviour.
+- **`tools/ga-gate/check-command-naming.ts`** (`CANONICAL_PREFIXES`) — ⚠ note `spaceEnvelope` is
+  **already absent and that gate is already RED at exit 3**, which is not this lane's doing; adding
+  the prefix fixes a pre-existing breach as a side effect. Say so in the commit.
+- **`packages/sync-client/src/syncDisposition.ts`**, **`ChatCapabilityRegistry.ts`**, and
+  `docs/04-reference/API-VERB-REGISTER.md` (regenerate with `--write`) — all three are MANDATORY for
+  a registered verb; a verb without them fails gates that cannot be absorbed.
+- **`docs/02-decisions/contracts/C114-*.md`** — edit **in place**, adding the three verb rows and the
+  group clause. ⛔ The lane is right that ADR-0383 claims to amend C114 and **nothing landed**;
+  CLAUDE.md ranks a contract above an ADR, so shipping the verbs without the amendment puts the code
+  in breach of the document that governs it.
+
+---
+
 ## 5 · STAGES
 
 | # | Stage | Files |
