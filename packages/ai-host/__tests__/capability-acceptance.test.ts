@@ -3041,7 +3041,14 @@ describe('RAC-BUILD-FROM-ENVELOPE — the founder "create walls and slabs from e
     // makes the three declaration surfaces disjoint: naming either here would
     // put one verb on two of them and fail the coverage gate.
     expect(r.commands.map((c) => c.type)).toEqual(['generation.from-envelope']);
-    expect(r.commands[0]!.payload).toEqual({ parts: ['walls', 'floor-plate'], deferred: [] });
+    // ⭐ §WHOSE-FOOTPRINT-IS-THE-SLAB (founder 2026-09-09 · L-13296) — `plateSource` is NEW here,
+    // and these arms are AMENDED, not weakened. A slab between two storeys is either that storey's
+    // FLOOR (cut from its own plate) or the lower storey's CEILING (cut from the plate below);
+    // while the plates match they are the same slab, and the moment one steps back they are not.
+    // The executor must be TOLD which ring to cut, or it holds a second default and PRYZM has two.
+    // `this-level` is the behaviour every existing project was built with, which is exactly why it
+    // is the back-compatible resolution of an ask that did not say.
+    expect(r.commands[0]!.payload).toEqual({ parts: ['walls', 'floor-plate'], deferred: [], plateSource: 'this-level' });
     // C67 §4 rule 8 — the truthful undo cost is stated BEFORE consent.
     expect(r.destructive).toBe(true);
     // ⭐ THE COST IS COMPUTED FROM THE PARTS, AND THE PARTS ARE NAMED BESIDE IT.
@@ -3082,6 +3089,8 @@ describe('RAC-BUILD-FROM-ENVELOPE — the founder "create walls and slabs from e
       // the plate he already named. C84 EI-2: telling a user about one of the
       // two things he asked for is narrowing.
       deferred: ['floor-finishes', 'roof'],
+      // §WHOSE-FOOTPRINT-IS-THE-SLAB (L-13296) — see the note on the first payload arm above.
+      plateSource: 'this-level',
     });
     // Named BY NAME, with the reason and the LIVE route (C16 CA-18).
     expect(r.summary).toContain('does NOT build floor finishes and a roof');
@@ -3121,7 +3130,7 @@ describe('RAC-BUILD-FROM-ENVELOPE — the founder "create walls and slabs from e
     expect(r.commands.map((c) => c.type)).toEqual(['generation.from-envelope']);
     // ⛔ THE PART LIST IS THE SAFETY. `applyPartSelection` projects the walls off the plan for
     // this ask; without that, retiring the refusal would have built walls he did not name.
-    expect(r.commands[0]!.payload).toEqual({ parts: ['floor-plate'], deferred: [] });
+    expect(r.commands[0]!.payload).toEqual({ parts: ['floor-plate'], deferred: [], plateSource: 'this-level' });
   });
 
   it('a level other than the one being viewed refuses BY NAME, naming the switch', () => {

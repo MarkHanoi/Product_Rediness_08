@@ -147,6 +147,7 @@ import {
   // registry happened to name the part. A type-only import cannot cycle at
   // runtime and makes `BuildFromEnvelope.ts` the single source of the words.
   type BuildFromEnvelopePart,
+  type BuildFromEnvelopePlateSource,
   type BuildFromEnvelopeDeferredPart,
 } from './BuildFromEnvelope.js';
 // §REFUSE-RAC-REPLICATE (L-1542) — "create same stair in ground in level 1".
@@ -280,6 +281,26 @@ export interface ResolverContext {
   readonly levels: readonly ResolverLevel[];
   /** Id minter for commands whose payload REQUIRES an id (level.add). */
   readonly mintId: () => string;
+  /**
+   * ⭐ §WHOSE-FOOTPRINT-IS-THE-SLAB (L-13296) — do this storey's plate and the one
+   * BELOW it enclose different ground?
+   *
+   * `true` the plates differ, so "whose footprint?" is a real question · `false`
+   * they agree, so there is nothing to ask · `null` NOT MEASURED — and the caller
+   * must treat that as unknown, never as `false`.
+   *
+   * ⛔ OPTIONAL BY DESIGN, AND THAT IS THE WHOLE REASON IT IS SHAPED THIS WAY.
+   * `ResolverContext` is shared by every capability and the resolver holds no
+   * geometry — it knows levels, rooms and selection, not envelope rings. Widening
+   * it with a required field would touch every construction site of this context.
+   * A host that can answer supplies it; one that cannot omits it, and the arm then
+   * states which ring it used instead of asking a question it cannot ground.
+   *
+   * ⚠ ABSENT AND `null` ARE DELIBERATELY THE SAME ANSWER HERE — both mean "PRYZM
+   * cannot tell" — because the consequence is identical: do not ask, and say what
+   * was assumed. What must never happen is either being read as "they are equal".
+   */
+  readonly plateFootprintsDifferBelow?: (levelId: string) => boolean | null;
   /**
    * §L-905 — a snapshot of the project's rooms (id, name, roomNumber, levelId),
    * injected by the editor so `set-room-occupancy` can decide the auto-label
@@ -1135,6 +1156,25 @@ export type SemanticIntent =
        *  rule 16). The pass builds on the ACTIVE level only, so a different one
        *  is refused BY NAME rather than silently ignored. */
       readonly levelQuery?: string;
+      /**
+       * ⭐ §WHOSE-FOOTPRINT-IS-THE-SLAB (founder 2026-09-09 · L-13296) — which ring
+       * the floor plate is cut from, when the sentence says.
+       *
+       * FOUNDER: *"when we ask to create slabs on envelope - i would like the chat to
+       * ask me - following the lower level footprint or the level footprint? this
+       * means - for level 1 slabs - do i take the footprint of the ground - this is
+       * important when floors are not equal"*
+       *
+       * A slab between Ground and Level 1 is TWO different things depending on who
+       * owns it: Level 1's FLOOR (cut from Level 1's plate) or Ground's CEILING (cut
+       * from Ground's plate). While the plates are identical the distinction is
+       * invisible; the moment a storey steps back or a terrace appears they are
+       * different slabs, and PRYZM was silently choosing one.
+       *
+       * `undefined` means the sentence did not say — which is NOT the same as
+       * "this-level", and the arm asks rather than picking (§CONTEXT-DATA-HONESTY).
+       */
+      readonly plateSource?: BuildFromEnvelopePlateSource;
     }
   /**
    * §REFUSE-RAC-REPLICATE (L-1542) — "create same stair in ground in level 1".

@@ -113,6 +113,25 @@ export const BUILD_FROM_ENVELOPE_VERB = 'generation.from-envelope';
  */
 export type BuildFromEnvelopePart = 'walls' | 'floor-plate' | 'ceilings';
 
+/**
+ * ⭐⭐ §WHOSE-FOOTPRINT-IS-THE-SLAB (founder 2026-09-09 · L-13296) — which ring a floor
+ * plate is cut from.
+ *
+ * FOUNDER: *"when we ask to create slabs on envelope - i would like the chat to ask me -
+ * following the lower level footprint or the level footprint? this means - for level 1
+ * slabs - do i take the footprint of the ground - this is important when floors are not
+ * equal"*
+ *
+ * ⭐ HE IS DESCRIBING A REAL AMBIGUITY, NOT A PREFERENCE. One slab sits between two
+ * storeys and belongs to both readings:
+ *   · `this-level`  — it is Level 1's FLOOR, cut from Level 1's own plate;
+ *   · `level-below` — it is Ground's CEILING, cut from Ground's plate.
+ * While every storey has the same outline these are the same slab and nobody notices.
+ * The moment one steps back, cantilevers or opens a terrace they are DIFFERENT SLABS,
+ * and the pass was choosing `this-level` silently — a decision presented as a fact.
+ */
+export type BuildFromEnvelopePlateSource = 'this-level' | 'level-below';
+
 /** What the founder asked for that the pass does NOT build. Named, never dropped. */
 export type BuildFromEnvelopeDeferredPart = 'floor-finishes' | 'roof';
 
@@ -234,6 +253,34 @@ const ROOM_SCOPE_RE = /\b(?:every|each|all(?:\s+the)?)\s+rooms?\b/i;
 
 const WALLS_RE = /\bwalls?\b|\bpartitions?\b/i;
 const PLATE_RE = /\bslabs?\b|\bfloor\s+plates?\b|\bground\s+plates?\b|\bfloor\s+slabs?\b/i;
+
+// ── §WHOSE-FOOTPRINT-IS-THE-SLAB (L-13296) — the two ANSWERS, as English ──────
+//
+// Read only when the sentence volunteers one. ⛔ Neither matching is NOT a default:
+// `readPlateSource` returns `undefined`, and the arm asks. An unstated preference and
+// a stated one must never share a value (§CONTEXT-DATA-HONESTY, L-581/L-616).
+//
+// ⚠ "below"/"under" alone are NOT enough — "the slab below" is the same slab named
+// from above, not a statement about which ring to cut. Both patterns therefore require
+// a FOOTPRINT NOUN (footprint / outline / plate / envelope / level), so a bare
+// direction word falls through to the question rather than being over-read.
+const PLATE_FROM_BELOW_RE =
+  /\b(?:lower|below|under(?:lying)?|ground|previous|storey\s+below|floor\s+below)\b[^.]{0,24}?\b(?:footprint|outline|plate|envelope|level|slab)\b/i;
+const PLATE_FROM_THIS_LEVEL_RE =
+  /\b(?:this|its\s+own|own|same|current|each)\b[^.]{0,24}?\b(?:footprint|outline|plate|envelope|level)\b/i;
+
+/**
+ * Which ring the sentence asked the plate to follow, or `undefined` when it did not say.
+ *
+ * ⛔ BELOW IS TESTED FIRST, and the order is load-bearing: *"follow the ground footprint
+ * on this level"* names BOTH, and the one that changes the outcome is the SOURCE. Reading
+ * "this level" there would silently invert his instruction.
+ */
+export function readPlateSource(text: string): BuildFromEnvelopePlateSource | undefined {
+  if (PLATE_FROM_BELOW_RE.test(text)) return 'level-below';
+  if (PLATE_FROM_THIS_LEVEL_RE.test(text)) return 'this-level';
+  return undefined;
+}
 /** Bare "floor(s)" with no "slab"/"plate" beside it — genuinely ambiguous English. */
 //
 // ⛔ THE LOOKAHEAD IS LOAD-BEARING, and the founder's own sentence is why. He
@@ -318,11 +365,16 @@ export function parseBuildFromEnvelopeIntent(
       ? tail.reading.scope.levelQuery
       : undefined;
 
+  // §WHOSE-FOOTPRINT-IS-THE-SLAB (L-13296) — carried only when SAID. Absent means
+  // absent; the arm asks rather than defaulting.
+  const plateSource = readPlateSource(text);
+
   return {
     intent: 'build-from-envelope',
     parts,
     deferred,
     ...(levelQuery !== undefined ? { levelQuery } : {}),
+    ...(plateSource !== undefined ? { plateSource } : {}),
   } as SemanticIntent;
 }
 
@@ -472,16 +524,85 @@ export function applyBuildFromEnvelope(
     }
   }
 
+  // ── ⭐⭐ §WHOSE-FOOTPRINT-IS-THE-SLAB (founder 2026-09-09 · L-13296) — ASK, DO NOT PICK ──
+  //
+  // FOUNDER: *"when we ask to create slabs on envelope - i would like the chat to ask me -
+  // following the lower level footprint or the level footprint? this means - for level 1 slabs -
+  // do i take the footprint of the ground - this is important when floors are not equal"*
+  //
+  // ⭐ A SLAB BETWEEN TWO STOREYS BELONGS TO BOTH OF THEM, and which ring it is cut from is a
+  // DESIGN DECISION, not a detail:
+  //   · `this-level`  — it is this storey's FLOOR, cut from this storey's plate;
+  //   · `level-below` — it is the lower storey's CEILING, cut from the lower plate.
+  // While every plate has the same outline these are the same slab. The moment one steps back,
+  // cantilevers, or opens a terrace they are DIFFERENT SLABS — and this pass was silently
+  // choosing `this-level` and reporting the result as a fact.
+  //
+  // ⛔ THE ASK IS CONDITIONAL, AND THAT CONDITION IS THE WHOLE DESIGN. Asking on every build
+  // would be noise on a building whose floors are equal — which is most of them — and a question
+  // the user must dismiss to get work done is a question they stop reading. So PRYZM asks exactly
+  // when the ambiguity is REAL: the plates below and here enclose different ground.
+  //
+  // ⛔ AND IT CANNOT ANSWER THAT ITSELF. `ResolverContext` carries levels, rooms and selection —
+  // no geometry. `plateFootprintsDifferBelow` is an OPTIONAL host-supplied predicate for exactly
+  // this reason: a host that holds the envelopes answers, one that does not omits it. Making it
+  // REQUIRED would touch every construction site of a context shared by every capability.
+  //
+  // ⛔ `null` AND ABSENT ARE "PRYZM CANNOT TELL", AND NEITHER IS "THEY ARE EQUAL". On both, the
+  // pass proceeds on this storey's own plate AND SAYS SO in the summary, so the reading is
+  // visible and correctable rather than silent (§CONTEXT-DATA-HONESTY, L-581/L-616). Refusing
+  // outright would block a build over a question PRYZM raised and cannot ground.
+  const wantsPlate = asked.includes('floor-plate');
+  const plateSource = si.plateSource;
+  if (wantsPlate && plateSource === undefined) {
+    const differs = ctx.plateFootprintsDifferBelow !== undefined && ctx.activeLevelId !== undefined
+      ? ctx.plateFootprintsDifferBelow(ctx.activeLevelId)
+      : null;
+    if (differs === true) {
+      const here = levelName(ctx) ?? 'this level';
+      return {
+        kind: 'refusal',
+        intent: 'build-from-envelope',
+        reason:
+          `Whose footprint should the floor plate follow? On ${here} the plate below encloses `
+          + 'DIFFERENT ground from this one, so the slab between them is two different slabs '
+          + `depending on who owns it: this storey's FLOOR (cut from ${here}'s own plate) or the `
+          + "lower storey's CEILING (cut from the plate below). While the floors match this makes "
+          + 'no difference; here it does, so PRYZM will not choose for you.',
+        suggestions: [
+          'create slabs from my envelope following this level footprint',
+          'create slabs from my envelope following the lower level footprint',
+        ],
+      };
+    }
+  }
+
   // ── THE COMMAND ───────────────────────────────────────────────────────────
   const where = levelName(ctx);
   const undoSteps = asked.length;
+  // ⛔ The EXECUTOR needs the reading even when the sentence did not state one, or it would make
+  // its own default and PRYZM would hold two. `this-level` is named explicitly here — it is the
+  // behaviour every existing project was built with, so it is also the back-compatible one.
+  const resolvedPlateSource: BuildFromEnvelopePlateSource = plateSource ?? 'this-level';
   const command: BusCommandRef = {
     type: BUILD_FROM_ENVELOPE_VERB,
-    payload: { parts: [...asked], deferred: [...deferred] },
+    payload: {
+      parts: [...asked],
+      deferred: [...deferred],
+      ...(wantsPlate ? { plateSource: resolvedPlateSource } : {}),
+    },
   };
-  const deferredNote = deferred.length === 0
+  // ⭐ SAY WHICH RING WAS USED, whenever a plate is built and the user did not name one. An
+  // assumption the user can see is correctable; one they cannot is indistinguishable from a
+  // measurement. Silent only when they SAID which — then it is their sentence, not our guess.
+  const plateNote = !wantsPlate
     ? ''
-    : ` It does NOT build ${speakDeferred(deferred)}. ${deferredReasons(deferred)}`;
+    : plateSource !== undefined
+      ? ` The plate follows ${plateSource === 'level-below' ? 'the LOWER level' : 'THIS level'}'s footprint, as you asked.`
+      : " The plate follows THIS level's own footprint — say \"following the lower level footprint\" if you meant the storey below.";
+  const deferredNote = (deferred.length === 0
+    ? ''
+    : ` It does NOT build ${speakDeferred(deferred)}. ${deferredReasons(deferred)}`) + plateNote;
   return {
     kind: 'commands',
     intent: 'build-from-envelope',
