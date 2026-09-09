@@ -104,6 +104,10 @@ export const ISO_LAYER_TO_VG_CATEGORY: Readonly<Record<string, string>> = {
     'A-ROOF': 'roof',
     'A-FURN': 'furniture',
     'A-PLMB': 'plumbing',
+    // §LIGHTING-IS-A-CLASSIFIED-LAYER (L-13267) — the row that gives a light fitting a V/G
+    // category. Without it `vgCategoryForLayer('A-LGHT')` is null and the family is
+    // "drawn but ungovernable" — the exact state this file's own header warns about.
+    'A-LGHT': 'lighting',
     'A-CEIL': 'ceiling',
     'A-GRID': 'grid',
     'A-LEVL': 'level',

@@ -382,6 +382,13 @@ export function categoryFromFlags(flags: {
     isRoof:      boolean;
     isCeiling:   boolean;
     isFurniture?: boolean;
+    /**
+     * §LIGHTING-IS-A-CLASSIFIED-LAYER (L-13267). Optional, like the flags around it, so no
+     * existing caller changes. ⭐ The `lighting` PEN has existed in all three zones since
+     * this table was written; nothing could reach it because this flag did not exist, so
+     * every luminaire drew at the `__default__` WALL weight (0.25 mm black).
+     */
+    isLighting?: boolean;
     isHandrail?:  boolean;
     isWindow?:    boolean;
     /**
@@ -405,6 +412,9 @@ export function categoryFromFlags(flags: {
     if (flags.isRoof)      return 'roof';
     if (flags.isCeiling)   return 'ceiling';
     if (flags.isFurniture) return 'furniture';
+    // ⚠ AFTER furniture, deliberately: a ceiling-mounted fitting can carry both words in a
+    // composed tag, and furniture is the broader family. Ordering makes that decidable.
+    if (flags.isLighting)  return 'lighting';
     return 'projection'; // safe fallback — generic projected geometry
 }
 
@@ -446,6 +456,9 @@ export function penCategoryForLayerTag(layerTag: string): string {
         isRoof:      /A-ROOF|roof/i.test(layerTag),
         isCeiling:   /A-CEIL|ceiling/i.test(layerTag),
         isFurniture: /A-FURN|furniture/i.test(layerTag),
+        // ⚠ `A-LGHT|lighting`, NOT a bare /light/ — that would claim `daylight`,
+        // `light-well` and `Skylight`, three unrelated things this repo draws.
+        isLighting:  /A-LGHT|lighting/i.test(layerTag),
         isHandrail:  /A-HRAL|handrail/i.test(layerTag),
         isWindow:    /A-GLAZ|window/i.test(layerTag),
         // ⚠ `A-CONS|boundary-line`, NOT a bare /boundary/. `RoomBoundingLine` is a

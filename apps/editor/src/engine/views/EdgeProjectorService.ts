@@ -230,6 +230,34 @@ const ELEMENT_TYPE_TO_PROJECTION_LAYER: Readonly<Record<string, string>> = {
     KitchenCountertop: 'A-FURN', kitchen_unit: 'A-FURN',
     // Plumbing / MEP fixtures
     PlumbingFixture: 'A-PLMB',
+    // ══════════════════════════════════════════════════════════════════════
+    // §LIGHTING-IS-A-CLASSIFIED-LAYER (founder 2026-09-09 · L-13267 · C09 §4.6)
+    //
+    // ⭐ FOUNDER: *"LIGHTING FIXTURES DEFINITELY SHOULD HAVE A SYMBOL FOR EACH"* — and,
+    // separately, *"THE LINES ARE ALMOST NOT READABLE"*. His plan shows dense circular
+    // scribbles where light fittings are. Those are not symbols: they are the REAL 672-face
+    // luminaire meshes, edge-projected.
+    //
+    // ⛔ AND THEY WERE UNGOVERNABLE, WHICH IS THE DEEPER HALF. With no row here, Lighting
+    // linework fell to the generic `projection-visible` layer, so:
+    //   · `penCategoryForLayerTag` could not classify it and returned `'projection'`, so it
+    //     drew at the `__default__` pen — the WALL weight, 0.25 mm black. A light fitting was
+    //     being drawn as heavy as a structural wall.
+    //   · `ISO_LAYER_TO_VG_CATEGORY` had nothing to map, so V/G could not hide it.
+    //   · the visibility-intent list had no `lighting` row, so the founder had no toggle.
+    //
+    // ⭐⭐ THE PEN ALREADY EXISTED AND WAS UNREACHABLE. `PenWeightTable` has carried
+    // `lighting: pen(0.13, '#303030')` in ALL THREE zones (cut / projection / hidden) the
+    // whole time — nothing could ever resolve to it, because the classifier had no
+    // `isLighting` flag and this map had no layer to feed it. This is the
+    // [[authored-but-unwired-is-the-bottleneck]] shape: audit REACHABILITY, not existence.
+    //
+    // ⚠ BOTH SPELLINGS. The canonical-key normaliser below handles case, but the codebase
+    // genuinely produces two names for this family (`Lighting` from the fragment builder,
+    // `LightingFixture` from the catalogue), and a family key that misses one is how half a
+    // family stays unclassified.
+    // ══════════════════════════════════════════════════════════════════════
+    Lighting: 'A-LGHT', LightingFixture: 'A-LGHT', light: 'A-LGHT',
     // §RHINO-PLAN — imported Rhino (.3dm) reference meshes. Mapped to A-FURN
     // deliberately: reference content is projected-only (A-FURN is outside
     // CUT_ELIGIBLE_PLAN_LAYERS and the poché table), and A-FURN's VG category

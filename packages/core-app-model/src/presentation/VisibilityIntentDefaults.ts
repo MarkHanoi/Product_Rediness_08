@@ -26,6 +26,11 @@ const ELEMENT_TYPES = [
     'ceiling',
     'furniture',
     'plumbing',
+    // §LIGHTING-IS-A-CLASSIFIED-LAYER (founder 2026-09-09 · L-13267) — *"LIGHTING FIXTURES
+    // DEFINITELY SHOULD HAVE A SYMBOL FOR EACH"*. Declaring the family HERE is what gives
+    // it a row in the Visibility Intent panel, hence a hide toggle and a colour, and what
+    // makes the `lighting` pen the table has always carried finally reachable.
+    'lighting',
     'grid',
     'annotation',
     'level',
