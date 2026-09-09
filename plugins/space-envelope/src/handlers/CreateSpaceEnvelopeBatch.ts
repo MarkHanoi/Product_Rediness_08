@@ -49,8 +49,6 @@ import {
     SpaceEnvelope,
     MAXIMUM_BUILDABLE_IS_NOT_AUTHORED,
     isAuthorableSpaceEnvelopeRole,
-    type SpaceEnvelopeRole,
-    type SpaceEnvelopeGroup,
 } from '@pryzm/plugin-sdk';
 import type { SpaceEnvelopeData, SpaceEnvelopesState } from '../store.js';
 import { MaximumBuildableNotAuthorableError, SpaceEnvelopeGeometryError } from '../errors.js';
