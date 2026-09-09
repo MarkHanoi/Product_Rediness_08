@@ -15,13 +15,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error — plain-Node ESM tool, no d.ts.
-import { classify, lonLatToTile, samplePoints } from '../verify-published-region.mjs';
+import { classify, lonLatToTile, manifestClaims, samplePoints } from '../verify-published-region.mjs';
 
 describe('§PUBLISH-FIDELITY classify', () => {
   it('calls it LOST when the staged archive has the tile and the live one does not', () => {
     // The defect the tool is named after: the merge listed the region and did not carry its bytes.
-    expect(classify(182, null)).toBe('LOST');
-    expect(classify(1, null)).toBe('LOST');
+    expect(classify(182, null, true)).toBe('LOST');
+    expect(classify(1, null, true)).toBe('LOST');
   });
 
   it('calls it carried only when both hold a tile of the SAME length', () => {
@@ -55,6 +55,48 @@ describe('§PUBLISH-FIDELITY classify', () => {
   it('marks a tile only the live archive has as live-only, not as carried', () => {
     // Another region's tile at these coordinates. It says nothing about THIS region's publish.
     expect(classify(null, 3878)).toBe('live-only');
+  });
+
+  // ── the THREE-VALUED claim, and both bugs it fixed ────────────────────────
+  // The tool shipped accusing its own pipeline. Twice, differently, and both are pinned here.
+
+  it('⛔ a layer NOT YET MERGED for the region is not-published, NEVER lost', () => {
+    // BUG 1, measured 2026-09-09: `--layers roads` printed "LOST — staged has 6602 B … The merge
+    // listed this region but did not carry its bytes." No roads merge had run. Reporting
+    // NOT-YET-DONE as DATA LOSS would send someone hunting a corruption that does not exist.
+    expect(classify(6602, null, false)).toBe('not-published');
+    expect(classify(null, null, false)).toBe('not-published');
+  });
+
+  it('⛔ an UNKNOWN claim is never LOST either — the second bug, and the subtler one', () => {
+    // BUG 2: the first fix used a BOOLEAN and fell back to the tileset-wide `regions` list when a
+    // layer had no record of its own. That list is rewritten by EVERY merge, so one trees publish
+    // put `delaware` in it and `roads` — carried forward untouched since 2026-09-04 and holding no
+    // Delaware byte — became "claimed" and went straight back to LOST. Unknown is its own answer.
+    expect(classify(6602, null, 'unknown')).toBe('claim-unknown');
+    expect(classify(10834, null, 'unknown')).toBe('claim-unknown');
+  });
+
+  it('manifestClaims returns TRUE / FALSE / "unknown" and never guesses from the tileset-wide list', () => {
+    // Shaped from the real live manifest on 2026-09-09, after the trees publish: the top-level
+    // `regions` block contains delaware, `trees` has its own 47-entry record, `parks` has a stale
+    // 49-entry record without delaware, and `roads` is carriedForward with NO regions array.
+    const m = {
+      regions: { delaware: {}, spain: {} },                      // ← the trap: delaware IS here
+      layers: {
+        trees: { regions: ['delaware', 'spain'] },
+        parks: { regions: ['spain'], carriedForward: true },
+        roads: { sources: ['spain'], carriedForward: true },     // no `regions` at all
+      },
+    };
+    expect(manifestClaims(m, 'trees', 'delaware')).toBe(true);
+    expect(manifestClaims(m, 'parks', 'delaware')).toBe(false);
+    // ⛔ NOT true — the top-level list describes a different merge. This is the assertion that
+    // stops the tileset-wide fallback from being reintroduced.
+    expect(manifestClaims(m, 'roads', 'delaware')).toBe('unknown');
+    // a layer that is not live at all cannot claim anything
+    expect(manifestClaims(m, 'sea', 'delaware')).toBe(false);
+    expect(manifestClaims(null, 'trees', 'delaware')).toBe(false);
   });
 });
 

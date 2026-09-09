@@ -79,13 +79,59 @@ export function samplePoints(bbox) {
   return [at(0.5, 0.5), at(0.25, 0.25), at(0.75, 0.25), at(0.25, 0.75), at(0.75, 0.75)];
 }
 
-/** Classify one tile pair. PURE — this is the decision, and it is what the test binds. */
-export function classify(stagedLen, liveLen) {
+/**
+ * Classify one tile pair. PURE — this is the decision, and it is what the test binds.
+ *
+ * ⛔ `claimed` IS LOAD-BEARING, and it was added after the tool falsely accused its own pipeline.
+ * The first version had no such argument, so running it on a layer that had simply not been merged
+ * for this region yet printed:
+ *     LOST — roads: staged has 6602 B, the LIVE archive has no tile.
+ *     "The merge listed this region but did not carry its bytes."
+ * Every word of which was wrong: no merge had listed it, because no roads merge had run. A tool
+ * that reports NOT-YET-DONE as DATA LOSS is the §CONTEXT-DATA-HONESTY defect committed by the
+ * instrument instead of the pipeline — and it is worse than silence, because it would send someone
+ * hunting a corruption that does not exist.
+ *
+ * `claimed` is a THREE-valued answer from `manifestClaims`, never a boolean:
+ *   true      the layer's own `regions` record names this region  -> a missing tile IS a loss
+ *   false     the record exists and does NOT name it              -> `not-published`, not a loss
+ *   'unknown' the record cannot answer (no per-layer `regions`)   -> `claim-unknown`, NEVER a loss
+ *
+ * ⛔ THE THIRD VALUE IS NOT PEDANTRY, it is the second bug this function had. The fix above used a
+ * BOOLEAN and fell back to the tileset-wide `regions` list when a layer carried no record of its
+ * own. That list is rewritten by EVERY merge from the sets that participated, so after one trees
+ * publish it named `delaware` — and `roads`, carried forward untouched since 2026-09-04 and
+ * containing no Delaware byte, was thereby "claimed". The tool went on calling it LOST. That is
+ * precisely the blindness this lane documented in merge-tiles.mjs's own no-loss gate (a non-optional
+ * layer with no `regions[]` falls back to a tileset-wide list that describes a different merge),
+ * reproduced inside the instrument written to catch it. UNKNOWN IS NOT CLAIMED.
+ *
+ * @param {number|null|'unreachable'} stagedLen
+ * @param {number|null|'unreachable'} liveLen
+ * @param {boolean|'unknown'} claimed
+ */
+export function classify(stagedLen, liveLen, claimed = true) {
   if (stagedLen === 'unreachable' || liveLen === 'unreachable') return 'unreachable';
-  if (stagedLen === null && liveLen === null) return 'agree-empty';
-  if (stagedLen !== null && liveLen === null) return 'LOST';
+  if (stagedLen === null && liveLen === null) return claimed === true ? 'agree-empty' : 'not-published';
+  if (stagedLen !== null && liveLen === null) {
+    if (claimed === true) return 'LOST';
+    return claimed === 'unknown' ? 'claim-unknown' : 'not-published';
+  }
   if (stagedLen === null && liveLen !== null) return 'live-only';   // another region's tile here
   return stagedLen === liveLen ? 'carried' : 're-encoded';
+}
+
+/**
+ * Does the live manifest claim this region for this layer? Reads the per-layer `regions` record the
+ * merge writes. A layer with NO `regions` array is an older record that cannot answer, so it falls
+ * back to the tileset-wide list — the same fallback merge-tiles.mjs's own no-loss gate uses, rather
+ * than a second interpretation of the same document.
+ */
+export function manifestClaims(manifest, layer, region) {
+  const rec = manifest?.layers?.[layer];
+  if (!rec) return false;                                   // the layer is not live at all
+  if (Array.isArray(rec.regions)) return rec.regions.includes(region);
+  return 'unknown';                                         // see classify() — never the top-level list
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) await main();
@@ -111,6 +157,21 @@ async function main() {
     pts = samplePoints(row.bbox.split(',').map(Number));
   }
 
+  // The LIVE manifest, so a layer never merged for this region reads as `not-published` (or
+  // `claim-unknown`) rather than as data loss. Served no-cache, so this is always the current claim.
+  let liveManifest = null;
+  try {
+    const r = await fetch(`${R2}/tiles/tileset-manifest.json`, { headers: { 'cache-control': 'no-cache' } });
+    if (r.ok) liveManifest = await r.json();
+  } catch { /* handled below */ }
+  if (!liveManifest) {
+    // UNKNOWN IS NOT ABSENT. Without the manifest this cannot tell "not published yet" from "lost
+    // in the merge", and guessing either way is the failure the tool exists to avoid.
+    console.error('✖ could not read the live tileset-manifest.json — cannot tell "not published yet"');
+    console.error('  from "lost in the merge", and will not guess. No verdict.');
+    process.exit(2);
+  }
+
   const open = (u) => new PMTiles(new FetchSource(u));
   const rows = [];
   for (const layer of layers) {
@@ -124,7 +185,8 @@ async function main() {
     for (const [lon, lat] of pts) {
       const [x, y] = lonLatToTile(lon, lat, z);
       const [sl, ll] = [await len(stg, z, x, y), await len(live, z, x, y)];
-      rows.push({ layer, z, x, y, lon, lat, staged: sl, live: ll, verdict: classify(sl, ll) });
+      const claimed = manifestClaims(liveManifest, layer, region);
+      rows.push({ layer, z, x, y, lon, lat, staged: sl, live: ll, claimed, verdict: classify(sl, ll, claimed) });
     }
   }
 
@@ -134,7 +196,8 @@ async function main() {
     console.log('layer        z   x/y                    staged      live        verdict');
     for (const r of rows) {
       console.log(`${r.layer.padEnd(12)} ${String(r.z).padEnd(3)} ${`${r.x}/${r.y}`.padEnd(22)} ` +
-        `${String(r.staged ?? 'absent').padEnd(11)} ${String(r.live ?? 'absent').padEnd(11)} ${r.verdict}`);
+        `${String(r.staged ?? 'absent').padEnd(11)} ${String(r.live ?? 'absent').padEnd(11)} ${r.verdict}` +
+        `${r.claimed === true ? '' : `   (manifest claim: ${r.claimed})`}`);
     }
   }
 
@@ -145,6 +208,8 @@ async function main() {
   if (!JSON_OUT) {
     console.log(`\n  ${rows.length} sample(s): ${rows.filter((r) => r.verdict === 'carried').length} carried · ` +
       `${reenc.length} re-encoded · ${lost.length} LOST · ${rows.filter((r) => r.verdict === 'agree-empty').length} agree-empty · ` +
+      `${rows.filter((r) => r.verdict === 'not-published').length} not-published · ` +
+      `${rows.filter((r) => r.verdict === 'claim-unknown').length} claim-unknown · ` +
       `${unreachable.length} unreachable`);
   }
   if (lost.length > 0) {
@@ -153,6 +218,22 @@ async function main() {
     process.exit(1);
   }
   if (informative.length === 0) {
+    const cu = rows.filter((r) => r.verdict === 'claim-unknown');
+    if (cu.length > 0) {
+      const ls = [...new Set(cu.map((r) => r.layer))].join(', ');
+      console.error(`⚠ NO VERDICT — the live manifest carries no per-layer 'regions' record for [${ls}],`);
+      console.error(`  so it cannot say whether it ever claimed '${region}'. Those layer records are`);
+      console.error('  carriedForward from an older merge. UNKNOWN IS NOT A LOSS and is not reported as one.');
+      console.error('  Re-run after that layer is merged: the merge writes its own regions record.');
+      process.exit(2);
+    }
+    const np = rows.filter((r) => r.verdict === 'not-published');
+    if (np.length > 0) {
+      console.error(`⚠ NO VERDICT — the live manifest does not list '${region}' for [${[...new Set(np.map((r) => r.layer))].join(', ')}].`);
+      console.error('  Those layers have not been merged for this region yet. That is NOT a loss and is');
+      console.error('  deliberately not reported as one — re-run after each layer publishes.');
+      process.exit(2);
+    }
     console.error('⚠ NO VERDICT — every sampled tile was absent in the staged archive too, so this run');
     console.error('  established nothing about the publish. Pass --at points where the region has data.');
     console.error('  (Printing "0 lost" here would be a gate that passes by measuring nothing.)');
