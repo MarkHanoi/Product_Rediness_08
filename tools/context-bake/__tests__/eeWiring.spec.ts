@@ -18,8 +18,23 @@ const heightSources = readFileSync(resolve(HERE, '../heightSources.mjs'), 'utf8'
 const stamp = readFileSync(resolve(HERE, '../heights/eeHeightsStamp.mjs'), 'utf8');
 
 describe('§EE-ETAK-OSM-JOIN — bake.mjs wires the ETAK stamp for the `estonia` row', () => {
-    it('imports the stamp AND its working set DIRECTLY from heights/eeHeightsStamp.mjs', () => {
-        expect(bake).toMatch(/^import \{ stampEeEtakHeightsOnGeojsonseq, EE_CITY_BBOXES, EE_NATIONAL_BBOXES \} from '\.\/heights\/eeHeightsStamp\.mjs';/m);
+    // ⭐ RE-ANCHORED 2026-09-10 (lane CI-SIX-RED). This arm asserted that BAKE.MJS
+    // imported the working set. It stopped being true on 2026-09-09, when the lint
+    // job's `no-unused-vars` errors were fixed: bake.mjs had kept the import lines
+    // and stopped USING them, because the priority pass moved INSIDE the wrapper.
+    // The arm's PURPOSE survives untouched — "built and imported by nothing" is the
+    // France ghost-town shape this file exists to refuse (L-12910) — so the
+    // assertion moves to where the set is now actually READ, rather than being
+    // deleted or relaxed. Asserting an import in a file that no longer uses it was
+    // measuring the wrong copy: bake.mjs could import it and never call it, which is
+    // precisely the orphan this arm is for.
+    it('imports the stamp AND the retain set DIRECTLY from heights/eeHeightsStamp.mjs', () => {
+        expect(bake).toMatch(/^import \{ stampEeEtakHeightsOnGeojsonseq, EE_NATIONAL_BBOXES \} from '\.\/heights\/eeHeightsStamp\.mjs';/m);
+    });
+
+    it('EE_CITY_BBOXES is READ as the uncapped priority pass inside that module', () => {
+        const wrapper = readFileSync(resolve(HERE, '../heights/eeHeightsStamp.mjs'), 'utf8');
+        expect(wrapper).toMatch(/priorityAreas: EE_CITY_BBOXES\.map\(\(c\) => c\.bbox\)/);
     });
 
     it("the `estonia` region row declares heightJoin:'ee_etak'", () => {

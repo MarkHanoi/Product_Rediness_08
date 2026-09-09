@@ -32,7 +32,7 @@ const COUNTRIES = [
     // ⭐ §SI-NATIONAL (2026-09-06, lane HEIGHTS-WHOLE-COUNTRY-B): `slovenia`'s RETAIN set is the whole
     // country; SI_CITY_BBOXES survives as the PRIORITY set (stamped first, uncapped), so bake.mjs still
     // imports both. `retain` is what stampBboxesFor + NATIONAL_STAMP_TABLE must name.
-    { region: 'slovenia', key: 'gurs_si', stamp: 'stampSiHeightsOnGeojsonseq', bboxes: 'SI_CITY_BBOXES', retain: 'SI_NATIONAL_BBOXES', module: './heights/siHeightsStamp.mjs', city: 'ljubljana', gate: /^\s*ljubljana slovenia 46\.0511,14\.5051 500$/m, source: /^\s*slovenia:\s*'gurs_si',.*WIRED 2026-09-05/m },
+    { region: 'slovenia', key: 'gurs_si', stamp: 'stampSiHeightsOnGeojsonseq', bboxes: 'SI_CITY_BBOXES', retain: 'SI_NATIONAL_BBOXES', module: './heights/siHeightsStamp.mjs', bboxesReadIn: 'wrapper', city: 'ljubljana', gate: /^\s*ljubljana slovenia 46\.0511,14\.5051 500$/m, source: /^\s*slovenia:\s*'gurs_si',.*WIRED 2026-09-05/m },
 ];
 
 for (const c of COUNTRIES) {
@@ -42,8 +42,20 @@ for (const c of COUNTRIES) {
             const imp = bake.match(re);
             expect(imp, `${c.module} import statement`).not.toBeNull();
             expect(imp![1]).toContain(c.stamp);
-            expect(imp![1]).toContain(c.bboxes);
             if (c.retain.endsWith('_BBOXES')) expect(imp![1]).toContain(c.retain);
+            // ⭐ RE-ANCHORED 2026-09-10 (lane CI-SIX-RED). The priority set is asserted where
+            // it is READ, which is not the same file for every country and never was — SI
+            // reads it inside the wrapper, AT and CZ inside bake.mjs. The 2026-09-09 lint fix
+            // exposed this: bake.mjs had kept `SI_CITY_BBOXES` in its import line and stopped
+            // using it, so this arm was green on a binding that did nothing. An IMPORT is not
+            // a USE, and only the USE keeps the priority cities uncapped.
+            if (c.bboxesReadIn === 'wrapper') {
+                const wrapper = readFileSync(resolve(HERE, '..', c.module.replace('./', '')), 'utf8');
+                expect(wrapper, `${c.bboxes} read as priorityAreas in ${c.module}`)
+                    .toMatch(new RegExp(`priorityAreas: ${c.bboxes}\\.map\\(\\(c\\) => c\\.bbox\\)`));
+            } else {
+                expect(imp![1]).toContain(c.bboxes);
+            }
         });
 
         it(`the \`${c.region}\` region row declares heightJoin:'${c.key}'`, () => {

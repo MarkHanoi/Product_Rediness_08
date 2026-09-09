@@ -38,8 +38,16 @@ describe('§NO-NATIONAL — the retain set is the whole country, and it MATCHES 
         expect(fn).toMatch(/r\.heightJoin === 'ndh_no'\)\s*return NO_NATIONAL_BBOXES;/);
         const table = bake.match(/const NATIONAL_STAMP_TABLE\s*=\s*\{([\s\S]*?)\n\};/)![1];
         expect(table).toMatch(/ndh_no:\s*\{\s*stamp:\s*stampNoNdhHeightsOnGeojsonseq,\s*bboxes:\s*NO_NATIONAL_BBOXES\s*\}/);
-        // The three cities must still be IMPORTED — they are the §PRIORITY-OR-THE-CITIES-REGRESS set.
-        expect(bake).toMatch(/import \{ stampNoNdhHeightsOnGeojsonseq, NO_NDH_CITY_BBOXES, NO_NATIONAL_BBOXES \}/);
+        // The three cities must still be REACHED — they are the §PRIORITY-OR-THE-CITIES-REGRESS
+        // set. ⭐ RE-ANCHORED 2026-09-10 (lane CI-SIX-RED): this read
+        // `expect(bake).toMatch(/import { …, NO_NDH_CITY_BBOXES, … }/)`, which the
+        // 2026-09-09 lint fix falsified — bake.mjs had kept the name in its import line
+        // and stopped using it, so the assertion was passing on a binding that did
+        // nothing. The priority pass lives in the wrapper, so that is where "the cities
+        // did not regress" is now measured: an IMPORT is not a USE, and only the USE is
+        // what keeps the three cities uncapped.
+        const wrapper = readFileSync(resolve(HERE, '../heights/noHeightsStamp.mjs'), 'utf8');
+        expect(wrapper).toMatch(/priorityAreas: NO_NDH_CITY_BBOXES\.map\(\(c\) => c\.bbox\)/);
     });
 
     it('every priority city bbox lies INSIDE the national retain set', () => {

@@ -17,9 +17,23 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const bake = readFileSync(resolve(HERE, '../bake.mjs'), 'utf8');
 
 describe('§SWISS-OSM-JOIN — bake.mjs wires the swiss stamp for the `switzerland` row', () => {
-    it('imports the stamp AND its working set from heightSources.mjs', () => {
-        const imp = bake.match(/^import\s*\{([^}]*)\}\s*from\s*'\.\/heightSources\.mjs';/m);
-        expect(imp, 'heightSources.mjs import statement').not.toBeNull();
+    // ⭐ RE-ANCHORED 2026-09-10 (lane CI-SIX-RED). This arm asserted that BAKE.MJS
+    // imported the working set. It stopped being true on 2026-09-09, when the lint
+    // job's `no-unused-vars` errors were fixed: bake.mjs had kept the import lines
+    // and stopped USING them, because the priority pass moved INSIDE the wrapper.
+    // The arm's PURPOSE survives untouched — "built and imported by nothing" is the
+    // France ghost-town shape this file exists to refuse (L-12910) — so the
+    // assertion moves to where the set is now actually READ, rather than being
+    // deleted or relaxed. Asserting an import in a file that no longer uses it was
+    // measuring the wrong copy: bake.mjs could import it and never call it, which is
+    // precisely the orphan this arm is for.
+    // For CH BOTH names moved: bake.mjs dispatches to the NATIONAL wrapper (pinned by
+    // the "dispatches swiss to the NATIONAL wrapper" arm below), and the wrapper is
+    // what holds the band stamp and the nine-city priority set.
+    it('the national wrapper imports the band stamp AND its working set from heightSources.mjs', () => {
+        const wrapper = readFileSync(resolve(HERE, '../heights/swissNationalStamp.mjs'), 'utf8');
+        const imp = wrapper.match(/^import\s*\{([^}]*)\}\s*from\s*'\.\.\/heightSources\.mjs';/m);
+        expect(imp, 'heightSources.mjs import statement in swissNationalStamp.mjs').not.toBeNull();
         expect(imp![1]).toContain('stampSwissHeightsOnGeojsonseq');
         expect(imp![1]).toContain('SWISS_CITY_BBOXES');
     });

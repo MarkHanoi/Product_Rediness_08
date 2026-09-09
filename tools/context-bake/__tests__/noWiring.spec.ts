@@ -25,11 +25,25 @@ const heightSources = readFileSync(resolve(HERE, '../heightSources.mjs'), 'utf8'
 const stampModule = readFileSync(resolve(HERE, '../heights/noHeightsStamp.mjs'), 'utf8');
 
 describe('§NDH-NO-OSM-JOIN — bake.mjs wires the ndh_no stamp for the `norway` row', () => {
-    it('imports the stamp AND its working set DIRECTLY from heights/noHeightsStamp.mjs (own module, not heightSources.mjs)', () => {
+    // ⭐ RE-ANCHORED 2026-09-10 (lane CI-SIX-RED). This arm asserted that BAKE.MJS
+    // imported the working set. It stopped being true on 2026-09-09, when the lint
+    // job's `no-unused-vars` errors were fixed: bake.mjs had kept the import lines
+    // and stopped USING them, because the priority pass moved INSIDE the wrapper.
+    // The arm's PURPOSE survives untouched — "built and imported by nothing" is the
+    // France ghost-town shape this file exists to refuse (L-12910) — so the
+    // assertion moves to where the set is now actually READ, rather than being
+    // deleted or relaxed. Asserting an import in a file that no longer uses it was
+    // measuring the wrong copy: bake.mjs could import it and never call it, which is
+    // precisely the orphan this arm is for.
+    it('imports the stamp DIRECTLY from heights/noHeightsStamp.mjs (own module, not heightSources.mjs)', () => {
         const imp = bake.match(/^import\s*\{([^}]*)\}\s*from\s*'\.\/heights\/noHeightsStamp\.mjs';/m);
         expect(imp, 'noHeightsStamp.mjs import statement').not.toBeNull();
         expect(imp![1]).toContain('stampNoNdhHeightsOnGeojsonseq');
-        expect(imp![1]).toContain('NO_NDH_CITY_BBOXES');
+    });
+
+    it('NO_NDH_CITY_BBOXES is READ as the uncapped priority pass inside that module', () => {
+        const wrapper = readFileSync(resolve(HERE, '../heights/noHeightsStamp.mjs'), 'utf8');
+        expect(wrapper).toMatch(/priorityAreas: NO_NDH_CITY_BBOXES\.map\(\(c\) => c\.bbox\)/);
     });
 
     it("the `norway` region row declares heightJoin:'ndh_no' (the key heightSources.mjs REGION_SOURCE names)", () => {

@@ -47,8 +47,25 @@ const CITY_STATES = ['newyork', 'california', 'massachusetts'];
 const RETIRED_METROS = ['sanfrancisco', 'chicago', 'austin', 'houston', 'boston'];
 
 describe('§US-OPEN-HEIGHTS-OSM-JOIN — the three CITY channels survived the move to the national join', () => {
-    it('bake.mjs imports the city working set from heights/usOpenHeights.mjs (the adapters are still read)', () => {
-        expect(bake).toMatch(/^import \{ US_NATIONAL_BBOXES, US_OPEN_CITY_BBOXES, USAS_SWATHE_ROWS \} from '\.\/heights\/usOpenHeights\.mjs';/m);
+    // ⭐ RE-ANCHORED 2026-09-10 (lane CI-SIX-RED). This arm asserted that BAKE.MJS
+    // imported the working set. It stopped being true on 2026-09-09, when the lint
+    // job's `no-unused-vars` errors were fixed: bake.mjs had kept the import lines
+    // and stopped USING them, because the priority pass moved INSIDE the wrapper.
+    // The arm's PURPOSE survives untouched — "built and imported by nothing" is the
+    // France ghost-town shape this file exists to refuse (L-12910) — so the
+    // assertion moves to where the set is now actually READ, rather than being
+    // deleted or relaxed. Asserting an import in a file that no longer uses it was
+    // measuring the wrong copy: bake.mjs could import it and never call it, which is
+    // precisely the orphan this arm is for.
+    it('bake.mjs imports the national retain set + swathe rows from heights/usOpenHeights.mjs', () => {
+        expect(bake).toMatch(/^import \{ US_NATIONAL_BBOXES, USAS_SWATHE_ROWS \} from '\.\/heights\/usOpenHeights\.mjs';/m);
+    });
+
+    it('the three CITY adapters are still READ — usOpenChannelForPoint defaults to US_OPEN_CITY_BBOXES', () => {
+        // The national stamp reaches the three city channels THROUGH this resolver, so the
+        // city set is read inside its own module and bake.mjs needs no import for it.
+        const mod = readFileSync(resolve(HERE, '../heights/usOpenHeights.mjs'), 'utf8');
+        expect(mod).toMatch(/export function usOpenChannelForPoint\([^)]*cities = US_OPEN_CITY_BBOXES/);
     });
 
     it("the three CITY states declare heightJoin:'usas', which is a SUPERSET of what they had", () => {
