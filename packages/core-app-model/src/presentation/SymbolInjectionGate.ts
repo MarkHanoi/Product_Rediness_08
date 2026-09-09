@@ -121,6 +121,31 @@ export function makeSymbolInjectionGate(viewId: string | undefined, viewType: st
     if (!bound) return () => true;
 
     const { instance, intent } = bound;
+
+    // §ISOLATE-IS-NOT-A-FAMILY-QUESTION (L-13282 · C09 §4.6 · P7)
+    //
+    // ⛔ WITHOUT THIS, "ISOLATE IN VIEW" BLANKS THE ENTIRE PLAN DRAWING — INCLUDING THE
+    // ELEMENT THAT WAS ISOLATED.
+    //
+    // This gate asks a FAMILY question: it resolves with `{ elementType, category: elementType }`
+    // and deliberately NO `elementId`, because it decides whether a whole family is worth
+    // injecting symbols for. `resolveIntentStyle` answers isolate per ELEMENT: when
+    // `isolateActive` is set and no isolate target matches the resolved target, it returns
+    // `visible: false`. An isolate target is `{ targetKind: 'element', targetId: <uuid> }`, and
+    // `visibilityOverrideMatches` needs an `elementId` to match one — which this gate never
+    // supplies. So NOTHING matches, every family resolves invisible, the gate returns false for
+    // every family, and the native veto downstream removes the rest on the next re-projection.
+    //
+    // ⭐ THE BUG IS THE QUESTION, NOT THE ANSWER. `resolveIntentStyle` is right; asking it a
+    // per-element question with no element is what is wrong. A family gate must abstain from a
+    // per-element concept rather than read its own missing argument as a "no" — the same
+    // absence-read-as-refusal shape as [[context-data-honesty-family]].
+    //
+    // Abstaining is safe: symbols still get injected, and the per-element isolate is applied
+    // downstream by the canvas, which DOES resolve an element id (§THE-LINE-KNOWS-ITS-ELEMENT,
+    // L-13281). The gate only ever existed to skip work for families that cannot appear at all.
+    if (instance.localOverrides.isolateActive) return () => true;
+
     const cache = new Map<string, boolean>();
 
     return (elementType: string): boolean => {

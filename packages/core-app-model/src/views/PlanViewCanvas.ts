@@ -507,7 +507,11 @@ export class PlanViewCanvas {
             // locked SYSTEM_PEN_TABLE values from PenWeightTable.resolvePen().
             const _penZone     = penZoneOf(_zone);
             const _penCategory = penCategoryForLayerTag(layerTag);
-            const _elementId   = child.userData?.elementUUID as string | undefined;
+            // §THE-LINE-KNOWS-ITS-ELEMENT (L-13281) — was `child.userData?.elementUUID`, ONE of
+            // the five channels an id lives in. Eleven of twenty symbol injectors put it in the
+            // WeakMap instead, so this read was `undefined` and every per-element hide silently
+            // failed to match. THIS LINE IS THE FURNITURE BUG.
+            const _elementId   = this._lineElementId(drawing, child);
             // §FEAT-PEN-WEIGHT-BY-WALL-FUNCTION (L-285) — the THIRD pen axis, read from the
             // stamp `EdgeProjectorService` put on this LineSegments. It is the element TYPE's
             // ISO 13567 / Revit FUNCTION — never its thickness (a 300 mm acoustic partition is
@@ -1521,7 +1525,7 @@ export class PlanViewCanvas {
 
             // §HIDDEN-IS-NOT-PICKABLE (L-3902) — a line the bound intent (or VG) hides is
             // not on screen, so it must not be selectable. Same predicate `render()` uses.
-            if (!this._lineIsDrawn(child, _hitViewType, _hitViewId)) return;
+            if (!this._lineIsDrawn(child, _hitViewType, _hitViewId, id)) return;
 
             child.updateWorldMatrix(true, false);
             const mat = child.matrixWorld;
@@ -2423,18 +2427,25 @@ export class PlanViewCanvas {
             const posAttr = child.geometry?.getAttribute('position') as THREE.BufferAttribute | undefined;
             if (!posAttr || posAttr.count < 2) return;
 
-            const uuid = (
-                lookupElementUUID(drawing, child)
-                ?? child.userData?.elementUUID
-                ?? child.userData?.elementId
-                ?? child.parent?.userData?.elementUUID
-                ?? child.parent?.userData?.elementId
-            ) as string | undefined;
+            const uuid = this._lineElementId(drawing, child);
             if (!uuid) return;
 
             const isSelected = selectedIdSet.has(uuid);
             const isHovered  = uuid === hoveredId && !isSelected;
             if (!isSelected && !isHovered) return;
+
+            // §A-HIDDEN-THING-HAS-NO-GLOW (L-13281 part 3)
+            //
+            // ⛔ THIS SURFACE OBEYED NO VISIBILITY AUTHORITY AT ALL. It resolved the id through
+            // the full ladder and then drew a 4 px PRYZM-purple silhouette — so anything the
+            // user had SELECTED survived every hide, family or per-element. That would have
+            // made even the toggle that WORKS look broken, and it is the most likely reason a
+            // re-test of this fix would read as "still there".
+            //
+            // ⚠ Gated on `_lineIsDrawn`, the same predicate the painter and the pick test use,
+            // with the id this function already resolved — so three surfaces now answer
+            // "is this line on screen?" identically instead of two agreeing and one abstaining.
+            if (!this._lineIsDrawn(child, this._viewType, this._lastViewId ?? undefined, uuid)) return;
 
             child.updateWorldMatrix(true, false);
             const mat = child.matrixWorld;
@@ -2901,7 +2912,78 @@ export class PlanViewCanvas {
      * makes a hidden line invisible. Keying on width here would make pickability disagree
      * with the screen for any zero-width-but-visible pen.
      */
-    private _lineIsDrawn(child: THREE.Object3D, viewType: string, viewId: string | undefined): boolean {
+    /**
+     * §THE-LINE-KNOWS-ITS-ELEMENT (founder 2026-09-08 · L-13281 · C09 §4.6 · P7)
+     *
+     * Which ELEMENT drew this line — through every channel the answer can live in, in one
+     * place, once.
+     *
+     * ⭐⭐ THIS IS THE FURNITURE BUG, AND IT IS ONE MISSING HOP.
+     * *"I EXCLUDE THE FURNITURE ELEMENTS FROM VIEW BUT THEY STILL RENDER (PROBABLY BECAUSE
+     *   THEY ARE SYMBOLS?)"*
+     *
+     * A furniture plan symbol is emitted as a BRAND-NEW `LineSegments` by `toDrawingSpace()`,
+     * and `DrawingLayers.assign()` writes only `userData.layer` — so the symbol builders put
+     * the element id in the `DrawingSelectionIndex` WeakMap via `registerSegmentUUID` instead.
+     * Measured across the 20 injectors at HEAD: **3 stamp `userData.elementUUID`, 11 register
+     * the WeakMap ONLY, 6 emit no id at all.**
+     *
+     * The painter asked exactly ONE of those channels (`child.userData?.elementUUID`), got
+     * `undefined` for eleven families, and `IntentRuleResolver` turned that absence into a
+     * clean `false` — *"not hidden"* — with no signal anywhere. The per-element hide row that
+     * `HideElementInViewCommand` writes could never match.
+     *
+     * ⭐ THE PROOF IT IS THIS HOP AND NOT A GUESS SITS THIRTEEN LINES FROM THE DEFECT:
+     * `hitTest()` resolved the SAME line's id through the FULL ladder. So the bed he could not
+     * hide was a bed he could CLICK. One object, two questions, two different answers, because
+     * the two questions were asked with different spellings of the same lookup.
+     *
+     * ⚠ AND HIS HYPOTHESIS WAS HALF RIGHT, WHICH IS WHY THE FIX GOES HERE AND NOT IN THE
+     * SYMBOL LAYER. It really is the symbol families that escape — `skipInPlan` removes the
+     * native mesh edges for bed/chair/sofa/kitchen/wardrobe/tree, leaving the symbol as the
+     * only linework, and that is the line with no id. But symbols are NOT exempt from the
+     * visibility system: the family tier hides them correctly, and the three builders that do
+     * stamp an id are governed per-element today. So it is one missing field on a line, not a
+     * category of geometry the system cannot see. Nothing about symbols needs to change.
+     *
+     * ⛔ AND IT IS NOT FURNITURE-SPECIFIC. The same omission covers doors, windows, plumbing
+     * and trees; the six no-id builders (column, roof, stair, wall-layer, level-datum,
+     * section-grid) are strictly worse — ungovernable AND unpickable.
+     *
+     * ⚠ THE LADDER IS THE ONE `hitTest` ALREADY USED, moved here rather than rewritten. It had
+     * been written out TWICE in this file and truncated to one channel TWICE more — four
+     * spellings of one question ([[same-rule-two-implementations]]). Adding a fifth would have
+     * been the defect, not the fix.
+     */
+    private _lineElementId(drawing: object | undefined, child: THREE.Object3D): string | undefined {
+        return (
+            // ⚠ The WeakMap is keyed on the LineSegments object identity, so a non-line child
+            // simply misses — the cast narrows the TYPE, never the behaviour.
+            (drawing ? lookupElementUUID(drawing, child as THREE.LineSegments) ?? undefined : undefined)
+            ?? child.userData?.elementUUID
+            ?? child.userData?.elementId
+            ?? child.parent?.userData?.elementUUID
+            ?? child.parent?.userData?.elementId
+        ) as string | undefined;
+    }
+
+    /**
+     * @param elementId the id the CALLER already resolved via `_lineElementId`.
+     *
+     * ⛔ THREADED, NOT RE-RESOLVED, AND THAT IS LOAD-BEARING. This used to read
+     * `child.userData?.elementUUID` itself — the same truncated lookup the painter used — so
+     * the two AGREED BY COINCIDENCE: both were blind to the same field. Fixing the painter
+     * alone would have broken the coincidence and produced the INVERSE defect: a line that
+     * stops painting and stays clickable, which is exactly what §HIDDEN-IS-NOT-PICKABLE
+     * (L-3902) exists to prevent. The two must move together, and taking the id as a
+     * parameter is what makes that structural rather than remembered.
+     */
+    private _lineIsDrawn(
+        child: THREE.Object3D,
+        viewType: string,
+        viewId: string | undefined,
+        elementId?: string,
+    ): boolean {
         const layerTag = composeLayerTag(child);
 
         const vgCat = this._vgCategoryForLayer(layerTag);
@@ -2913,7 +2995,7 @@ export class PlanViewCanvas {
         const zone = drawingZoneFromLayerName(layerTag) ?? 'projection';
         const pen = graphicsRulesEngine.resolveStyle(penZoneOf(zone), penCategoryForLayerTag(layerTag), {
             viewId,
-            elementId: child.userData?.elementUUID as string | undefined,
+            elementId,   // §THE-LINE-KNOWS-ITS-ELEMENT (L-13281) — the caller's resolved id
             viewType,
             elementFunction: elementFunctionFrom(child.userData?.[ELEMENT_FUNCTION_KEY]),
         });

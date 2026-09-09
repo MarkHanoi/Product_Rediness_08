@@ -93,3 +93,9 @@ packages/file-format/.u8emit.tsconfig.json
 .verify-tmp/
 scratch_*.txt
 apps/editor/tsconfig.lane-*.json
+.wf/
+
+# Barcelona municipal source archives — registration-gated, human-fetched, 100 MB+.
+# Staged by hand and read by the bake; must never enter git history. See the folder's README.
+tools/context-bake/sources/bcn-local/*
+!tools/context-bake/sources/bcn-local/README.md
