@@ -52,75 +52,16 @@ import {
     type SpaceEnvelopeRole,
     type SpaceEnvelopeGroup,
 } from '@pryzm/plugin-sdk';
-import { recomputeSpaceEnvelopeMetrics } from '@pryzm/geometry-space-envelope';
 import type { SpaceEnvelopeData, SpaceEnvelopesState } from '../store.js';
 import { MaximumBuildableNotAuthorableError, SpaceEnvelopeGeometryError } from '../errors.js';
 import { containmentRefusalFor } from './containmentGate.js';
 import { removeEnvelopesFromDraft } from './removeEnvelopes.js';
+// ⛔ THE SPEC AND ITS RECORD BUILDER LIVE IN ONE PLACE (C84 EI-9). Both were declared here,
+// privately, until ADR-0383 S4's `setStoreys` had to build the same record for a grown storey.
+// See `spaceEnvelopeRecord.ts` for why they were extracted rather than copied.
+import { spaceEnvelopeRecordOf, type CreateSpaceEnvelopeSpec } from '../spaceEnvelopeRecord.js';
 
-interface Pt {
-    readonly x: number;
-    readonly y: number;
-    readonly z: number;
-}
 
-export interface CreateSpaceEnvelopeSpec {
-    /**
-     * ⚠ CA-2 — MINTED BY THE CALLER, NEVER HERE. `execute()` runs again on REDO, so
-     * minting inside the handler would produce a DIFFERENT envelope the second time
-     * and orphan every `withinId` that pointed at the first.
-     */
-    readonly spaceEnvelopeId: string;
-    readonly levelId: string;
-    readonly footprint: readonly Pt[];
-    readonly baseOffset?: number;
-    readonly height?: number;
-    readonly role?: SpaceEnvelopeRole;
-    readonly withinId?: string | null;
-    readonly name?: string;
-    readonly occupancy?: string;
-    readonly materialColor?: string;
-    /**
-     * §L-13038 — WHO produced this envelope (C75 §1.1 / §2.2), carried into the
-     * record so it survives save/load and so a later gesture can tell a plate PRYZM
-     * COMPUTED from a volume the user AUTHORED.
-     *
-     * ⛔ Typed off the schema (`SpaceEnvelopeData['provenance']`) rather than
-     * re-imported: the provenance vocabulary lives at `@pryzm/schemas/provenance`,
-     * which is deliberately NOT on the root barrel this plugin reaches through, and
-     * a hand-written structural copy of it here would be C84 EI-8. Omitted ⇒ the
-     * schema's own retrofit default (`predates-provenance`), which is honest: a
-     * caller that says nothing has told us nothing.
-     */
-    readonly provenance?: SpaceEnvelopeData['provenance'];
-    /**
-     * ⭐ WHICH BUILDING (massing group) this envelope belongs to — ADR-0383 D1 / C114 §6d
-     * clause 6 / §6e. A parcel may hold several independent buildings; this is what makes one
-     * distinguishable from another, and it is the field
-     * `resolveLevelEnvelopeSupersession` buckets on so that creating Block B cannot delete
-     * Block A (D3).
-     *
-     * ⛔ IT IS `?`, NOT `| null` ALONE, AND THAT IS THE WHOLE POINT OF THE SHAPE.
-     * "The caller said nothing" and "the caller said explicitly ungrouped" reach the SAME
-     * stored value today — `null`, the ungrouped bucket — but they must reach it by
-     * DIFFERENT ROUTES: omitted lets the schema's own `.default(null)` apply, explicit
-     * `null` is a statement this caller made. §CONTEXT-DATA-HONESTY (L-581 / L-616) is that a
-     * failure-to-state and an emptiness must never share a code path, because the day they
-     * need to differ the distinction has to still exist. Same shape as `provenance` above,
-     * for the same reason.
-     *
-     * ⛔ IT IS NOT `withinId`. `withinId` is CONTAINMENT (a room inside a level envelope) and
-     * is refined to `null` for `role: 'level'`; `group` is IDENTITY, and a `role: 'level'`
-     * record is exactly the one that carries it. Conflating them would make "Block A" mean
-     * "inside Block A's ground floor" (C114 §6e clause 1).
-     *
-     * ⛔ AND IT IS NOT THE CONTAINMENT AUTHORITY. ADR-0385 / ADR-0328: `hierarchyStore`
-     * answers *"which building is this element in"* for the exporter and both trees; `group`
-     * is the massing-stage AUTHORING axis and PROJECTS into it, as `partOf` does. Nothing
-     * downstream may read this field to answer that question.
-     */
-    readonly group?: SpaceEnvelopeGroup | null;
-}
 
 export interface CreateSpaceEnvelopeBatchPayload {
     readonly envelopes: readonly CreateSpaceEnvelopeSpec[];
@@ -178,7 +119,7 @@ implements CommandHandler<CreateSpaceEnvelopeBatchPayload, Stores> {
             // The schema's three refines are the authority on what a valid envelope is;
             // re-running them here lets the bus reject cleanly rather than throw
             // mid-mutation (C16 CA-3).
-            const parsed = SpaceEnvelope.safeParse(this._recordOf(spec));
+            const parsed = SpaceEnvelope.safeParse(spaceEnvelopeRecordOf(spec));
             if (!parsed.success) {
                 return {
                     valid: false,
@@ -244,7 +185,7 @@ implements CommandHandler<CreateSpaceEnvelopeBatchPayload, Stores> {
                     if (spec.role !== undefined && !isAuthorableSpaceEnvelopeRole(spec.role)) {
                         throw new MaximumBuildableNotAuthorableError(MAXIMUM_BUILDABLE_IS_NOT_AUTHORED);
                     }
-                    const parsed = SpaceEnvelope.safeParse(this._recordOf(spec));
+                    const parsed = SpaceEnvelope.safeParse(spaceEnvelopeRecordOf(spec));
                     if (!parsed.success) {
                         throw new SpaceEnvelopeGeometryError(
                             parsed.error.issues[0]?.message ?? 'invalid space envelope',
@@ -289,52 +230,7 @@ implements CommandHandler<CreateSpaceEnvelopeBatchPayload, Stores> {
         ); // withHandlerSpan — C16 CA-14 / C10 §2, merge-blocking
     }
 
-    /**
-     * The record as the schema sees it — used by BOTH `canExecute` and `execute`, so
-     * the gate and the mutation can never disagree about what is being written.
-     *
-     * ⭐ `footprintAreaM2` AND `volumeM3` ARE RECOMPUTED, NEVER READ FROM THE PAYLOAD
-     * (C114 §5). A caller who could supply the area of their own polygon could make
-     * the intended-area channel disagree with the geometry it is drawn from — and the
-     * ONE writer of those two fields is `recomputeSpaceEnvelopeMetrics` (C114 §2b).
-     */
-    private _recordOf(spec: CreateSpaceEnvelopeSpec): Record<string, unknown> {
-        const footprint = (spec.footprint ?? []).map((p) => ({ x: p.x, y: 0, z: p.z }));
-        const height = spec.height ?? 3;
-        const baseOffset = spec.baseOffset ?? 0;
-        const metrics = recomputeSpaceEnvelopeMetrics({
-            id: spec.spaceEnvelopeId,
-            footprint,
-            baseOffset,
-            height,
-        });
-        return {
-            id: spec.spaceEnvelopeId,
-            type: 'spaceEnvelope',
-            levelId: spec.levelId,
-            footprint,
-            baseOffset,
-            height,
-            role: spec.role ?? 'room',
-            withinId: spec.withinId ?? null,
-            ...(spec.name !== undefined ? { name: spec.name } : {}),
-            ...(spec.occupancy !== undefined ? { occupancy: spec.occupancy } : {}),
-            ...(spec.materialColor !== undefined ? { materialColor: spec.materialColor } : {}),
-            // §L-13038 — carried through UNTOUCHED, and absent when the caller said nothing, so
-            // the schema's retrofit default (`predates-provenance`) applies rather than an
-            // origin this handler would have had to invent. ⛔ The handler never upgrades,
-            // downgrades or defaults an origin: C75 §2.2 makes `authored` unrepresentable to a
-            // system pass, and a create verb that stamped one would defeat that by hand.
-            ...(spec.provenance !== undefined ? { provenance: spec.provenance } : {}),
-            // ⭐ ADR-0383 / C114 §6d clause 6 — carried through UNTOUCHED, and ABSENT when the caller
-            // said nothing, so the schema's own `.default(null)` applies rather than a group this
-            // handler would have had to invent. ⛔ The handler never mints, defaults, upgrades or
-            // INFERS a group: a create verb that guessed which building an envelope belongs to would
-            // be deciding the master plan on the user's behalf, and the supersession rule buckets on
-            // this exact field — a wrong guess here DELETES another block (§6e clause 3).
-            ...(spec.group !== undefined ? { group: spec.group } : {}),
-            footprintAreaM2: metrics.footprintAreaM2,
-            volumeM3: metrics.volumeM3,
-        };
-    }
 }
+
+// Re-exported so every existing importer of this module is unaffected by the extraction.
+export type { CreateSpaceEnvelopeSpec } from '../spaceEnvelopeRecord.js';

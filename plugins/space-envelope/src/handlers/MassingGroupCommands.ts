@@ -55,7 +55,11 @@ import {
     produceCommand,
 } from '@pryzm/plugin-sdk';
 import { SpaceEnvelope } from '@pryzm/plugin-sdk';
-import { recomputeSpaceEnvelopeMetrics } from '@pryzm/geometry-space-envelope';
+// ⛔ THE RECORD BUILDER IS CALLED, NOT RE-TYPED. Growing a block by one storey IS creating one
+// level envelope, and `spaceEnvelopeRecordOf` is the ONE builder of that record — which also
+// keeps `recomputeSpaceEnvelopeMetrics` (C114 §2b's single writer of the two cache fields)
+// reached through exactly one path from this plugin.
+import { spaceEnvelopeRecordOf } from '../spaceEnvelopeRecord.js';
 import type { SpaceEnvelopeData, SpaceEnvelopesState } from '../store.js';
 import { SpaceEnvelopeGeometryError } from '../errors.js';
 import { massingGroupMembers } from '../groupMembership.js';
@@ -389,43 +393,32 @@ implements CommandHandler<SetMassingGroupStoreysPayload, Stores> {
                 const top = storeys[storeys.length - 1]!;
                 span.setAttribute('pryzm.massingGroup.ringFrom', top.id);
                 const group = top.group ?? null;
-                const fresh = cmd.added.map((a) => {
-                    // ⛔ THE VERTICES ARE COPIED, not the array. A `slice()` of shared point objects
-                    // is a second array over the SAME points, and anything that later mutates one
-                    // vertex in place would move every storey at once (§ENVELOPE-PER-LEVEL).
-                    const footprint = top.footprint.map((p) => ({ x: p.x, y: 0, z: p.z }));
-                    const metrics = recomputeSpaceEnvelopeMetrics({
-                        id: a.spaceEnvelopeId,
-                        footprint,
-                        baseOffset: a.baseOffset,
-                        height: a.height,
-                    });
-                    return _validated({
-                        id: a.spaceEnvelopeId,
-                        type: 'spaceEnvelope',
-                        levelId: a.levelId,
-                        footprint,
-                        baseOffset: a.baseOffset,
-                        height: a.height,
-                        role: 'level',
-                        withinId: null,
-                        // ⭐ THE GROUP IS COPIED FROM THE BLOCK ITSELF, never taken from the payload.
-                        // A caller that could name the group of a storey it is adding to a group
-                        // could add it to a DIFFERENT one, which is a second answer to "which
-                        // building is this".
-                        group,
-                        // ⭐ The provenance of the storey being extended, carried forward: the user
-                        // grew a block they authored, so the new storey is theirs (C75 §2.2 —
-                        // `authored` is unrepresentable to a system pass, so it is never stamped
-                        // here; it is INHERITED from the record that already carried it).
-                        ...(top.provenance !== undefined ? { provenance: top.provenance } : {}),
-                        name: top.name === undefined
-                            ? undefined
-                            : `${String(top.name).replace(/ · \d+ m²$/u, '')} · storey added`,
-                        footprintAreaM2: metrics.footprintAreaM2,
-                        volumeM3: metrics.volumeM3,
-                    });
-                });
+                const fresh = cmd.added.map((a) => _validated(spaceEnvelopeRecordOf({
+                    spaceEnvelopeId: a.spaceEnvelopeId,
+                    levelId: a.levelId,
+                    // ⛔ THE VERTICES ARE COPIED, not the array — a `slice()` of shared point objects
+                    // is a second array over the SAME points, and anything that later mutated one
+                    // vertex in place would move every storey at once (§ENVELOPE-PER-LEVEL). The
+                    // builder maps `y` to 0 again; copying here is what makes the storeys
+                    // independent RECORDS rather than one geometry wearing n level ids.
+                    footprint: top.footprint.map((p) => ({ x: p.x, y: 0, z: p.z })),
+                    baseOffset: a.baseOffset,
+                    height: a.height,
+                    role: 'level',
+                    withinId: null,
+                    // ⭐ THE GROUP IS COPIED FROM THE BLOCK ITSELF, never taken from the payload. A
+                    // caller that could name the group of a storey it is adding to a group could add
+                    // it to a DIFFERENT one, which is a second answer to "which building is this".
+                    group,
+                    // ⭐ The provenance of the storey being extended, carried forward: the user grew a
+                    // block they authored, so the new storey is theirs. ⛔ It is INHERITED, never
+                    // stamped — C75 §2.2 makes `authored` unrepresentable to a system pass, and a
+                    // handler that stamped one would defeat that by hand.
+                    ...(top.provenance !== undefined ? { provenance: top.provenance } : {}),
+                    ...(top.name === undefined
+                        ? {}
+                        : { name: `${String(top.name).replace(/ · \d+ m²$/u, '')} · storey added` }),
+                })));
                 span.setAttribute('pryzm.massingGroup.added', fresh.length);
                 const [next, forward, inverse] = produceCommand<SpaceEnvelopesState>(
                     ctx.stores.spaceEnvelope,
