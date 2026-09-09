@@ -114,6 +114,31 @@ class VersionCacheStore {
      */
     async warm(): Promise<void> {
         if (this._warmed) return;
+        // §WARM-IS-LATCHED-WHILE-IN-FLIGHT (founder 2026-09-09 · L-13279 · C66)
+        //
+        // ⭐ `_warmed` IS SET AT THE END, so it says "finished", not "started". A second caller
+        // arriving mid-flight saw `false` and began a SECOND full-cursor scan of the entire
+        // versions object store, concurrently with the first. That is exactly the hub-then-open
+        // sequence: the hub warms the cache, the founder clicks a card before it resolves, and
+        // the open pays for the whole scan again.
+        //
+        // The latch is the in-flight PROMISE, so the second caller awaits the first scan rather
+        // than racing it. `_warmed` keeps its existing meaning and is still the fast path on
+        // every later call.
+        //
+        // ⚠ The latch is cleared on settle, NOT kept. `warm()` is documented "never throws" and
+        // resolves on a disabled store, but if a future edit ever lets it reject, a permanently
+        // cached rejected promise would poison every subsequent call for the life of the tab.
+        if (this._warmInFlight) return this._warmInFlight;
+        this._warmInFlight = this._warmOnce().finally(() => { this._warmInFlight = null; });
+        return this._warmInFlight;
+    }
+
+    /** The in-flight `warm()`, or null. See §WARM-IS-LATCHED-WHILE-IN-FLIGHT (L-13279). */
+    private _warmInFlight: Promise<void> | null = null;
+
+    private async _warmOnce(): Promise<void> {
+        if (this._warmed) return;
         await this.init();
         if (this._disabled || !this._db) { this._warmed = true; return; }
         try {

@@ -303,6 +303,34 @@ export async function buildPersistenceSlot(opts: BuildPersistenceOptions): Promi
         // attachedBootstrap.ensure() lazy-starts the legacy engine on first
         // call; subsequent calls resolve immediately (idempotent).
         // Wired from src/main.ts: runtime.persistence.attachEngineBootstrap(...)
+        //
+        // §STREAM-LOAD-STARTS-BEFORE-THE-BOOT-AWAIT (founder 2026-09-09 · L-13278 · C66)
+        //
+        // *"THIS IS A PROJECT WITH JUST 550 ELEMENTS AND TAKES TOO LONG TO OPEN"*
+        //
+        // ⭐ THE FETCH USED TO BE STRICTLY SERIAL AFTER THE ENTIRE ENGINE BOOT, for no reason
+        // at all: its result is not consumed until step 4. One server round-trip plus a
+        // full-snapshot `res.json()` sat idle behind the single slowest await on the open path.
+        // Starting it here overlaps it with the boot; the AWAIT POINT IS UNCHANGED, so the
+        // ordering of every observable effect is identical.
+        //
+        // ⛔ WHY THE OUTCOME IS CAPTURED RATHER THAN LEFT FLOATING. A promise that rejects
+        // while nothing is awaiting it fires `unhandledrejection` at the next microtask
+        // checkpoint — and in this app that trips ViewportCrashGuard into a full reload. That
+        // is precisely how §FIX-GLOBE-3DTILES-CRASH (L-183) presented: an unawaited rejection
+        // read as a crash. So the rejection is captured into a value the instant it can
+        // happen, and re-thrown at the original await point, where the original try/catch is
+        // still the thing that sees it. A bare `.catch(() => null)` would be WRONG in the
+        // other direction — it would silently turn a failed load into "this project is empty",
+        // which is the [[context-data-honesty-family]] error that has cost this repo real data.
+        const bundleOutcome: Promise<{ ok: true; v: unknown } | { ok: false; e: unknown }> =
+          hint?.isNewProject
+            ? Promise.resolve({ ok: true as const, v: null })
+            : tier.streamLoad(projectId).then(
+                (v: unknown) => ({ ok: true as const, v }),
+                (e: unknown) => ({ ok: false as const, e }),
+              );
+
         emitProgress('hydrating', 30);
         if (attachedBootstrap !== null) {
           await attachedBootstrap.ensure();
@@ -312,8 +340,12 @@ export async function buildPersistenceSlot(opts: BuildPersistenceOptions): Promi
         // For brand-new projects we skip the server round-trip — we KNOW
         // there are no saved versions.  For existing projects, tier.streamLoad()
         // fetches the latest version bundle and returns null if none exists.
+        // §STREAM-LOAD-STARTS-BEFORE-THE-BOOT-AWAIT (L-13278) — the request was issued above;
+        // this is the same await it always was, and a failure still throws from here.
         emitProgress('hydrating', 60);
-        const bundle = hint?.isNewProject ? null : await tier.streamLoad(projectId);
+        const _bundleOutcome = await bundleOutcome;
+        if (!_bundleOutcome.ok) throw _bundleOutcome.e;
+        const bundle = _bundleOutcome.v as Awaited<ReturnType<typeof tier.streamLoad>> | null;
 
         // ── 4. Typed WorkspaceSurface.setProjectContext() ─────────────────
         // Wave 7: zero workspace bridge (D.4) reach.  `prefetchedVersion`
