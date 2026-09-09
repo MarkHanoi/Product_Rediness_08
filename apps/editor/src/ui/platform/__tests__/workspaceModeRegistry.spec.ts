@@ -97,7 +97,12 @@ describe('§WORKSPACE-MODE-REGISTRY', () => {
       expect(getWorkspaceMode('site')?.shortcut).toBeNull();
       // …and the tooltip must therefore not advertise one. A pill whose title
       // names a key the handler does not hold is a dead affordance with a label.
-      expect(getWorkspaceMode('site')!.title).not.toMatch(/F\d/);
+      // ⛔ UNTIL 2026-09-09 THE BOUNDARIES AROUND `F\\d` HERE WERE LITERAL 0x08 BACKSPACE
+      // BYTES, so "the tooltip must not advertise a key" was asserted against a byte no
+      // title can contain. Repaired (lane CI-RED) off ESLint `no-control-regex`, then RUN:
+      // it passes, and it was scramble-controlled — a title reading `Site (F5)` matches,
+      // `FF5x` does not.
+      expect(getWorkspaceMode('site')!.title).not.toMatch(/\bF\d\b/);
     });
 
     it('Site suppresses BOTH the properties panel and the editing toolbar', () => {

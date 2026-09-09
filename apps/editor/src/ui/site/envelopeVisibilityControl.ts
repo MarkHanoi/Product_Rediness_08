@@ -230,7 +230,13 @@ export function buildEnvelopeAxesControlHtml(axes: EnvelopeVisibilityAxes): stri
  */
 export function buildEnvelopeAxesControlEl(axes: EnvelopeVisibilityAxes): HTMLElement {
     const frame = document.createElement('div');
-    // eslint-disable-next-line no-unsanitized/property -- see the block above: static literal
+    // ⚠ THE SUPPRESSION THAT USED TO SIT HERE SUPPRESSED NOTHING. It read
+    // `eslint-disable-next-line no-unsanitized/property` — and `eslint-plugin-no-unsanitized`
+    // is not a dependency of this repo and is registered in no ESLint config, so ESLint raised
+    // "Definition for rule not found" (a hard ERROR) rather than checking anything. It was the
+    // ONLY such directive in the estate. A directive naming a rule that does not exist reads as
+    // "a linter cleared this" and no linter ever looked. The audit trail is the block above and
+    // the §XSS-SINK-SCAN gate (C08 §3.1), which DOES read this file — not a lint comment.
     frame.innerHTML = buildEnvelopeAxesControlHtml(axes);
     const first = frame.firstElementChild;
     return first instanceof HTMLElement ? first : document.createElement('div');

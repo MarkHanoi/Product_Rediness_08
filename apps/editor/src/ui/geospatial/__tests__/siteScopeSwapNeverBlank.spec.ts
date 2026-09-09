@@ -48,7 +48,7 @@ function methodBody(name: string): string {
     expect(m, `method ${name}() not found — it was renamed or removed`).not.toBeNull();
     const from = m!.index + 1;
     const rest = SRC.slice(from + 10);
-    const nextDecl = /\n  (?:public|private|protected)[ \t]/.exec(rest);
+    const nextDecl = /\n {2}(?:public|private|protected)[ \t]/.exec(rest);
     return rest.slice(0, nextDecl ? nextDecl.index : rest.length);
 }
 

@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 // in the commit that declares the `austria` / `czechia` / `slovenia` rows' heightJoin — never "built, imported by nothing".
 import { stampAtNationalHeightsOnGeojsonseq, AT_CITY_BBOXES, AT_BEV_NATIONAL_BBOXES } from './heights/atHeightsStamp.mjs';
 import { stampCzNationalHeightsOnGeojsonseq, CZ_CITY_BBOXES, CZ_CUZK_NATIONAL_BBOXES } from './heights/czHeightsStamp.mjs';
-import { stampSiHeightsOnGeojsonseq, SI_CITY_BBOXES, SI_NATIONAL_BBOXES } from './heights/siHeightsStamp.mjs';
+import { stampSiHeightsOnGeojsonseq, SI_NATIONAL_BBOXES } from './heights/siHeightsStamp.mjs';
 // §ADSDI-NDSM-OVERTURE-JOIN (2026-09-05, lane ME-ABUDHABI-I3S) — Abu Dhabi's keyless 50 cm DSM3 − DTM stamp (catalogued
 // Open Data, DGE; the I3S city model the brief named was REFUSED on the SDI Terms — heights/abudhabiNdsm.mjs header)
 // lives in its OWN module and is imported here DIRECTLY, in the same commit that declares the `gccstates` row's
@@ -55,7 +55,16 @@ import { assertFootprintConfig, ES_CATASTRO_FOOTPRINTS } from './footprints/foot
 // its OWN module (the nl3dbagStamp precedent: heightSources.mjs is a many-lane file). The band pass it drives,
 // stampMnhFrHeightsOnGeojsonseq, stays in heightSources.mjs and is imported by the wrapper, not by bake.mjs.
 import { stampMnhFrNationalHeightsOnGeojsonseq, MNH_FR_NATIONAL_BBOXES } from './heights/mnhFrNationalStamp.mjs';
-import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampDhmHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampSwissHeightsOnGeojsonseq, stampAuOpenHeightsOnGeojsonseq, MDS_CITY_BBOXES, MDS_PRIORITY_BBOXES, MDS_NATIONAL_BBOXES, MDS_TILE_LAT_DEG, MDS_TILE_LON_DEG, MDS_SWATHE_ROWS, MDS_SWEEP_CONCURRENCY, DHM_CITY_BBOXES, MNH_FR_CITY_BBOXES, SWISS_CITY_BBOXES, SWISS_NATIONAL_BBOXES, DHM_NATIONAL_BBOXES, AU_OPEN_CITY_BBOXES } from './heightSources.mjs';
+// ⛔ FOUR NAMES LEFT THIS LINE ON 2026-09-09 (lane CI-RED), and they are NOT dead code — they moved.
+// `stampDhmHeightsOnGeojsonseq` / `stampSwissHeightsOnGeojsonseq` and the `DHM_CITY_BBOXES` /
+// `SWISS_CITY_BBOXES` PRIORITY lists are imported and dispatched by heights/dhmNationalStamp.mjs and
+// heights/swissNationalStamp.mjs, which is where the national sweep put the dispatch; the same is true
+// of SI_/NO_/EE_CITY_BBOXES, each read by its own *HeightsStamp.mjs wrapper as `priorityAreas`. bake.mjs
+// kept the import lines and stopped using them, so ESLint `no-unused-vars` failed the lint job on eight
+// bindings across five lines while every comment beside them asserted they were used.
+// ⚠ The "stamped first and uncapped" PRIORITY behaviour the stampBboxesFor comments describe is REAL and
+// UNCHANGED — it is executed one module down. Removing these bindings removes nothing but the claim.
+import { resolveHeights, stampMdsHeightsOnGeojsonseq, stampLod2NrwHeightsOnGeojsonseq, stampAuOpenHeightsOnGeojsonseq, MDS_CITY_BBOXES, MDS_PRIORITY_BBOXES, MDS_NATIONAL_BBOXES, MDS_TILE_LAT_DEG, MDS_TILE_LON_DEG, MDS_SWATHE_ROWS, MDS_SWEEP_CONCURRENCY, MNH_FR_CITY_BBOXES, SWISS_NATIONAL_BBOXES, DHM_NATIONAL_BBOXES, AU_OPEN_CITY_BBOXES } from './heightSources.mjs';
 // §SWISS-NATIONAL-SWEEP (2026-09-06, lane HEIGHTS-LAST-NINE) — the CH national wrapper lives in its OWN
 // module for the mnhFrNationalStamp / nl3dbagStamp reason (heightSources.mjs is edited by many lanes at
 // once and a whole-function insertion there collides). It DRIVES `stampSwissHeightsOnGeojsonseq`, which
@@ -69,21 +78,27 @@ import { stampDhmNationalHeightsOnGeojsonseq } from './heights/dhmNationalStamp.
 // §NDH-NO-OSM-JOIN (lane HEIGHTS-NORDICS, 2026-09-05) — Norway's keyless Kartverket NHM DOM − DTM stamp lives in its
 // OWN module (the heights/nl3dbagStamp.mjs precedent: heightSources.mjs is a many-lane file) and is imported here
 // DIRECTLY, in the same commit that declares the `norway` row's heightJoin — never "built, imported by nothing".
-import { stampNoNdhHeightsOnGeojsonseq, NO_NDH_CITY_BBOXES, NO_NATIONAL_BBOXES } from './heights/noHeightsStamp.mjs';
+import { stampNoNdhHeightsOnGeojsonseq, NO_NATIONAL_BBOXES } from './heights/noHeightsStamp.mjs';
 // §EE-ETAK-OSM-JOIN + §BE-DHMV-OSM-JOIN (2026-09-05, lane HEIGHTS-EE-PL-PT-BE) — Estonia's ETAK korgus_m vector stamp and
 // Belgium's DHMV II DSM − DTM raster stamp live in their OWN modules (the same many-lane-file rule) and are imported here
 // DIRECTLY, in the commit that declares the `estonia` / `belgium` rows' heightJoin — never "built, imported by nothing".
-import { stampEeEtakHeightsOnGeojsonseq, EE_CITY_BBOXES, EE_NATIONAL_BBOXES } from './heights/eeHeightsStamp.mjs';
+import { stampEeEtakHeightsOnGeojsonseq, EE_NATIONAL_BBOXES } from './heights/eeHeightsStamp.mjs';
 import { stampBeDhmvHeightsOnGeojsonseq, BE_CITY_BBOXES } from './heights/beHeightsStamp.mjs';
 // §US-OPEN-HEIGHTS-OSM-JOIN (2026-09-05, lane HEIGHTS-US) — the US per-metro stamp lives in its OWN module
 // (not heightSources.mjs — §SHARED-FILE-COLLISION) and is imported here DIRECTLY, so it cannot sit built-and-
 // orphaned the way the FR/CH/AU stamps each did for a day. Its pure half carries the working set.
 // §USAS-NATIONAL-HEIGHTS — ONE US stamp. `stampUsOpenHeightsOnGeojsonseq` (heights/usOpenHeightsStamp.mjs)
 // was imported here until 2026-09-06 and is NOT any more: every US row declares heightJoin:'usas', and the
-// national stamp reads the SAME three city adapters through usOpenChannelForPoint. US_OPEN_CITY_BBOXES is
-// still imported because it is the CITY-FIRST working set the resolver and stampBboxesFor's audit read.
+// national stamp reads the SAME three city adapters through usOpenChannelForPoint.
+// ⛔ CORRECTED 2026-09-09 (lane CI-RED). This paragraph used to end: *"US_OPEN_CITY_BBOXES is still
+// imported because it is the CITY-FIRST working set the resolver and stampBboxesFor's audit read."* BOTH
+// halves were false OF THIS FILE. `stampBboxesFor`'s `usas` branch returns `US_NATIONAL_BBOXES` and reads
+// the city list nowhere; the resolver that DOES read it is `usOpenChannelForPoint`/`usOpenMetroForPoint`,
+// which default to it INSIDE heights/usOpenHeights.mjs and need no import here. ESLint `no-unused-vars` was
+// the only thing in the estate saying so, and it was saying it as a hard ERROR on every CI lint run. The
+// BEHAVIOUR is intact and unchanged — only the binding and the sentence justifying it are gone.
 import { stampUsasNationalHeightsOnGeojsonseq } from './heights/usasNationalStamp.mjs';
-import { US_NATIONAL_BBOXES, US_OPEN_CITY_BBOXES, USAS_SWATHE_ROWS } from './heights/usOpenHeights.mjs';
+import { US_NATIONAL_BBOXES, USAS_SWATHE_ROWS } from './heights/usOpenHeights.mjs';
 // §CA-OPEN-HEIGHTS-OSM-JOIN (2026-09-06, lane MEXICO-CANADA) — Canada's FIRST measured-height channel.
 // Same shape as the US import above and for the same reason (§SHARED-FILE-COLLISION): the network half
 // in its own module, the working set + every decision in the pure half, both imported here DIRECTLY in
@@ -130,7 +145,7 @@ import { FR_BDTOPO, FR_BDTOPO_CITY_BBOXES, footprintsModeFromArgv, mergeReplaceI
 // close: euRegisters.mjs → FOOTPRINT_SOURCES → the `netherlands`/`belgium`/`ireland` region rows →
 // applyNationalFootprints → mergeReplaceInBbox → the geojsonseq tippecanoe tiles. Pinned end to end
 // by __tests__/euRegistersWiring.spec.ts, which SPAWNS the preflight rather than reading the text.
-import { EU_FOOTPRINT_SOURCE_KEYS, IE_TAILTE_PRIORITY_BBOXES, euRegisterFootprintSource } from './footprints/euRegisters.mjs';
+import { IE_TAILTE_PRIORITY_BBOXES, euRegisterFootprintSource } from './footprints/euRegisters.mjs';
 // §SEA-BAKE-POLYGONS (lane SEA-BAKE, 2026-09-05) — the sea as closed POLYGONS from the osmdata water-polygons
 // product (osmcoastline output of the planet coastline, ODbL), clipped per region in ONE streaming pass.
 // seaPolygons.mjs's header carries the why: coastline LINES in the water layer reach the client as tile-clipped
@@ -1505,7 +1520,9 @@ function stampBboxesFor(r) {
   if (r.heightJoin === 'be_dhmv') return BE_CITY_BBOXES.map((c) => c.bbox);      // §BE-DHMV-OSM-JOIN (HEIGHTS-EE-PL-PT-BE) — whole `belgium`, five cities
   // (`us_open` had a branch here until 2026-09-06 — `US_OPEN_CITY_BBOXES.filter((c) => c.region === r.name)`,
   // the metro's OWN box. No row declares that key now; the three CITY channels are served per footprint by
-  // the `usas` stamp instead, which is why US_OPEN_CITY_BBOXES is still imported above.)
+  // the `usas` stamp instead. ⛔ This line used to end "...which is why US_OPEN_CITY_BBOXES is still
+  // imported above" — it was not, and after 2026-09-09 it is not imported at all: nothing in this file
+  // referenced it. See the import block's own correction note.)
   // §USAS-NATIONAL-SWEEP (2026-09-06, lane USA-HEIGHTS-NATIONAL) — `usas` retains the WHOLE COUNTRY,
   // not a city list, for exactly the reason `mds` does above: a retain set narrower than the ground a
   // user can drop a site on is a PERMANENT, SILENT hole, because an unstamped footprint ships an

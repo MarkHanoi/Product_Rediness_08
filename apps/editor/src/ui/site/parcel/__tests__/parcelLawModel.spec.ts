@@ -365,10 +365,22 @@ describe('§25.11 clause 1 — ONE model, rendered twice (the files this lane ow
         // ⛔ No second reader, no store, no fetch, and no arithmetic over ENVELOPE fields.
         // It reads MODEL fields (`ordinance.maxFloors`); touching `insetPolygon` or `derivation`
         // here would be a second derivation wearing a renderer's name.
+        // ⛔ FOUR OF THE NEGATIVE ARMS IN THIS FILE CARRIED A LITERAL 0x08 BACKSPACE BYTE
+        // WHERE THE TWO CHARACTERS BACKSLASH-b (a regex word boundary) WERE MEANT. So the
+        // "no fetch(" arm really read /<0x08>fetch\s*\(/ — a pattern no source file can
+        // contain. They could NEVER fire: four green arms proving nothing, guarding C08 §3.1
+        // and C19 §5.6. Repaired 2026-09-09 (lane CI-RED) off ESLint `no-control-regex`,
+        // which was the only thing in the estate that could see them.
+        // ⭐ THE ARMS WERE THEN RUN: all four still pass, so the invariants really do hold —
+        // and every regex was scramble-controlled (§L-586): a positive string MATCHES, the
+        // near-miss the boundary exists to exclude (`prefetchCache(`) does NOT, and the old
+        // 0x08 form misses the positive string, which is the proof it was vacuous.
+        // ⚠ If an editor renders one of these boundaries as `^H`, it is a CONTROL BYTE, not
+        // an escape — retype the backslash and the b. Do not "tidy" it away.
         expect(facts).not.toMatch(/getLastBuildableEnvelope|resolveStoredBuildableDetermination/);
         expect(facts).not.toMatch(/siteModelStore/);
-        expect(facts).not.toMatch(/fetch\s*\(/);
-        expect(facts).not.toMatch(/insetAreaM2|insetPolygon|maxHeight_m|\.derivation/);
+        expect(facts).not.toMatch(/\bfetch\s*\(/);
+        expect(facts).not.toMatch(/insetAreaM2|insetPolygon|maxHeight_m|\.derivation\b/);
         // C08 §3.1 — no HTML sink on a surface that renders provider-supplied planning strings.
         expect(facts).not.toMatch(/innerHTML|insertAdjacentHTML|outerHTML/);
     });
@@ -387,8 +399,8 @@ describe('§25.11 clause 1 — ONE model, rendered twice (the files this lane ow
     it('⛔ the model is PURE — no DOM, no store, no window, no fetch', () => {
         const src = codeOnly(read('apps/editor/src/ui/site/parcel/parcelLawModel.ts'));
         expect(src).not.toMatch(/document\.|innerHTML|createElement/);
-        expect(src).not.toMatch(/window/);
-        expect(src).not.toMatch(/siteModelStore|fetch\s*\(/);
+        expect(src).not.toMatch(/\bwindow\b/);
+        expect(src).not.toMatch(/siteModelStore|\bfetch\s*\(/);
     });
 });
 

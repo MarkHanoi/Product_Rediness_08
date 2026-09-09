@@ -23,8 +23,8 @@ for (const [name,bb] of areas){
     }
     const tif=await fromArrayBuffer(ab); const img=await tif.getImage();
     const [d]=await img.readRasters();
-    let n=0,nz=0,mx=-Infinity,mn=Infinity,sum=0; const v=[];
-    for(let i=0;i<d.length;i++){const x=d[i]; if(!Number.isFinite(x))continue; n++; if(x>0.5){nz++; v.push(x); sum+=x; if(x>mx)mx=x; if(x<mn)mn=x;}}
+    let n=0,nz=0,mx=-Infinity,mn=Infinity; const v=[];
+    for(let i=0;i<d.length;i++){const x=d[i]; if(!Number.isFinite(x))continue; n++; if(x>0.5){nz++; v.push(x); if(x>mx)mx=x; if(x<mn)mn=x;}}
     v.sort((a,b)=>a-b);
     const p=(q)=>v.length? v[Math.min(v.length-1,Math.floor(q*v.length))].toFixed(1):'-';
     console.log(`${name}: status=${r.status} ct=${ct} bytes=${ab.byteLength} t=${ms}ms px=${img.getWidth()}x${img.getHeight()} finite=${n} >0.5m=${nz} (${(100*nz/Math.max(1,n)).toFixed(1)}%) p50=${p(0.5)} p90=${p(0.9)} max=${v.length?mx.toFixed(1):'-'}`);

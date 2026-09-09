@@ -359,6 +359,14 @@ export default [
       // gate reads `apps/component-editor/dist-gate/`, not this). `git rm -r lane4e-dist`
       // was blocked in the lane that found it; the ignore keeps CI honest meanwhile.
       'lane4e-dist/**',
+      // `.wf/` is the Workflow tool's scratch output and is GITIGNORED (.gitignore:96).
+      // ESLint was parsing it: 4 of the 27 lint ERRORS on this tree were `'return' outside
+      // of function`, raised against generated harness scripts that are not modules, not
+      // committed, and not an input to anything. They cannot fail CI — the directory does
+      // not exist on a fresh checkout — but they DO bury the real 23 under noise on every
+      // local run, which is how a lint gate stops being read. Same class as the dist/ and
+      // coverage/ entries above: linting untracked output has no meaning by construction.
+      '.wf/**',
       'build/**',
       'coverage/**',
       'attached_assets/**',

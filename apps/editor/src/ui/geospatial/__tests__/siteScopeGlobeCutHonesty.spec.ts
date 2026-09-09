@@ -36,7 +36,7 @@ function applyBody(): string {
     const at = SRC.indexOf('private async applySiteScopeClip(');
     expect(at, 'applySiteScopeClip was renamed or removed').toBeGreaterThan(-1);
     const rest = SRC.slice(at);
-    const next = /\n  (?:public|private|protected)[ \t]/.exec(rest);
+    const next = /\n {2}(?:public|private|protected)[ \t]/.exec(rest);
     return rest.slice(0, next ? next.index : rest.length);
 }
 
@@ -228,7 +228,7 @@ describe('§SITE-SCOPE globe — ARM E: the rebuild leg says what it did', () =>
         const at = SRC.indexOf('private rebuildSiteScopeClipForBase(): void {');
         expect(at, 'rebuildSiteScopeClipForBase was renamed or removed').toBeGreaterThan(-1);
         const rest = SRC.slice(at);
-        const next = /\n  (?:public|private|protected)[ \t]/.exec(rest);
+        const next = /\n {2}(?:public|private|protected)[ \t]/.exec(rest);
         return codeOnly(rest.slice(0, next ? next.index : rest.length));
     }
 
@@ -358,7 +358,7 @@ describe('§SITE-SCOPE — ARM H: the scope is anchored to the parcel, not to th
         const at = SRC.indexOf('private maybeRefreshContextOnPan(');
         expect(at, 'maybeRefreshContextOnPan was renamed or removed').toBeGreaterThan(-1);
         const rest = SRC.slice(at);
-        const next = /\n  (?:public|private|protected)[ \t]/.exec(rest);
+        const next = /\n {2}(?:public|private|protected)[ \t]/.exec(rest);
         return codeOnly(rest.slice(0, next ? next.index : rest.length));
     }
 

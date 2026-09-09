@@ -118,7 +118,12 @@ describe('§ENVELOPE-TOOL-ON-THE-SITE-VIEWS — ONE command path, two input surf
         expect(SOURCE).not.toMatch(/^import[^;]*buildEnvelopeAuthoringPlan/m);
         expect(SOURCE).not.toMatch(/^import[^;]*command-bus/m);
         // …and it holds no bus handle at all, so there is nothing here to dispatch WITH.
-        expect(SOURCE).not.toMatch(/bus/);
+        // ⛔ UNTIL 2026-09-09 THE BOUNDARIES AROUND `bus` HERE WERE LITERAL 0x08 BACKSPACE
+        // BYTES, not backslash-b, so this arm matched a byte no source file contains and
+        // could never fire. Repaired (lane CI-RED) off ESLint `no-control-regex`, then RUN:
+        // it passes, and it was scramble-controlled — `const b = bus;` matches, `busyFlag`
+        // does not.
+        expect(SOURCE).not.toMatch(/\bbus\b/);
     });
 
     it('mounts the ONE panel the Parcel Law tab mounts — by name, so a fork is visible here', () => {

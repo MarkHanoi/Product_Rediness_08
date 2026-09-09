@@ -48,10 +48,6 @@ export const PROJ_DEFS = {
   // §BE-DHMV-OSM-JOIN 2026-09-05). LCC on International 1924 + the EPSG 7-param Helmert (BD72 → WGS84). Control point:
   // the DHMV WCS envelope [152400,212200]–[152600,212400] read back (WGS84) as Antwerp Grote Markt (4.4045 E, 51.2206 N).
   'EPSG:31370': '+proj=lcc +lat_0=90 +lon_0=4.36748666666667 +lat_1=51.1666672333333 +lat_2=49.8333339 +x_0=150000.013 +y_0=5400088.438 +ellps=intl +towgs84=-106.8686,52.2978,-103.7239,0.3366,-0.457,1.8422,-1.2747 +units=m +no_defs',
-  // BE Belgian Lambert 72 (EPSG:31370) — the native grid of Digitaal Vlaanderen's DHMV II WCS (heights/beHeights.mjs,
-  // §BE-DHMV-OSM-JOIN 2026-09-05). LCC on International 1924 + the EPSG 7-param Helmert (BD72 → WGS84). Control point:
-  // the DHMV WCS envelope [152400,212200]–[152600,212400] read back (WGS84) as Antwerp Grote Markt (4.4045 E, 51.2206 N).
-  'EPSG:31370': '+proj=lcc +lat_0=90 +lon_0=4.36748666666667 +lat_1=51.1666672333333 +lat_2=49.8333339 +x_0=150000.013 +y_0=5400088.438 +ellps=intl +towgs84=-106.8686,52.2978,-103.7239,0.3366,-0.457,1.8422,-1.2747 +units=m +no_defs',
   // NL RD-New (also served by terrain.mjs's closed form; registered here for completeness/parity).
   'EPSG:28992': '+proj=sterea +lat_0=52.1561605555556 +lon_0=5.38763888888889 +k=0.9999079 +x_0=155000 +y_0=463000 +ellps=bessel +towgs84=565.417,50.3319,465.552,-0.398957,0.343988,-1.8774,4.0725 +units=m +no_defs',
   // WebMercator — the native grid of z/x/y raster-dem tile sources (terrain.mjs DTM_FETCH.mapterhorn,

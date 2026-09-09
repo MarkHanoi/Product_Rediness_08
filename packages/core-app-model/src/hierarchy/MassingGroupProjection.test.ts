@@ -90,8 +90,17 @@ describe('ADR-0385 — readMassingGroupSubstrate keeps FAILURE and EMPTINESS apa
     });
 
     it('an iterable that THROWS mid-read is a failure, not an emptiness', () => {
+        // NOTE (lane CI-RED, 2026-09-09): this was a GENERATOR (`*[Symbol.iterator]()`) with no
+        // `yield`, which is an ESLint `require-yield` ERROR and was the only lint error left on
+        // main. The hand-written iterator below throws at EXACTLY the same moment the generator
+        // did — the first `next()`, i.e. MID-READ, which is what this test is named for. ⛔ The
+        // tempting one-line fix, dropping the star, is NOT equivalent: a plain throwing method
+        // throws when the iterator is ACQUIRED, one step earlier, and would silently retarget
+        // the test at a different failure point.
         const hostile: Iterable<MassingGroupMemberView> = {
-            *[Symbol.iterator]() { throw new Error('store exploded'); },
+            [Symbol.iterator]: () => ({
+                next(): IteratorResult<MassingGroupMemberView> { throw new Error('store exploded'); },
+            }),
         };
         const s = readMassingGroupSubstrate(hostile);
         expect(s.groups).toBeNull();
