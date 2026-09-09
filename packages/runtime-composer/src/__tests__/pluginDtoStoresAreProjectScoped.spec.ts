@@ -54,9 +54,17 @@ describe('§PLUGIN-DTO-STORES-ARE-PROJECT-SCOPED — every plugin DTO family is 
     it('the eight families are the ones this lane found unregistered', () => {
         // Pinned so that ADDING a family is a deliberate act that shows up here, and
         // so the arms below are known to be measuring the real set.
+        //
+        // ⛔ THE NINTH ROW (`siteworks`) WAS ADDED TO `composeRuntime` AND NEVER SHOWED UP
+        // HERE, because this whole FILE was dark: `runtime-composer`'s vitest `include` read
+        // `__tests__/**/*.test.ts`, and this file is `src/__tests__/…*.spec.ts` — it missed on
+        // BOTH the directory and the suffix, so `vitest run <path>` printed "No test files
+        // found" rather than failing (§L-851: "never ran" and "passed" print the same value).
+        // The include was widened and the list re-pinned in the SAME commit (lane CI-RED,
+        // 2026-09-09), which is what "a deliberate act that shows up here" was supposed to mean.
         expect(pluginDtoKeysFromSource()).toEqual([
             'bathroomPod', 'lift', 'liftPart', 'pool', 'water',
-            'balcony', 'component', 'spaceEnvelope',
+            'balcony', 'component', 'spaceEnvelope', 'siteworks',
         ]);
     });
 
@@ -109,9 +117,20 @@ describe('§PLUGIN-DTO-STORES-ARE-PROJECT-SCOPED — clear() really empties a St
         // The real `SpaceEnvelopeStore extends Store`, so `clear()` is the base's.
         // Using the base directly keeps this a test of the CONTRACT the fix relies on
         // rather than of one family's subclass.
-        const store = new Store<{ id: string }>();
-        store.set('e1', { id: 'e1' });
-        store.set('e2', { id: 'e2' });
+        // ⚠ THE KEY IS REQUIRED. `Store`'s constructor refuses an empty `storeKey`
+        // (`packages/stores/src/Store.ts:55`) and this spec was written before it did — which
+        // nothing noticed, because the file was dark. Two spec-scoped keys, distinct so the two
+        // arms cannot share a persistence namespace.
+        const store = new Store<{ id: string }>('spec-pluginDto-spaceEnvelope');
+        // ⚠ `applyPatch`, NOT `set`. `Store` has no setter — the write path is a patch list
+        // (`Store.ts:93`), which is the CommandBus's own currency. This spec was written against
+        // a `set()` that does not exist on this class, and nothing noticed because the file was
+        // dark. Using the real write path also makes the arm a truer test of the contract: the
+        // records go in the way production puts them in.
+        store.applyPatch([
+            { op: 'add', path: ['e1'], value: { id: 'e1' } },
+            { op: 'add', path: ['e2'], value: { id: 'e2' } },
+        ]);
         expect(store.getState().size).toBe(2);
 
         projectScopeRegistry.register({
@@ -133,8 +152,8 @@ describe('§PLUGIN-DTO-STORES-ARE-PROJECT-SCOPED — clear() really empties a St
             scopeName: 'pluginDtoStore:spec-throws',
             clear: () => { throw new Error('store is wedged'); },
         });
-        const survivor = new Store<{ id: string }>();
-        survivor.set('x', { id: 'x' });
+        const survivor = new Store<{ id: string }>('spec-pluginDto-survivor');
+        survivor.applyPatch([{ op: 'add', path: ['x'], value: { id: 'x' } }]);
         projectScopeRegistry.register({
             scopeName: 'pluginDtoStore:spec-survivor',
             clear: () => { survivor.clear(); },
