@@ -3523,7 +3523,6 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // skipping the card because the ENVELOPE is null; the card is still rendered in all six
         // absence arms wherever it has a home. This refuses on the PHASE, which is a different
         // question, and the registry — not this file — is the one answering it.
-        if (panelAbsent('buildable-envelope')) return null;
         if (envelopeCardPreferredHost && document.contains(envelopeCardPreferredHost)) {
             return envelopeCardPreferredHost;
         }
@@ -3531,6 +3530,34 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
             const right = siteAuthoringPanes.getPaneElement(RIGHT_PANE);
             if (right) return right;
         }
+        // ⛔⛔ §PANEL-ABSENT-IS-SKIP-MOUNT (L-13294) — GUARDS **ONLY** THIS RUNG.
+        //     CORRECTED 2026-09-09 (L-13297) AFTER IT REGRESSED THE WHOLE SITE PANEL.
+        //
+        // The guard was first written at the TOP of this ladder. FOUNDER, minutes later:
+        //   *"THE NEW SITE PANEL IS NOT CORRECT … MASSING - THE MORE IMPORTANT PART - IS NOT
+        //    THERE NOW! … AT THE MOMENT I CAN NOT CREATE ENVELOPE MASSING!"*
+        //
+        // ⭐ WHY, AND IT IS THE FACT I FAILED TO CHECK: `setAppPhase('canvas')` fires only when
+        // the onboarding controller DISPOSES (OnboardingStepController.ts:574) or a BIM view
+        // activates (GISAreaLayout.ts:1690). Throughout the SITE-AUTHORING SPLIT — parcel select,
+        // the Site tab, the envelope card, massing — onboarding is STILL ALIVE and the phase is
+        // STILL `'onboarding-globe'`. A guard at the top of the ladder therefore refused the card
+        // on the one surface that needs it most, and `refreshEnvelopePanel`'s `!viewport` branch
+        // dutifully removed it — printing "card ABSENT (no DOM host to render into)".
+        //
+        // ⛔ THE REGISTRY ROW MEANS "DO NOT FLOAT OVER THE FULL-BLEED GLOBE". It does NOT mean
+        // "do not render inside a panel that explicitly asked for you". Every rung ABOVE is an
+        // EXPLICIT CLAIM — `pb-parcel-envelope-slot`, the site-authoring RIGHT pane — made by a
+        // surface that is on screen and hosting the card BY DESIGN. Only this rung is the
+        // unconditional fallback to `#container`, and `#container` IS the globe during onboarding
+        // (WorkspaceController §ONBOARDING-IS-FULL-BLEED). So this is the only rung the phase has
+        // anything to say about, and the original defect — a card floating over
+        // "Where is your project?" — is still fixed.
+        //
+        // ⚠ THE LESSON, RECORDED BECAUSE IT COST HIM A WORKING PANEL: I checked WHAT the registry
+        // declared and never WHEN the phase changes. A phase guard is only as correct as one's
+        // model of that phase's LIFETIME, and mine was wrong by the entire authoring session.
+        if (panelAbsent('buildable-envelope')) return null;
         return document.getElementById('container');
     };
 

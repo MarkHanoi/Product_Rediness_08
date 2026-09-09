@@ -36,7 +36,7 @@ import type { ClimateDataset, SiteId } from '@pryzm/schemas';
 import { makeDraggable } from '../makeDraggable';
 // §UX1-PANEL-DEFAULTS — the start-up open/closed decision for this panel lives in ONE
 // table (`layout/panelDefaults.ts`), not in this file's `_userHidden` initialiser. C82 §1.1.
-import { panelDefaultOpen, panelAbsent, setPanelOpen, isPanelOpen } from '../layout/panelDefaults';
+import { panelDefaultOpen, setPanelOpen, isPanelOpen } from '../layout/panelDefaults';
 // C06 §7.3 — no raw z-index literals in edited UI chrome; the panel band is a named token.
 import { zCss } from '../layout/zLayers';
 import {
@@ -262,30 +262,18 @@ export class FormaSiteAnalysisControls {
         this.mountTarget.appendChild(root);
         this.root = root;
         // SITE-PANEL-UI — honour a prior ✕ dismissal when the view re-mounts.
-        // ⛔⛔ §PANEL-ABSENT-IS-SKIP-MOUNT (L-13294) — THE SECOND COPY OF THE FOUNDER'S BUG,
-        // WHICH HE HAD NOT REPORTED YET.
-        //
-        // `PANEL_REGISTRY` declares this row `'onboarding-globe': 'absent'` (panelDefaults.ts:198),
-        // exactly as it does for `buildable-envelope` — and, exactly as there, nothing enforced it.
-        // The founder reported ONE panel over the onboarding globe; this is the other one, and
-        // fixing only the card he happened to see would have left this to surface later as a
-        // "new" bug.
-        //
-        // ⚠ `_userHidden` CANNOT CARRY THIS, and that is the whole reason for a separate check.
-        // It is seeded from `panelDefaultOpen`, which collapses `absent` and `closed` into one
-        // `false` (panelDefaults.ts:623-625) — so it cannot tell HIDE from SKIP-MOUNT. It is also
-        // a STATIC initialiser, evaluated once on first dynamic import and never re-read, and
-        // `show()` sets it to `false` permanently. `panelAbsent` is asked HERE, at mount, on every
-        // mount, so a phase change is honoured rather than remembered.
-        //
-        // ⛔ SKIP-MOUNT, NOT HIDE, AND THE DIFFERENCE IS PAID FOR: phaseChrome.ts:20-24 defines the
-        // two strengths and says why — *"a hidden panel that is still listening is still paying"*.
-        // This panel subscribes to sun and climate feeds and runs a study timer; a `display:none`
-        // would leave all three live behind the globe.
-        if (panelAbsent('site-analysis')) {
-            root.style.display = 'none';
-            return;
-        }
+        // ⚠ §PANEL-ABSENT-IS-SKIP-MOUNT WAS APPLIED HERE AND IS WITHDRAWN (L-13297, 2026-09-09).
+        // A `panelAbsent('site-analysis')` skip-mount was added here on the same reasoning as the
+        // envelope card's, and it was WRONG FOR THE SAME REASON: `setAppPhase('canvas')` fires
+        // only when onboarding DISPOSES or a BIM view activates, so the phase is still
+        // `'onboarding-globe'` throughout the site-authoring session — and this panel would have
+        // stopped mounting on the very surface it belongs to.
+        // ⛔ The registry row IS still unenforced for this panel, and that residue is real: it can
+        // still appear over the full-bleed globe. But it is a COSMETIC defect the founder has not
+        // reported, and shipping a second guard on a phase model that has already broken his
+        // panel once would be trading a real regression for a cosmetic fix. It returns when the
+        // phase can answer "is the onboarding globe ON SCREEN RIGHT NOW" rather than "has
+        // onboarding finished" — those are different questions and only the first one is the rule.
         if (FormaSiteAnalysisControls._userHidden) root.style.display = 'none';
 
         // §L-621a — MOVABLE by dragging the header (the SAME shared helper ClimatePanel
