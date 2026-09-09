@@ -275,6 +275,13 @@ import {
     type ParcelCandidateChoice,
 } from '../site/parcel/parcelCandidateChoice.js';
 import { footprintParcelProvider } from '../site/parcel/FootprintParcelProvider.js';
+// §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS (L-13295) — the honest point lookup, and the provider
+// identity that says when it may be used. Imported as a PAIR deliberately: the narrowing at the
+// call site is only sound while the two refer to the same provider.
+import {
+    catastroParcelProvider,
+    fetchParcelOutcomeAtPoint,
+} from '../site/parcel/CatastroParcelProvider.js';
 // §STARTUP-SELECT-IS-NOT-DWELL (L-12931) — the mark that splits the user's dwell on the 2D map
 // from the machine cost of turning her click into a 3D render. A MARK, never a gate.
 import { markStartupPhase } from '../../engine/startupBudget.js';
@@ -2734,16 +2741,60 @@ export function mountSiteBoundaryMap2D(
         parcelFetchInFlight = true;
         setChip('Fetching parcel…');
         try { map.getCanvas().style.cursor = 'progress'; } catch { /* ignore */ }
-        void parcelProvider.fetchParcelAtPoint(lng, lat).then((parcel) => {
+        // ⭐ §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS (L-13295) — ask the HONEST lookup when we can.
+        // `parcelProvider.fetchParcelAtPoint` narrows three outcomes to `ParcelFeature | null`,
+        // and this handler then reads `null` as "there is no parcel here". For the Catastro
+        // provider we can do better: `fetchParcelOutcomeAtPoint` keeps miss and unreachable
+        // apart, and the `!parcel` branch below refuses to erase the user's selection on the
+        // latter. Any other provider keeps exactly today's behaviour — the narrowing is explicit
+        // and local, never a silent widening of someone else's contract.
+        const lookup: Promise<{ parcel: ParcelFeature | null; unreachable: string | null }> =
+            parcelProvider === catastroParcelProvider
+                ? fetchParcelOutcomeAtPoint(lng, lat).then((o) => (
+                    o.status === 'ok'
+                        ? { parcel: o.parcel, unreachable: null }
+                        : { parcel: null, unreachable: o.status === 'unreachable' ? o.reason : null }
+                ))
+                : parcelProvider.fetchParcelAtPoint(lng, lat).then((pf) => ({ parcel: pf, unreachable: null }));
+        void lookup.then(({ parcel, unreachable }) => {
             // §L-12912 — the in-flight guard is released in the FINAL `.then` below, after the
             // optional footprint lookup, so a second click cannot race a half-rendered card.
             if (disposed || interactionMode !== 'select') { parcelFetchInFlight = false; return; }
             try { map.getCanvas().style.cursor = 'crosshair'; } catch { /* ignore */ }
+            // ⛔⛔ §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS (founder 2026-09-09 · L-13295) — AN
+            //     OUTAGE MUST NOT ERASE HIS SELECTION, AND MUST NOT BLAME HIS LAND.
+            //
+            // FOUNDER: *"why all the parcels i have selected say: envelope temporarily not
+            // available - many of those were created proper envelopes before - now nothing?"*
+            //
+            // This branch used to run for BOTH outcomes, because everything upstream returned
+            // `null` for both. So a degraded Catastro — after up to 15 s per leg, retried, across
+            // a point→refcat→geometry walk — called `clearParcelSelection()`, wiped the highlight
+            // he had just made, and told him "No parcel found here". His land was fine; the
+            // source was down. That is the founder's "doesn't get highlighted" and his "took
+            // really long to fetch" as ONE defect, and this is the arm where it was visible.
+            //
+            // ⛔ NOTHING IS CLEARED ON AN OUTAGE. A selection is the user's, not the source's;
+            // discarding it because a server did not answer destroys work over a transient. The
+            // sentence names the source, says it is temporary, and says what to do — the shape
+            // §CONTEXT-DATA-HONESTY requires of every refusal.
+            if (unreachable !== null) {
+                parcelFetchInFlight = false;
+                console.warn(`[gis] §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS the cadastral source did `
+                    + `not answer at ${lat.toFixed(6)}, ${lng.toFixed(6)} — ${unreachable}. The `
+                    + `selection is KEPT: this says nothing about whether a parcel exists here.`);
+                setChip('Cadastre unavailable');
+                toast('The cadastral service did not answer — this is a source outage, not a '
+                    + 'finding about your plot. Your selection is kept; try again in a moment.', 'info');
+                return;
+            }
             if (!parcel) {
                 parcelFetchInFlight = false;
                 // §RESELECT-PARCEL (L-13094) — these six lines WERE this branch, inline. They are
                 // now the one routine the founder's "choose a different parcel" action calls too,
                 // so the two cannot drift into two ideas of "nothing is selected".
+                // ⭐ REACHED ONLY ON A VERIFIED MISS NOW: the source answered and holds nothing
+                // here. That is a real finding about the land and clearing is the right act.
                 clearParcelSelection('no-parcel-here');
                 toast('No parcel found here — try again or draw manually.', 'info');
                 return;

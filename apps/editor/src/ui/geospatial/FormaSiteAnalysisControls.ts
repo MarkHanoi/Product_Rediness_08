@@ -36,7 +36,7 @@ import type { ClimateDataset, SiteId } from '@pryzm/schemas';
 import { makeDraggable } from '../makeDraggable';
 // §UX1-PANEL-DEFAULTS — the start-up open/closed decision for this panel lives in ONE
 // table (`layout/panelDefaults.ts`), not in this file's `_userHidden` initialiser. C82 §1.1.
-import { panelDefaultOpen, setPanelOpen, isPanelOpen } from '../layout/panelDefaults';
+import { panelDefaultOpen, panelAbsent, setPanelOpen, isPanelOpen } from '../layout/panelDefaults';
 // C06 §7.3 — no raw z-index literals in edited UI chrome; the panel band is a named token.
 import { zCss } from '../layout/zLayers';
 import {
@@ -262,6 +262,30 @@ export class FormaSiteAnalysisControls {
         this.mountTarget.appendChild(root);
         this.root = root;
         // SITE-PANEL-UI — honour a prior ✕ dismissal when the view re-mounts.
+        // ⛔⛔ §PANEL-ABSENT-IS-SKIP-MOUNT (L-13294) — THE SECOND COPY OF THE FOUNDER'S BUG,
+        // WHICH HE HAD NOT REPORTED YET.
+        //
+        // `PANEL_REGISTRY` declares this row `'onboarding-globe': 'absent'` (panelDefaults.ts:198),
+        // exactly as it does for `buildable-envelope` — and, exactly as there, nothing enforced it.
+        // The founder reported ONE panel over the onboarding globe; this is the other one, and
+        // fixing only the card he happened to see would have left this to surface later as a
+        // "new" bug.
+        //
+        // ⚠ `_userHidden` CANNOT CARRY THIS, and that is the whole reason for a separate check.
+        // It is seeded from `panelDefaultOpen`, which collapses `absent` and `closed` into one
+        // `false` (panelDefaults.ts:623-625) — so it cannot tell HIDE from SKIP-MOUNT. It is also
+        // a STATIC initialiser, evaluated once on first dynamic import and never re-read, and
+        // `show()` sets it to `false` permanently. `panelAbsent` is asked HERE, at mount, on every
+        // mount, so a phase change is honoured rather than remembered.
+        //
+        // ⛔ SKIP-MOUNT, NOT HIDE, AND THE DIFFERENCE IS PAID FOR: phaseChrome.ts:20-24 defines the
+        // two strengths and says why — *"a hidden panel that is still listening is still paying"*.
+        // This panel subscribes to sun and climate feeds and runs a study timer; a `display:none`
+        // would leave all three live behind the globe.
+        if (panelAbsent('site-analysis')) {
+            root.style.display = 'none';
+            return;
+        }
         if (FormaSiteAnalysisControls._userHidden) root.style.display = 'none';
 
         // §L-621a — MOVABLE by dragging the header (the SAME shared helper ClimatePanel

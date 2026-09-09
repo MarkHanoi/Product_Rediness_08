@@ -562,18 +562,59 @@ export function makeCatastroParcelHandler(deps = {}) {
             return res.status(200).json({ parcel: null });
         }
 
+        // ⛔⛔ §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS (founder 2026-09-09 · L-13295 ·
+        //     §CONTEXT-DATA-HONESTY, L-581/L-616)
+        //
+        // FOUNDER: *"why all the parcels i have selected say: envelope temporarily not available -
+        // many of those were created proper envelopes before - now nothing - why?"*
+        //
+        // BECAUSE THIS FUNCTION COULD NOT TELL HIM. `catch { parcel = null }` flattened an
+        // upstream TIMEOUT into the same value as a genuine MISS, and both left here as
+        // `200 { parcel: null }` with `X-Catastro-Cache: MISS-EMPTY`. Downstream that becomes:
+        //   · the click handler calls `clearParcelSelection('no-parcel-here')` and toasts
+        //     "No parcel found here" — ERASING the highlight he had just made;
+        //   · parcel selection falls back to an OSM FOOTPRINT, not a cadastral parcel;
+        //   · the envelope needs the cadastral BLOCK for PGM Art. 242.2 depth, cannot get one,
+        //     and renders "TEMPORARILY UNAVAILABLE" — on land that resolved perfectly last week.
+        // One degraded upstream, three symptoms, and every one of them blamed his plot.
+        //
+        // ⚠ THE TIMEOUT IS 15 s PER LEG AND `fetchTextOnce` RETRIES ONCE, and the point path walks
+        // point → refcat → geometry. So a degraded Catastro costs tens of seconds and THEN says
+        // "there is no parcel here". That is the founder's "it took really long to fetch" and his
+        // "doesn't get highlighted" as a single defect, not two.
+        //
+        // ⭐ THE SHAPE IS NOT INVENTED HERE. `CatastroParcelProvider.lookupParcelByRefcat` already
+        // returns `{status:'ok'|'miss'|'unreachable'}` — minted 2026-09-07 for the cadastral-
+        // reference lookup and left un-applied to the CLICK lookup, which is the same rule with
+        // two implementations. `outcome` below carries that distinction over the wire.
+        //
+        // ⛔ STILL HTTP 200, DELIBERATELY. A 5xx would be caught by the client's `!res.ok` arm,
+        // which ALSO returns null — re-collapsing the distinction one layer up. The truth travels
+        // in the BODY, where a reader must look at it. The header mirrors it for cache debugging
+        // only. Adding a field is back-compatible: a reader that only knows `parcel` still sees
+        // `null`, exactly as before.
         let parcel = null;
+        let unreachableReason = null;
         try {
             parcel = await fetchParcelAtPoint(lon, lat, deps);
         } catch (err) {
-            console.warn('[catastro-proxy] unexpected error:', err?.message ?? err);
+            unreachableReason = err?.message ? String(err.message) : String(err);
+            console.warn('[catastro-proxy] UPSTREAM UNREACHABLE (not a miss):', unreachableReason);
             parcel = null;
         }
 
         setProxyCacheHeaders(res);
         if (!parcel) {
+            if (unreachableReason !== null) {
+                res.setHeader('X-Catastro-Cache', 'UPSTREAM-UNREACHABLE');
+                return res.status(200).json({
+                    parcel: null,
+                    outcome: 'unreachable',
+                    reason: unreachableReason,
+                });
+            }
             res.setHeader('X-Catastro-Cache', 'MISS-EMPTY');
-            return res.status(200).json({ parcel: null });
+            return res.status(200).json({ parcel: null, outcome: 'miss' });
         }
         res.setHeader('X-Catastro-Cache', 'HIT-OR-FETCH');
         return res.status(200).json({ parcel: { ...parcel, source: 'catastro' } });

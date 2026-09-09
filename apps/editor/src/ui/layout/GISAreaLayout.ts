@@ -3496,6 +3496,34 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // `document.contains` is the self-healing part: when the GIS section is closed or
         // rebuilt its slot leaves the document, and the card falls back to the viewport host
         // rather than being stranded on a detached node.
+        // ⛔⛔ §PANEL-ABSENT-IS-SKIP-MOUNT (founder 2026-09-09 · L-13294) — THE PHASE GUARD.
+        //
+        // FOUNDER: *"graphically i just created a new project - after having worked on an old one
+        // - and i already see a panel absolutly in the wrong place"* — the Buildable-envelope card,
+        // showing its honest "NO PARCEL YET" arm, floating top-right over the full-bleed onboarding
+        // globe and overlapping "Where is your project?".
+        //
+        // `PANEL_REGISTRY` has declared this card `'onboarding-globe': 'absent'` all along
+        // (panelDefaults.ts:213). Nothing enforced it. `panelAbsent()` is imported into THIS FILE
+        // (:36) and called ONCE IN 8,600 LINES — for `launcher-rail` at :7575 — which is why the
+        // rail correctly stays away on the globe and this card does not.
+        //
+        // ⭐ THE TERMINAL RUNG BELOW IS WHY IT LANDS THERE: `document.getElementById('container')`
+        // is unconditional, and during onboarding `#container` IS the globe
+        // (WorkspaceController §ONBOARDING-IS-FULL-BLEED). So the ladder does not "fall back to
+        // nowhere" — it falls back to the one element the user is looking at.
+        //
+        // ⛔ RETURNING null IS DELIBERATELY THE WHOLE FIX, because `refreshEnvelopePanel`'s
+        // existing `if (!viewport)` branch (~:5013) already removes the card and returns, and
+        // already documents that this is NOT a §1.20 branch-skip: there is no host to render INTO.
+        // A new "skip because phase" code path would be a second implementation of a decision this
+        // function already makes correctly.
+        //
+        // ⛔ AND IT DOES NOT WEAKEN C58 §1.20 ("an envelope is not a gate"). That clause forbids
+        // skipping the card because the ENVELOPE is null; the card is still rendered in all six
+        // absence arms wherever it has a home. This refuses on the PHASE, which is a different
+        // question, and the registry — not this file — is the one answering it.
+        if (panelAbsent('buildable-envelope')) return null;
         if (envelopeCardPreferredHost && document.contains(envelopeCardPreferredHost)) {
             return envelopeCardPreferredHost;
         }
@@ -8516,6 +8544,15 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
         // THE fix for the founder's stale lat/lon: no project may inherit another
         // project's geocode frame.
         lastGeocodeFrame = null;
+        // ⛔ §PANEL-ABSENT-IS-SKIP-MOUNT (L-13294) — THE OTHER HALF, AND THE GUARD ABOVE IS NOT
+        // SUFFICIENT WITHOUT IT. Project A's Parcel Law tab force-clears `envelopeCardHidden`
+        // directly (:7330-7332) rather than through `setPanelOpen` — which would have REFUSED,
+        // because the phase declares the row absent. That `false` then survived into Project B,
+        // so the card returned the instant any host claimed and released it. A per-project mirror
+        // that C13's own named teardown does not reset is per-project state leaking across the
+        // switch, which is the whole subject of the founder's report.
+        envelopeCardHidden = !panelDefaultOpen('buildable-envelope');
+        envelopeCardPreferredHost = null;
         isBimPlacedOnEarth = false;
         gisReactivationSelfPlaceSuppressed = false;
         globeRealLastSig = null;

@@ -230,58 +230,121 @@ export const catastroParcelProvider: ParcelProvider = {
     label: 'Catastro (Spain)',
 
     async fetchParcelAtPoint(lon: number, lat: number): Promise<ParcelFeature | null> {
-        const span = _tracer.startSpan('pryzm.parcel.fetchParcelAtPoint');
-        span.setAttribute('pryzm.parcel.provider', 'catastro');
-        try {
-            if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
-                span.setAttribute('pryzm.parcel.hit', false);
-                return null;
-            }
-            span.setAttribute('pryzm.parcel.lon', lon);
-            span.setAttribute('pryzm.parcel.lat', lat);
-
-            const url =
-                `${CATASTRO_PARCEL_ENDPOINT}?lon=${encodeURIComponent(String(lon))}` +
-                `&lat=${encodeURIComponent(String(lat))}`;
-
-            let res: Response;
-            try {
-                res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
-            } catch (err) {
-                console.warn('[gis] catastro: network error', err);
-                span.setAttribute('pryzm.parcel.hit', false);
-                return null;
-            }
-            if (!res.ok) {
-                console.warn('[gis] catastro: proxy returned', res.status, res.statusText);
-                span.setAttribute('pryzm.parcel.hit', false);
-                return null;
-            }
-
-            let json: unknown;
-            try {
-                json = await res.json();
-            } catch (err) {
-                console.warn('[gis] catastro: response was not JSON', err);
-                span.setAttribute('pryzm.parcel.hit', false);
-                return null;
-            }
-
-            const parcel = parseProxyResponse(json);
-            span.setAttribute('pryzm.parcel.hit', parcel !== null);
-            if (parcel) {
-                span.setAttribute('pryzm.parcel.refcat', parcel.refcat);
-                span.setAttribute('pryzm.parcel.areaM2', parcel.areaM2);
-                console.log(
-                    `[gis] catastro: parcel ${parcel.refcat} (~${parcel.areaM2.toFixed(0)} m², ${parcel.ring.length} pts)` +
-                    (parcel.address ? ` @ ${parcel.address}` : ''),
-                );
-            } else {
-                console.log(`[gis] catastro: no parcel at ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
-            }
-            return parcel;
-        } finally {
-            span.end();
-        }
+        // ⛔ A VIEW OF `fetchParcelOutcomeAtPoint`, NEVER A SECOND IMPLEMENTATION.
+        // The `ParcelProvider` interface is `ParcelFeature | null` and many callers only need
+        // that. Widening the interface would touch every one of them; keeping a parallel copy of
+        // the fetch here would be the one-rule-two-implementations shape this whole change exists
+        // to remove. So the honest three-arm function below is THE implementation, and this
+        // narrows it — deliberately discarding the miss/unreachable distinction for callers that
+        // have not been taught to care yet.
+        const outcome = await fetchParcelOutcomeAtPoint(lon, lat);
+        return outcome.status === 'ok' ? outcome.parcel : null;
     },
 };
+
+/**
+ * ⭐⭐ §UPSTREAM-UNREACHABLE-IS-NOT-A-MISS (founder 2026-09-09 · L-13295) — THE HONEST LOOKUP.
+ *
+ * FOUNDER: *"why all the parcels i have selected say: envelope temporarily not available - many of
+ * those were created proper envelopes before - now nothing - why?"*
+ *
+ * Because every failure mode on this path returned the SAME VALUE as "there is no parcel here":
+ * a network error (:253), a non-OK response (:258), a non-JSON body (:267) and a genuine miss all
+ * returned `null`. The interface's own doc even codified it — *"or null when there is no parcel
+ * there / the source is unavailable"* (`ParcelProvider.ts:114-118`) — a contract that STATES two
+ * different facts share one value, which is precisely what §CONTEXT-DATA-HONESTY forbids.
+ *
+ * ⛔ AND THE CONSEQUENCE WAS NOT COSMETIC. `SiteBoundaryMap2D`'s click handler treats `null` as
+ * "no parcel here" and calls `clearParcelSelection()`, so a slow or degraded Catastro ERASES the
+ * highlight the user just made and tells them their land does not exist. The envelope then cannot
+ * fetch the cadastral BLOCK it needs for PGM Art. 242.2 and reports "TEMPORARILY UNAVAILABLE".
+ * Three symptoms, one flattened value.
+ *
+ * ⭐ THE SHAPE IS `RefcatLookupOutcome`'S, ON PURPOSE. That three-arm type was minted 2026-09-07
+ * (§WHERE-IS-YOUR-PROJECT, L-13057) for the cadastral-REFERENCE lookup, in this same file, and
+ * simply never applied to the CLICK lookup — one rule, two implementations, with the honest copy
+ * sitting forty lines above the dishonest one. This reuses it rather than minting a third.
+ */
+export type PointLookupOutcome = RefcatLookupOutcome;
+
+export async function fetchParcelOutcomeAtPoint(
+    lon: number,
+    lat: number,
+): Promise<PointLookupOutcome> {
+    const span = _tracer.startSpan('pryzm.parcel.fetchParcelAtPoint');
+    span.setAttribute('pryzm.parcel.provider', 'catastro');
+    try {
+        if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+            span.setAttribute('pryzm.parcel.hit', false);
+            span.setAttribute('pryzm.parcel.outcome', 'miss');
+            return { status: 'miss' };
+        }
+        span.setAttribute('pryzm.parcel.lon', lon);
+        span.setAttribute('pryzm.parcel.lat', lat);
+
+        const url =
+            `${CATASTRO_PARCEL_ENDPOINT}?lon=${encodeURIComponent(String(lon))}` +
+            `&lat=${encodeURIComponent(String(lat))}`;
+
+        const unreachable = (reason: string): PointLookupOutcome => {
+            console.warn(`[gis] catastro: UNREACHABLE (not a miss) — ${reason}`);
+            span.setAttribute('pryzm.parcel.hit', false);
+            span.setAttribute('pryzm.parcel.outcome', 'unreachable');
+            return { status: 'unreachable', reason };
+        };
+
+        let res: Response;
+        try {
+            res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
+        } catch (err) {
+            // ⛔ A network error is the SOURCE failing, never the land being empty.
+            return unreachable(`network error contacting the parcel proxy: ${String(err)}`);
+        }
+        if (!res.ok) {
+            return unreachable(`the parcel proxy returned ${res.status} ${res.statusText}`);
+        }
+
+        let json: unknown;
+        try {
+            json = await res.json();
+        } catch (err) {
+            return unreachable(`the parcel proxy's response was not JSON: ${String(err)}`);
+        }
+
+        // ⭐ THE SERVER NOW SAYS WHICH IT IS, and this is the only place that reads it.
+        // `outcome: 'unreachable'` means Catastro itself timed out or errored behind the proxy
+        // (§UPSTREAM-UNREACHABLE-IS-NOT-A-MISS in parcelZoningProxy.js). Absent — an older
+        // server, or a cached response minted before this change — the honest reading is the
+        // conservative one: treat it as the miss it has always claimed to be, rather than
+        // inventing an outage. Under-claiming here is safe; over-claiming would put a
+        // "source unavailable" banner over land that is genuinely unregistered.
+        const serverOutcome = (json && typeof json === 'object')
+            ? (json as { outcome?: unknown }).outcome
+            : undefined;
+        if (serverOutcome === 'unreachable') {
+            const reason = (json as { reason?: unknown }).reason;
+            return unreachable(typeof reason === 'string' && reason.length > 0
+                ? `Catastro did not answer: ${reason}`
+                : 'Catastro did not answer.');
+        }
+
+        const parcel = parseProxyResponse(json);
+        span.setAttribute('pryzm.parcel.hit', parcel !== null);
+        if (parcel) {
+            span.setAttribute('pryzm.parcel.outcome', 'ok');
+            span.setAttribute('pryzm.parcel.refcat', parcel.refcat);
+            span.setAttribute('pryzm.parcel.areaM2', parcel.areaM2);
+            console.log(
+                `[gis] catastro: parcel ${parcel.refcat} (~${parcel.areaM2.toFixed(0)} m², ${parcel.ring.length} pts)` +
+                (parcel.address ? ` @ ${parcel.address}` : ''),
+            );
+            return { status: 'ok', parcel };
+        }
+        span.setAttribute('pryzm.parcel.outcome', 'miss');
+        console.log(`[gis] catastro: no parcel at ${lat.toFixed(6)}, ${lon.toFixed(6)} `
+            + '(a VERIFIED miss — the source answered and holds nothing here)');
+        return { status: 'miss' };
+    } finally {
+        span.end();
+    }
+}
