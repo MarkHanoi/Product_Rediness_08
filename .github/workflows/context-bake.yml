@@ -436,6 +436,30 @@ jobs:
           # (-97.720,30.400) and Houston-west (-95.560,29.780) were probed the same day and answered
           # HTTP 200 with 106 and 267 structures and ZERO heights — ORNL-sourced ground the national
           # layer measures nowhere. A gate row must be a place the source actually serves.
+          # §USAS-DELAWARE-ROW (2026-09-09, lane DELAWARE-R2) — `wilmington` is here because the
+          # `delaware` row declares heightJoin:'usas' and had NO gate row at all, so run 34397872497
+          # ran this whole step with REGION_SCOPE=delaware, skipped all 37 rows, printed
+          # "checked=0 … the spot-check is vacuous for this scope", and passed GREEN. The step is
+          # honest about that (it says so in words), but honesty in the log is not a gate: a bake of
+          # the founder's own US demo state was certified by a check that measured nothing. Every
+          # bake.mjs row that declares a join needs a row here, and this is Delaware's.
+          # Live-probed 2026-09-09 before being written, never a row we did not measure: a 0.02° cell
+          # at Wilmington (-75.56,39.74,-75.54,39.76) → HTTP 200, 1,831 structures of which 1,776
+          # carry a HEIGHT (97 %); reading the STAGED archive back with the client's own decoders at
+          # 39.7459,-75.5466 → 1,227 of 1,295 footprints measured, assumedFraction 0.047,
+          # solidRenderFraction 0.947 (Barcelona reads 0.958). 500 is a floor with ~2.4× headroom.
+          # ⛔ DO NOT "improve" this by moving it to the founder's Lewes demo site, and do not read
+          # this row as "Delaware is measured". Sussex County is NOT, and the source is why, not us:
+          # the same live probe at Lewes returned 1,198 USA Structures records and ZERO heights, so
+          # the shipped tiles there read verdict=unmeasured, solidRenderFraction 0.000, median 9 m —
+          # the fabricated carpet. A Lewes row would fail every Delaware bake for a height nobody
+          # published; the honest record of that gap is the SOURCING note in
+          # docs/04-reference/geospatial/USA-DELAWARE-DEMO-SOURCES.md, not a permanently red gate.
+          # ⭐ AND THIS ROW CANNOT SEE THAT GAP — one point asserts a floor at one place, so
+          # Wilmington passing is fully compatible with Lewes shipping a carpet 107 km south. That
+          # blindness is the SPREAD axis, and it needs a different instrument:
+          # `node tools/context-height-probe/sweep.mjs --points delaware` measured 0.000 → 0.947
+          # across nine points, 7 of 9 UNMEASURED, on the very archive this row certifies.
           while read -r name region at min; do
             [ -z "$name" ] && continue
             if [ -n "$REGION_SCOPE" ]; then
@@ -464,6 +488,7 @@ jobs:
           boston massachusetts 42.3510,-71.0750 500
           oakpark illinois 41.8850,-87.7840 200
           pasadenatx texas 29.6910,-95.2090 200
+          wilmington delaware 39.7459,-75.5466 500
           tallinn estonia 59.4370,24.7536 500
           antwerp belgium 51.2213,4.3997 500
           vienna austria 48.2086,16.3725 500
