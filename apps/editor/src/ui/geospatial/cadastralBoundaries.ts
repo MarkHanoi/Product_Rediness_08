@@ -14,6 +14,10 @@
 // PDOK would ask for tens of thousands of Dutch parcels. See `cadastralBoundariesRadiusM`.
 
 import { trace } from '@opentelemetry/api';
+import { projectScopeRegistry, registerProjectScopeProbe } from '@pryzm/core-app-model';
+import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+
+import { resolveActiveProjectId } from '@app/engine/project/activeProjectId';
 import type { ParcelAreaOutcome, ParcelFeature } from '../site/parcel/ParcelProvider.js';
 import { defaultParcelProvider } from '../site/parcel/index.js';
 import {
@@ -82,6 +86,34 @@ export interface CadastralBoundarySet {
  */
 let current: CadastralBoundarySet | null = null;
 
+/**
+ * C13 §3.10 / ADR-0298 — WHOSE plot these boundaries surround. Stamped with `current`.
+ */
+let _owningProjectId: string | null = null;
+
+/**
+ * ⛔ THE IN-FLIGHT GUARD, AND WHY CLEARING A MAP IS NOT ENOUGH. `_inFlight.clear()` drops the
+ * HANDLE; it does not cancel the promise. A lookup started for Project A resolves after the
+ * switch and calls `applyOutcome`, which repopulates `current` with the OLD plot's parcels — a
+ * leak that arrives AFTER the teardown ran and would therefore read as clean in any snapshot
+ * taken at switch time. The counter is bumped by the reset, captured before each run starts,
+ * and re-checked before the write.
+ */
+let _generation = 0;
+
+/**
+ * The active project, through the ONE canonical resolver — never a second copy
+ * (`activeProjectId.ts`: *"THERE MUST NEVER BE A SECOND COPY"*). Never throws.
+ */
+function activeProjectId(): string | null {
+    try {
+        const rt = (typeof window !== 'undefined' ? window.runtime : undefined) as PryzmRuntime | undefined;
+        return rt ? resolveActiveProjectId(rt) : null;
+    } catch {
+        return null;
+    }
+}
+
 export function getCadastralBoundarySet(): CadastralBoundarySet | null {
     return current;
 }
@@ -89,6 +121,8 @@ export function getCadastralBoundarySet(): CadastralBoundarySet | null {
 /** Test-only reset for the fetched set + its caches. */
 export function __resetCadastralBoundaryFetchForTests(): void {
     current = null;
+    _owningProjectId = null;
+    _generation++;
     _cache.clear();
     _inFlight.clear();
 }
@@ -165,6 +199,7 @@ export async function refreshCadastralBoundaries(
         }
 
         setCadastralBoundariesVerdict({ kind: 'loading' });
+        const gen = _generation;   // C13 — see `_generation`: a switch invalidates this run's WRITE
         const run = (async (): Promise<ParcelAreaOutcome> => {
             let outcome: ParcelAreaOutcome;
             try {
@@ -185,6 +220,22 @@ export async function refreshCadastralBoundaries(
                     if (!oldest.done) _cache.delete(oldest.value);
                 }
                 _cache.set(key, { at: Date.now(), outcome });
+            }
+            // ⛔ C13 §3.10 — the project changed while this was in flight. The CACHE write above
+            // still stands (it is keyed by coordinate, so it is a fact about the LAND and is
+            // valid for whoever asks next), but the WRITE INTO `current` would put Project A's
+            // parcels on Project B's plot, after the teardown had already run.
+            // ⚠ NOT A SPAN ATTRIBUTE. The outer `finally` calls `span.end()` when this function
+            // RETURNS `run`, which happens before this async body ever resumes — so a
+            // `setAttribute` here is written on an ended span and is silently dropped. That is the
+            // authored-but-unreachable shape, in the observability layer.
+            if (gen !== _generation) {
+                console.log(
+                    '[site][cadastral-boundaries] §C13 discarded an in-flight parcel-boundary '
+                    + 'answer: the project changed after the lookup started. The cache keeps it '
+                    + '(it is keyed by coordinate); the drawn set does not.',
+                );
+                return outcome;
             }
             applyOutcome(outcome, lat, lon, radiusM);
             return outcome;
@@ -207,6 +258,7 @@ function applyOutcome(
 ): void {
     if (outcome.status === 'ok') {
         current = { parcels: outcome.parcels, truncated: outcome.truncated, lat, lon, radiusM };
+        _owningProjectId = activeProjectId();
         // The attribution is the register the parcels themselves name (C57 §1.9) — read off the
         // data rather than guessed from the click, so a border fallback cannot mislabel it.
         const sourceLabel = outcome.parcels.length > 0 ? (outcome.parcels[0]!.source ?? null) : null;
@@ -244,3 +296,72 @@ export async function refreshCadastralBoundariesIfEnabled(
     if (!getCadastralBoundariesEnabled()) return;
     await refreshCadastralBoundaries(lat, lon, scope);
 }
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ C13 PROJECT SCOPE — ONE OWNER, DECLARED (ADR-0298 §PROBE-SET-DECLARED, C13 §3.10)
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// This module landed on 2026-09-09 holding module-level project-scoped state with no declared
+// owner, and `check-declared-project-scopes` failed CI at exit 3 for it within the hour —
+// ADR-0298's *"born declared or born failing"*. Declared rather than baselined: a set of parcel
+// boundaries is, by construction, the ground around ONE plot.
+
+/**
+ * C13 teardown — drop the drawn set and invalidate every in-flight lookup.
+ *
+ * Idempotent, synchronous, non-throwing (the `projectScopeRegistry` contract).
+ *
+ * ⛔ `_cache` IS DELIBERATELY KEPT. It is keyed by rounded lat/lon/radius, so a row is a fact
+ * about the LAND and about a public register's answer for it — not about a project. Dropping it
+ * on every switch would put a second hit on a shared government register for an answer already
+ * held, which is the exact defect the in-flight map next to it was added to stop. Declared as
+ * `uncounted` with this reason rather than left to be rediscovered.
+ *
+ * ⛔ THE VERDICT IS RETURNED TO `idle`, not left where it was. A run cancelled by the switch
+ * would otherwise leave the chip reading `loading` for the rest of the session — a spinner for
+ * a request whose answer is now deliberately discarded.
+ */
+export function resetCadastralBoundariesProjectState(): void {
+    _generation++;
+    current = null;
+    _owningProjectId = null;
+    _inFlight.clear();
+    setCadastralBoundariesVerdict({ kind: 'idle' });
+}
+
+/**
+ * ADR-0298 probe — which project's plot these boundaries surround.
+ *
+ * `null` means "nothing is drawn", which is always clean. A set whose project could not be
+ * resolved answers `'<cadastral-boundaries-project-unresolved>'` rather than `null`:
+ * §CONTEXT-DATA-HONESTY — "I hold nothing" and "I hold something I cannot attribute" must never
+ * be the same value.
+ */
+export function getCadastralBoundariesOwningProjectId(): string | null {
+    if (current === null) return null;
+    return _owningProjectId ?? '<cadastral-boundaries-project-unresolved>';
+}
+
+/** What is being held, for the leak report. Never throws. */
+export function describeCadastralBoundaries(): Record<string, unknown> {
+    return {
+        drawn: current !== null,
+        parcels: current?.parcels.length ?? 0,
+        lat: current?.lat ?? null,
+        lon: current?.lon ?? null,
+        inFlight: _inFlight.size,
+        cachedAnswers: _cache.size,
+        stampedProjectId: _owningProjectId,
+    };
+}
+
+// ── Registration: module scope, as an import side effect (ADR-0298 D6) ──────────────────
+projectScopeRegistry.register({
+    scopeName: 'site.cadastralBoundaries',
+    clear: () => { resetCadastralBoundariesProjectState(); },
+});
+
+registerProjectScopeProbe({
+    scope: 'site.cadastralBoundaries',
+    owningProjectId: () => getCadastralBoundariesOwningProjectId(),
+    describe: () => describeCadastralBoundaries(),
+});

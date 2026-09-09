@@ -154,7 +154,7 @@ export interface DeclaredProjectScope {
  * changes. The runtime audit stamps this into its report, so a leak report from
  * the field can be tied to the declaration that was in force when it was written.
  */
-export const DECLARED_PROJECT_SCOPE_SET_VERSION = 8;
+export const DECLARED_PROJECT_SCOPE_SET_VERSION = 9;
 
 /**
  * ADR-0298 §1 — the declared expected probe set.
@@ -212,6 +212,32 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
                 + 'the probe counts the snapshot\'s PRESENCE (getNeighbourFootprints() !== null) '
                 + 'and attributes it to the live site. A snapshot with no site behind it is '
                 + 'already a leak and is reported as one.',
+        },
+    },
+    {
+        scope: 'site.cadastralBoundaries',
+        module: 'apps/editor/src/ui/geospatial/cadastralBoundaries.ts',
+        why: 'The drawn set of neighbouring cadastral parcels is the ground around ONE plot. '
+            + "Carried across a switch it draws Project A's neighbours over Project B's site, "
+            + 'and the module\'s own header already rules that leaving a previous answer on '
+            + 'screen is worse than either state \u2014 “the user would be looking at real lines '
+            + 'from the wrong place”. The in-flight lookups are the same fact with a delay on '
+            + 'it: clearing the map drops the handle, not the promise, so a run started for the '
+            + 'old project would repopulate the set AFTER teardown \u2014 which is why the reset '
+            + 'bumps a generation the run re-checks before it writes.',
+        presence: 'module-scope',
+        resets: ['resetCadastralBoundariesProjectState'],
+        counts: ['getCadastralBoundariesOwningProjectId'],
+        uncounted: {
+            resetCadastralBoundariesProjectState:
+                'The module stamps _owningProjectId beside `current` and clears both in one body; '
+                + 'the probe reads that stamp and answers '
+                + "'<cadastral-boundaries-project-unresolved>' rather than null for a set it "
+                + 'cannot attribute. `_cache` is outside the reset ON PURPOSE: it is keyed by '
+                + 'rounded lat/lon/radius, so a row is a fact about the LAND and a public '
+                + "register's answer for it, not about a project. Dropping it per switch would "
+                + 'put a second hit on a shared government register for an answer already held '
+                + '\u2014 the defect the in-flight map beside it exists to stop.',
         },
     },
     {
