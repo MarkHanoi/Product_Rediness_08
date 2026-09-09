@@ -195,6 +195,12 @@ export default defineConfig({
       // §GEOJSONSEQ-READ (L-658): the bake's footprint reader — RS (RFC 8142) tolerance
       // and the honest empty-vs-unparseable split that a silent join failure hid.
       'tools/context-bake/__tests__/**/*.spec.ts',
+      // §CTX-HEIGHT-PROVENANCE (lane DELAWARE-R2, 2026-09-09): sweep.mjs's `summarise` — the rule
+      // that an UNREACHABLE point is excluded from every coverage fraction instead of scored zero.
+      // Pinned because the failure mode is silent and inverted: folding a dead CDN in as a 0 would
+      // report a network error as "this region's heights are fabricated" (L-581/L-616), and the
+      // suite would stay green. Pure function, real recorded probe rows, no network.
+      'tools/context-height-probe/__tests__/**/*.spec.ts',
       // §RPUC-SUPERSESSION (L-676): the Barcelona supersession screens (CLOSURE-REGISTER row 9).
       // Pure string classifiers, no network — pinned because a screen that quietly stopped failing
       // OPEN would shrink the reading list and read as progress.

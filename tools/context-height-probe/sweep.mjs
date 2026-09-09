@@ -46,7 +46,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PROBE = join(HERE, 'probe.mjs');
@@ -73,6 +73,51 @@ const POINT_SETS = {
   // probe's seam de-duplication never runs and the absolute count is inflated 14–18.8 %.
   barcelona: [['barcelona', 41.3874, 2.1686, 'parity control']],
 };
+
+// ── the aggregation, PURE and exported so a test can bind it ────────────────
+/**
+ * Reduce probe rows to the spread. Exported because this is the only part of the file with a
+ * decision in it, and it encodes the §CONTEXT-DATA-HONESTY rule the whole tool exists for.
+ *
+ * ⛔ THE RULE, and the reason it is a named function rather than four lines inline: a point whose
+ * archive could not be READ contributes NOTHING to any fraction. It is counted in
+ * `excludedUnreachable` and dropped from min/median/max. Averaging an `unreachable` in — as a 0, or
+ * by treating it as "no buildings" — is precisely the L-581/L-616 defect of letting a FAILURE and an
+ * EMPTINESS share a value, and it would make a dead CDN read as a region with no measured heights.
+ *
+ * @param {Array<{name?:string, verdict?:string, solidRenderFraction?:number}>} rows
+ * @returns {null | {counted:number, dataRows:number, excludedUnreachable:number, min:number,
+ *   median:number, max:number, minName:string, maxName:string, unmeasured:string[], notUniform:boolean}}
+ */
+export function summarise(rows) {
+  const dataRows = rows.filter((r) => r.verdict !== 'unreachable');
+  const excludedUnreachable = rows.length - dataRows.length;
+  const withSolid = dataRows.filter((r) => typeof r.solidRenderFraction === 'number');
+  if (withSolid.length === 0) return null;
+  const sorted = [...withSolid].sort((a, b) => a.solidRenderFraction - b.solidRenderFraction);
+  const vals = sorted.map((r) => r.solidRenderFraction);
+  return {
+    counted: withSolid.length,
+    dataRows: dataRows.length,
+    excludedUnreachable,
+    min: vals[0],
+    median: vals[Math.floor(vals.length / 2)],
+    max: vals[vals.length - 1],
+    minName: sorted[0].name,
+    maxName: sorted[sorted.length - 1].name,
+    unmeasured: dataRows.filter((r) => r.verdict === 'unmeasured').map((r) => r.name),
+    // A region whose best and worst point differ by more than half is not one product. The
+    // threshold is deliberately coarse: it exists to force the spread into the reader's eye, not
+    // to grade a region.
+    notUniform: vals[vals.length - 1] - vals[0] > 0.5,
+  };
+}
+
+// ⛔ Everything below is the CLI and MUST NOT run on import — a test that imports `summarise` would
+// otherwise start probing R2 and then `process.exit(3)` for having no --points, killing the runner.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) await main();
+
+async function main() {
 
 // ── args ────────────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -155,25 +200,17 @@ if (JSON_OUT) {
     );
   }
 
-  // ⛔ The SPREAD is the point. Aggregate ONLY over points that reached a data verdict, and say how
-  // many were excluded — an unreachable point averaged in is the L-581/L-616 defect.
-  const dataRows = rows.filter((r) => r.verdict !== 'unreachable');
-  const excluded = rows.length - dataRows.length;
-  const withSolid = dataRows.filter((r) => typeof r.solidRenderFraction === 'number');
-  if (withSolid.length > 0) {
-    const s = withSolid.map((r) => r.solidRenderFraction).sort((a, b) => a - b);
-    const worst = withSolid.reduce((a, b) => (a.solidRenderFraction <= b.solidRenderFraction ? a : b));
-    const best = withSolid.reduce((a, b) => (a.solidRenderFraction >= b.solidRenderFraction ? a : b));
+  const s = summarise(rows);
+  if (s) {
     console.log('');
-    console.log(`  solidRenderFraction across ${withSolid.length} point(s) with a data verdict` +
-      `${excluded ? ` (${excluded} unreachable, EXCLUDED — not averaged in)` : ''}:`);
-    console.log(`    min ${s[0].toFixed(3)} (${worst.name})  ·  median ${s[Math.floor(s.length / 2)].toFixed(3)}  ·  max ${s[s.length - 1].toFixed(3)} (${best.name})`);
-    const unmeasured = dataRows.filter((r) => r.verdict === 'unmeasured');
-    if (unmeasured.length > 0) {
-      console.log(`  ⚠ ${unmeasured.length}/${dataRows.length} point(s) verdict=UNMEASURED — context exists there and every height is fabricated:`);
-      console.log(`      ${unmeasured.map((r) => r.name).join(', ')}`);
+    console.log(`  solidRenderFraction across ${s.counted} point(s) with a data verdict` +
+      `${s.excludedUnreachable ? ` (${s.excludedUnreachable} unreachable, EXCLUDED — not averaged in)` : ''}:`);
+    console.log(`    min ${s.min.toFixed(3)} (${s.minName})  ·  median ${s.median.toFixed(3)}  ·  max ${s.max.toFixed(3)} (${s.maxName})`);
+    if (s.unmeasured.length > 0) {
+      console.log(`  ⚠ ${s.unmeasured.length}/${s.dataRows} point(s) verdict=UNMEASURED — context exists there and every height is fabricated:`);
+      console.log(`      ${s.unmeasured.join(', ')}`);
     }
-    if (s[s.length - 1] - s[0] > 0.5) {
+    if (s.notUniform) {
       console.log('  ⛔ SPREAD > 0.5 — this region is NOT uniform. A single statewide fraction, and a single');
       console.log('     gate row, would both report this region as fine. Quote the spread, never the mean.');
     }
@@ -199,3 +236,4 @@ if (rc === 0 && unreachable.length > 0) {
   rc = 2;
 }
 process.exit(rc);
+}
