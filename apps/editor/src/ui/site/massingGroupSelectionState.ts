@@ -68,6 +68,10 @@
 // makes about a focus, and a selection is the same kind of fact one axis out).
 
 import { trace } from '@opentelemetry/api';
+import { projectScopeRegistry, registerProjectScopeProbe } from '@pryzm/core-app-model';
+import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+
+import { resolveActiveProjectId } from '@app/engine/project/activeProjectId';
 
 const _tracer = trace.getTracer('pryzm.site.massingGroupSelectionState');
 
@@ -101,6 +105,33 @@ const listeners = new Set<Listener>();
 
 /** `null` ⇒ no group is selected, and every group renders as a peer. */
 let selection: MassingGroupSelection | null = null;
+
+/**
+ * C13 §3.10 / ADR-0298 — WHOSE selection this is. Stamped beside the slot, cleared with it.
+ *
+ * ⛔ A GROUP ID IS ONLY MEANINGFUL INSIDE ITS PROJECT. Carried across a switch, `groupId`
+ * either matches nothing (three surfaces reporting "a group is selected" and emphasising
+ * nothing — the exact state `setMassingGroupSelection` refuses an empty id to prevent) or, worse,
+ * collides with a real group in Project B and emphasises a building nobody selected.
+ * `reconcileMassingGroupSelection` cannot save this: it is driven by a caller that has already
+ * read the store, and on a switch the panel is torn down before it reads anything.
+ */
+let _owningProjectId: string | null = null;
+
+/**
+ * The active project, through the ONE canonical resolver — never a second copy
+ * (`activeProjectId.ts`: *"THERE MUST NEVER BE A SECOND COPY"*). Never throws: a selection
+ * must not be refusable because ownership could not be stamped, and an unstamped hold is
+ * reported honestly by the probe rather than folded into "clean".
+ */
+function activeProjectId(): string | null {
+    try {
+        const rt = (typeof window !== 'undefined' ? window.runtime : undefined) as PryzmRuntime | undefined;
+        return rt ? resolveActiveProjectId(rt) : null;
+    } catch {
+        return null;
+    }
+}
 
 function notify(): void {
     for (const fn of [...listeners]) {
@@ -148,6 +179,7 @@ export function setMassingGroupSelection(next: MassingGroupSelection | null): vo
             && selection.label === next.label
             && selection.source === next.source) return;
         selection = next;
+        _owningProjectId = next === null ? null : activeProjectId();
         span.setAttribute('pryzm.massingGroup.present', next !== null);
         if (next !== null) {
             span.setAttribute('pryzm.massingGroup.id', next.groupId);
@@ -223,5 +255,75 @@ export function reconcileMassingGroupSelection(liveGroupIds: Iterable<string>): 
 /** Test-only reset — clears the slot and drops every subscriber. */
 export function __resetMassingGroupSelectionForTests(): void {
     selection = null;
+    _owningProjectId = null;
     listeners.clear();
 }
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ C13 PROJECT SCOPE — ONE OWNER, DECLARED (ADR-0298 §PROBE-SET-DECLARED, C13 §3.10)
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// This module was born on 2026-09-09 holding module-level project-scoped state with NO declared
+// owner, and the `check-declared-project-scopes` candidate sweep failed CI at exit 3 for it the
+// same day — ADR-0298's *"born declared or born failing"*, working exactly as designed. It is
+// declared here rather than baselined into `undeclaredStateCandidates`, because the state IS
+// project-scoped: see `_owningProjectId` above for what a carried-over `groupId` does.
+
+/**
+ * C13 teardown — drop the selection on a project switch.
+ *
+ * Idempotent, synchronous, non-throwing (the `projectScopeRegistry` contract).
+ *
+ * ⛔ THE LISTENER SET IS DELIBERATELY NOT CLEARED, and this is the difference between this and
+ * `__resetMassingGroupSelectionForTests`. A subscriber is a SURFACE's handle, not this project's
+ * data: a panel that outlives the switch and had its subscription silently dropped would go deaf
+ * for the rest of the session, with nothing anywhere reporting it — the
+ * [[null-at-mount-runtime-event-race]] failure shape, arrived at from the other direction.
+ * Surfaces unsubscribe when THEY unmount. Declared as `uncounted` with this reason.
+ *
+ * ⛔ IT DOES NOTIFY, and it goes THROUGH THE ONE SETTER to do it. Writing `selection = null`
+ * here would be a SECOND WRITER of the slot — which `massingGroupOneOwner.spec.ts` catches by
+ * counting the assignments (*"the writers are the setter, nothing else"*), and which is the exact
+ * defect D6 exists to prevent, arriving through the teardown door. `clearMassingGroupSelection()`
+ * already clears the stamp and notifies, so routing through it is both correct and shorter. A
+ * surface still mounted across the switch must repaint without the old emphasis; a silent clear
+ * would leave Project A's building outlined over Project B.
+ */
+export function resetMassingGroupSelectionProjectState(): void {
+    clearMassingGroupSelection();
+}
+
+/**
+ * ADR-0298 probe — which project's group is selected.
+ *
+ * `null` means "nothing is selected", which is always clean. A selection whose project could not
+ * be resolved answers `'<selection-project-unresolved>'` rather than `null`:
+ * §CONTEXT-DATA-HONESTY — "I hold nothing" and "I hold something I cannot attribute" must never
+ * be the same value (L-713 made that mistake the fourth time this family appeared).
+ */
+export function getMassingGroupSelectionOwningProjectId(): string | null {
+    if (selection === null) return null;
+    return _owningProjectId ?? '<selection-project-unresolved>';
+}
+
+/** What is being held, for the leak report. Never throws. */
+export function describeMassingGroupSelection(): Record<string, unknown> {
+    return {
+        selected: selection !== null,
+        groupId: selection?.groupId ?? null,
+        source: selection?.source ?? null,
+        stampedProjectId: _owningProjectId,
+        subscribers: listeners.size,
+    };
+}
+
+// ── Registration: module scope, as an import side effect (ADR-0298 D6) ──────────────────
+projectScopeRegistry.register({
+    scopeName: 'site.massingGroupSelection',
+    clear: () => { resetMassingGroupSelectionProjectState(); },
+});
+
+registerProjectScopeProbe({
+    scope: 'site.massingGroupSelection',
+    owningProjectId: () => getMassingGroupSelectionOwningProjectId(),
+    describe: () => describeMassingGroupSelection(),
+});

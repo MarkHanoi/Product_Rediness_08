@@ -154,7 +154,7 @@ export interface DeclaredProjectScope {
  * changes. The runtime audit stamps this into its report, so a leak report from
  * the field can be tied to the declaration that was in force when it was written.
  */
-export const DECLARED_PROJECT_SCOPE_SET_VERSION = 7;
+export const DECLARED_PROJECT_SCOPE_SET_VERSION = 8;
 
 /**
  * ADR-0298 §1 — the declared expected probe set.
@@ -212,6 +212,56 @@ export const DECLARED_PROJECT_SCOPES: readonly DeclaredProjectScope[] = [
                 + 'the probe counts the snapshot\'s PRESENCE (getNeighbourFootprints() !== null) '
                 + 'and attributes it to the live site. A snapshot with no site behind it is '
                 + 'already a leak and is reported as one.',
+        },
+    },
+    {
+        scope: 'site.massingGroupSelection',
+        module: 'apps/editor/src/ui/site/massingGroupSelectionState.ts',
+        why: 'ADR-0383 D6 \u2014 the ONE channel telling the Site panel, the 2D map and the 3D '
+            + 'scene which massing group is the subject. It holds a `SpaceEnvelope.group.id`, '
+            + 'and a group id is only meaningful inside its own project: carried across a '
+            + 'switch it either matches nothing (three surfaces reporting a selection and '
+            + 'emphasising nothing) or collides with a real group in Project B and emphasises '
+            + 'a building nobody selected. `reconcileMassingGroupSelection` cannot cover this '
+            + '\u2014 it is driven by a caller that has already read the store, and on a switch '
+            + 'the panel is torn down before it reads anything.',
+        presence: 'module-scope',
+        resets: ['resetMassingGroupSelectionProjectState'],
+        counts: ['getMassingGroupSelectionOwningProjectId'],
+        uncounted: {
+            resetMassingGroupSelectionProjectState:
+                'The module stamps _owningProjectId beside the slot and clears both in one '
+                + 'body; the probe reads that stamp and answers '
+                + "'<selection-project-unresolved>' rather than null for a hold it cannot "
+                + 'attribute. The listener SET is deliberately outside the reset \u2014 a '
+                + "subscriber is a surface's handle, not this project's data, and dropping it "
+                + 'would leave a panel that outlives the switch permanently deaf with nothing '
+                + 'reporting it.',
+        },
+    },
+    {
+        scope: 'site.envelopeDrawArming',
+        module: 'apps/editor/src/ui/site/siteEnvelopeDrawArming.ts',
+        why: '\u00a7ENVELOPE-DRAW holds the settled perimeter ring, the in-flight '
+            + 'BoundaryPathAuthor points, the armed surfaces, the draw mode and the last '
+            + 'refusal. Every one of those is SCENE COORDINATES OR A SENTENCE ABOUT ONE PLOT: '
+            + "carried across a switch, Project A's half-drawn ring previews over Project B's "
+            + 'ground, and a refusal about a parcel that is no longer open is a message with '
+            + 'no subject. `armEnvelopeDraw` restarts the gesture on re-arm, which is not the '
+            + 'same event as a project switch and does not fire on one.',
+        presence: 'module-scope',
+        resets: ['resetEnvelopeDrawProjectState'],
+        counts: ['getEnvelopeDrawArmingOwningProjectId'],
+        uncounted: {
+            resetEnvelopeDrawProjectState:
+                'The module stamps _owningProjectId in armEnvelopeDraw and clears it with the '
+                + "gesture; the probe reads that stamp behind a holdsProjectScopedState() "
+                + 'presence test and answers '
+                + "'<envelope-draw-project-unresolved>' rather than null for a hold it cannot "
+                + 'attribute. `registered`, `statusListeners` and `modeListeners` are outside '
+                + "the reset on purpose \u2014 they are the HOSTS' registrations, and removing a "
+                + 'live 2D-Site canvas from them would report ENVELOPE_DRAW_NO_SURFACE_REASON '
+                + 'on a view that is plainly on screen.',
         },
     },
     {

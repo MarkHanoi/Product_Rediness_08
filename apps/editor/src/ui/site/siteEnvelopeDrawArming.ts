@@ -49,6 +49,8 @@
 // No DOM, no THREE, no renderer. Module-local state + listener sets only.
 
 import { trace } from '@opentelemetry/api';
+import { projectScopeRegistry, registerProjectScopeProbe } from '@pryzm/core-app-model';
+import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 import {
     BoundaryPathAuthor,
     isBoundaryDrawMode,
@@ -69,6 +71,7 @@ import { polygonSignedAreaOrdinates } from '@pryzm/geometry-kernel';
 // `boundary-line` already establishes the pattern for that claim: spread `WALL_DRAW_MODES` so
 // "same as the wall" is true BY CONSTRUCTION and cannot drift into three matching literals.
 import { WALL_DRAW_MODES, type CreationMode } from '@app/engine/views/plantools/elementCreationMatrix';
+import { resolveActiveProjectId } from '@app/engine/project/activeProjectId';
 import type { EnvelopeDrawSink, EnvelopeDrawSurface, SceneXZPoint } from './envelopeDrawSurface';
 import {
     getDrawnEnvelopeFootprint,
@@ -292,6 +295,33 @@ export interface EnvelopeDrawStatus {
 const statusListeners = new Set<() => void>();
 let lastRefusal: string | null = null;
 
+/**
+ * C13 §3.10 / ADR-0298 — WHOSE half-drawn perimeter this is. Stamped when the draw is armed,
+ * cleared with the gesture.
+ *
+ * ⛔ A PERIMETER IS SCENE COORDINATES ON ONE PLOT. Carried across a project switch, the settled
+ * ring and the in-flight `BoundaryPathAuthor` points describe Project A's parcel and would be
+ * previewed over Project B's ground — and `armEnvelopeDraw`'s own doc says re-arming restarts the
+ * gesture, which is not a switch. The mode pill and `lastRefusal` are the same fact one axis out:
+ * a refusal sentence about a plot that is no longer open is a message with no subject.
+ */
+let _owningProjectId: string | null = null;
+
+/**
+ * The active project, through the ONE canonical resolver — never a second copy
+ * (`activeProjectId.ts`: *"THERE MUST NEVER BE A SECOND COPY"*). Never throws: arming must not
+ * be refusable because ownership could not be stamped, and an unstamped hold is reported
+ * honestly by the probe rather than folded into "clean".
+ */
+function activeProjectId(): string | null {
+    try {
+        const rt = (typeof window !== 'undefined' ? window.runtime : undefined) as PryzmRuntime | undefined;
+        return rt ? resolveActiveProjectId(rt) : null;
+    } catch {
+        return null;
+    }
+}
+
 function notifyStatus(): void {
     for (const fn of [...statusListeners]) {
         try { fn(); } catch (e) { console.warn('[site][envelope-draw] status listener threw (non-fatal):', e); }
@@ -437,6 +467,7 @@ function disarmAll(): void {
  */
 export function armEnvelopeDraw(): EnvelopeDrawActivation {
     const span = _tracer.startSpan('pryzm.site.armEnvelopeDraw');
+    _owningProjectId = activeProjectId();   // C13 §3.10 — stamp WHOSE plot is being drawn on
     try {
         if (armed.size > 0) { resetGesture(); disarmAll(); }
         // ⛔ THE PREVIOUS DRAWING'S OUTLINE GOES WHEN A NEW DRAW STARTS, not when it finishes. A
@@ -680,4 +711,92 @@ export function __resetEnvelopeDrawArmingForTests(): void {
     modeListeners.clear();
     lastRefusal = null;
     _mode = 'linear';
+    _owningProjectId = null;
 }
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ C13 PROJECT SCOPE — ONE OWNER, DECLARED (ADR-0298 §PROBE-SET-DECLARED, C13 §3.10)
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// This module held module-level project-scoped state with NO declared owner from 2026-09-07, and
+// the `check-declared-project-scopes` candidate sweep failed CI at exit 3 for it — ADR-0298's
+// *"born declared or born failing"*. It is declared here rather than baselined into
+// `undeclaredStateCandidates`: the state IS project-scoped (see `_owningProjectId` above).
+
+/**
+ * C13 teardown — drop the drawing, the gesture, the mode and the refusal on a project switch.
+ *
+ * Idempotent, synchronous, non-throwing (the `projectScopeRegistry` contract) — `disarmAll`
+ * try/catches each surface, and `clearSettledRing` is a no-op when nothing settled.
+ *
+ * ⛔ IT DOES NOT DROP `registered`, `statusListeners` OR `modeListeners`, and that is the
+ * difference between this and `__resetEnvelopeDrawArmingForTests`. Those three are the HOSTS'
+ * handles, not this project's data: a 2D-Site canvas that survives the switch and had its
+ * registration silently removed would be a draw surface the tool can no longer reach, reported
+ * to the user as `ENVELOPE_DRAW_NO_SURFACE_REASON` on a view that is plainly right there. The
+ * surfaces deregister when THEY unmount. Declared as `uncounted` with this reason.
+ *
+ * ⚠ `slotUnsub` IS dropped rather than called — the same reasoning
+ * `__resetEnvelopeDrawArmingForTests` records: the handle may already point at a cleared
+ * listener set, and dropping it is what lets the next paint install a live one.
+ */
+export function resetEnvelopeDrawProjectState(): void {
+    clearSettledRing();
+    slotUnsub = null;
+    resetGesture();
+    disarmAll();
+    lastRefusal = null;
+    _mode = 'linear';
+    _owningProjectId = null;
+    notifyStatus();
+}
+
+/** Does this module currently hold anything that belongs to one plot? */
+function holdsProjectScopedState(): boolean {
+    return armed.size > 0
+        || owner !== null
+        || settledOn !== null
+        || loopFirst !== null
+        || cursor !== null
+        || author.pointCount > 0
+        || lastRefusal !== null
+        || _mode !== 'linear';
+}
+
+/**
+ * ADR-0298 probe — which project's perimeter is being drawn.
+ *
+ * `null` means "nothing is held", which is always clean. A hold whose project could not be
+ * resolved answers `'<envelope-draw-project-unresolved>'` rather than `null`:
+ * §CONTEXT-DATA-HONESTY — "I hold nothing" and "I hold something I cannot attribute" must never
+ * be the same value.
+ */
+export function getEnvelopeDrawArmingOwningProjectId(): string | null {
+    if (!holdsProjectScopedState()) return null;
+    return _owningProjectId ?? '<envelope-draw-project-unresolved>';
+}
+
+/** What is being held, for the leak report. Never throws. */
+export function describeEnvelopeDrawArming(): Record<string, unknown> {
+    return {
+        armedSurfaces: armed.size,
+        registeredSurfaces: registered.length,
+        gestureOwner: owner?.surfaceId ?? null,
+        settledOn: settledOn?.surfaceId ?? null,
+        pointsPlaced: author.pointCount,
+        mode: _mode,
+        refusalHeld: lastRefusal !== null,
+        stampedProjectId: _owningProjectId,
+    };
+}
+
+// ── Registration: module scope, as an import side effect (ADR-0298 D6) ──────────────────
+projectScopeRegistry.register({
+    scopeName: 'site.envelopeDrawArming',
+    clear: () => { resetEnvelopeDrawProjectState(); },
+});
+
+registerProjectScopeProbe({
+    scope: 'site.envelopeDrawArming',
+    owningProjectId: () => getEnvelopeDrawArmingOwningProjectId(),
+    describe: () => describeEnvelopeDrawArming(),
+});
