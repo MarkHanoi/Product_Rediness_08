@@ -24,10 +24,16 @@ export * from './usStatewideParcels.js';
 // 24/24). TWO of them — NJ and MD — OVERTURN a `USA_PARCEL_REFUSALS` row written earlier the same
 // day whose probe had named the WRONG HOST; the file header carries that correction in full.
 export * from './usStatewideParcelsWave2.js';
+// LANE USA-DELAWARE-DEMO (2026-09-09) — DELAWARE, the 22nd US row and the Mid-Atlantic hole between
+// US-MD, US-NJ and US-VA. Full statewide coverage (3 of 3 counties, 451,344 parcels, and the county
+// COUNTY counts sum EXACTLY to the total). Its evidence is about a WAF-blocked county server and a
+// test-vs-production hostname, so it keeps its own file; see the header there.
+export * from './usDelawareParcels.js';
 
 import { US_EXPAND_PARCEL_CONFIGS } from './usJurisdiction.js';
 import { USA_PARCELS_CONFIGS } from './usStatewideParcels.js';
 import { USA_PARCELS_WAVE2_CONFIGS } from './usStatewideParcelsWave2.js';
+import { USA_PARCELS_DELAWARE_CONFIGS } from './usDelawareParcels.js';
 import type { UsArcgisParcelConfig } from './usArcgisParcelClient.js';
 
 /**
@@ -47,4 +53,5 @@ export const US_ALL_PARCEL_CONFIGS: readonly UsArcgisParcelConfig[] = [
     ...US_EXPAND_PARCEL_CONFIGS,
     ...USA_PARCELS_CONFIGS,
     ...USA_PARCELS_WAVE2_CONFIGS,
+    ...USA_PARCELS_DELAWARE_CONFIGS,
 ];
