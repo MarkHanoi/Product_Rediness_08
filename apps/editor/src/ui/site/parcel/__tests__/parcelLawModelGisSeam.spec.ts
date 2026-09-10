@@ -31,11 +31,39 @@ describe('§25.11 clause 1 — the envelope card RENDERS the model, it does not 
         const src = codeOnly(read(GIS));
         expect(src).toContain('buildParcelLawModel');
         expect(src).toContain('permittedStudyFiguresOf');
-        // The three ring helpers are the shared ones now — the local shoelace is gone.
+        // The ring helpers are the shared ones now — the local shoelace is gone.
         expect(src).toContain('const polyAreaM2 = polygonAreaXZ');
         expect(src).toContain('const polyPerimeterM = polygonPerimeterXZ');
-        expect(src).toContain('const polyBboxM = polygonBboxXZ');
         expect(src).not.toMatch(/a \+= p\.x \* q\.z - q\.x \* p\.z/);
+    });
+
+    // §PARCEL-ROWS-HAVE-ONE-HOME (L-13302) — this arm REPLACED
+    // `expect(src).toContain('const polyBboxM = polygonBboxXZ')`, and the replacement is
+    // STRONGER, not weaker. That assertion demanded the card hold a local ALIAS of the shared
+    // bounding-box producer. L-13302 then deleted the alias together with its one reader (the
+    // fold's `Bounding box` row), so the card now reaches the figure through `ParcelLawGeometry`
+    // and imports `polygonBboxXZ` nowhere. The old arm therefore failed the card for having
+    // FEWER routes to the number than §25.11 clause 1 requires — it had pinned the migration's
+    // intermediate step as if it were the destination.
+    //
+    // ⛔ The invariant §25.11 clause 1 actually protects is ONE PRODUCER, not one alias. So this
+    // arm binds that directly, in both directions: the producer is defined exactly once and in
+    // the model, the model is what fills the figure, and the card derives no rival.
+    it('⭐ the bounding box has ONE producer, it lives in the model, and the card derives no rival', () => {
+        const MODEL = 'apps/editor/src/ui/site/parcel/parcelLawModel.ts';
+        const gis = codeOnly(read(GIS));
+        const model = codeOnly(read(MODEL));
+
+        // POSITIVE — the one producer, and the model is the thing that calls it.
+        expect(model).toMatch(/export function polygonBboxXZ\s*\(/);
+        expect(model).toContain('bboxWidthM: polygonBboxXZ(');
+        expect(model).toContain('bboxDepthM: polygonBboxXZ(');
+
+        // NEGATIVE — the card neither imports the producer nor re-derives it. A bounding box
+        // over a ring is a min/max scan of `.x` and `.z`; if one reappears here, that is the
+        // second bounding box the ledger note forbids.
+        expect(gis).not.toContain('polygonBboxXZ');
+        expect(gis).not.toMatch(/Math\.min\([^)]*\.x[^)]*\)[\s\S]{0,200}Math\.max\([^)]*\.z/);
     });
 
     it('⛔ the Art. 323 arithmetic exists in ONE place, and it is the model', () => {
