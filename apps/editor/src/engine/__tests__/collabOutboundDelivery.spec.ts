@@ -112,6 +112,32 @@ describe('§PRESENCE-IS-A-SAMPLE-STREAM — the cursor packet is VOLATILE', () =
         expect(() => volatileEmit(null, 'cursor-move', {})).not.toThrow();
         expect(volatileEmit(null, 'cursor-move', {})).toBe(false);
     });
+
+    // ── The fallback path, gated 2026-09-10 ──────────────────────────────────
+    // ⛔ THE HOLE THE ORIGINAL FIX LEFT. Everything above proves the VOLATILE path stops
+    // writing into a closing transport. A client with no `volatile` flag took the plain
+    // path — un-discardable `ws.send()`, the exact write that printed the founder's
+    // warnings — and no arm looked at it. Two arms now do, and the second is the control.
+
+    it('⛔ the PLAIN fallback REFUSES when the transport POSITIVELY reports non-writable', () => {
+        const plainEmit = vi.fn();
+        const closing = { emit: plainEmit, io: { engine: { transport: { writable: false } } } };
+        expect(volatileEmit(closing, 'cursor-move', { x: 1 })).toBe(false);
+        expect(plainEmit, 'this call IS the `ws.send()` on a CLOSING socket').not.toHaveBeenCalled();
+    });
+
+    it('SCRAMBLE — an UNKNOWN transport is still deliverable, so the guard cannot drop everything', () => {
+        // §CONTEXT-DATA-HONESTY, and the module's own rule: `undefined` = cannot tell =
+        // deliverable. A guard that also refused here would silently mute every shim and
+        // every double — the mirror-image defect, and one no console warning would reveal.
+        const openEmit = vi.fn();
+        expect(volatileEmit({ emit: openEmit, io: { engine: { transport: { writable: true } } } }, 'cursor-move', { x: 1 })).toBe(false);
+        expect(openEmit).toHaveBeenCalledTimes(1);
+
+        const unknownEmit = vi.fn();
+        expect(volatileEmit({ emit: unknownEmit }, 'cursor-move', { x: 1 })).toBe(false);
+        expect(unknownEmit).toHaveBeenCalledTimes(1);
+    });
 });
 
 describe('§OUTBOUND-DELIVERY-IS-NOT-FIRE-AND-FORGET — classifying an emit before making it', () => {

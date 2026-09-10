@@ -116,15 +116,39 @@ export function classifyOutbound(socket: unknown, projectId: string | null | und
  * the socket.io primitive that says so: it DISCARDS the packet when the transport is not
  * writable instead of handing it to `ws.send()` on a CLOSING socket, which is what printed the
  * founder's forty warnings. Returns `true` when the volatile path was taken.
+ *
+ * ⭐ THE FALLBACK PATH IS GATED, ADDED 2026-09-10 — the one hole the L-13207 fix left open.
+ * `volatile` exists only on a real socket.io client; where it does not (an older client bundle,
+ * a transport shim, a hand-built double), this function fell straight through to a PLAIN `emit`
+ * — which is precisely the un-discardable `ws.send()` into a CLOSING socket that the whole lane
+ * exists to stop, reintroduced on the one path nobody was looking at.
+ *
+ * ⛔ THE VOLATILE PATH IS UNTOUCHED, DELIBERATELY. socket.io applies its OWN
+ * `isTransportWritable` rule there, and re-deciding it here would be a second copy of one rule
+ * ([[same-rule-two-implementations]]) that could disagree with the client's after any upgrade.
+ * Only the fallback — the path with no owner — acquires a guard.
+ *
+ * ⚠ AND THE GUARD IS THIS MODULE'S OWN "POSITIVE REPORT ONLY" RULE, NOT `classifyOutbound`.
+ * A bare `{ emit }` double has no `connected` field, and `classifyOutbound` reads that ABSENCE
+ * as `not-connected` — correct for its own purpose (deciding whether a durable command was
+ * lost) and wrong here, where it would silently drop every packet a caller deliberately sent
+ * through a shim. `transport.writable === false` is the only POSITIVE report of a dead wire,
+ * which is the same standard `classifyOutbound`'s own comment sets: *"`undefined` = cannot tell
+ * = deliverable."*
  */
 export function volatileEmit(socket: unknown, event: string, payload: unknown): boolean {
-    const s = socket as { volatile?: { emit?: (e: string, p: unknown) => unknown }; emit?: (e: string, p: unknown) => unknown };
+    const s = socket as {
+        volatile?: { emit?: (e: string, p: unknown) => unknown };
+        emit?: (e: string, p: unknown) => unknown;
+        io?: { engine?: { transport?: { writable?: unknown } } };
+    };
     const vol = s?.volatile;
     if (vol && typeof vol.emit === 'function') {
         vol.emit(event, payload);
         return true;
     }
     if (typeof s?.emit === 'function') {
+        if (s.io?.engine?.transport?.writable === false) return false;
         s.emit(event, payload);
         return false;
     }
