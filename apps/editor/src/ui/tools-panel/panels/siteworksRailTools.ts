@@ -27,6 +27,19 @@
 // measure. The correct move is to EXTRACT the stroke from that handler and have both
 // call it, which is a refactor of another lane's live tool and belongs in its own
 // commit. Recorded as C116 §11.
+//
+// ⭐ UPDATE 2026-09-10 (lane ARRAY-ALONG-PATH, ADR-0386 D6) — A SECOND, RENDERER-FREE
+// STROKE DRIVER NOW EXISTS AND IS MULTI-CONSUMER, BUT IT IS **NOT** THE SEAM THIS
+// NOTE IS WAITING FOR. `apps/editor/src/ui/site/siteEnvelopeDrawArming.ts` strokes
+// ortho / curved / looping polylines with the same `@pryzm/geometry-slab` rules and
+// now serves TWO finish targets from ONE driver (`armEnvelopeDraw('perimeter' |
+// 'array-path')`) — so the "one stroke, N consumers" pattern is proven and worth
+// copying. ⛔ But it binds through `EnvelopeDrawSurface`, a port whose own header
+// records that *"no Cesium or MapLibre adapter could ever satisfy"* `PlanToolHandler`'s
+// canvas-typed draw context — and the inverse holds too: a PLAN-VIEW tool cannot
+// consume that port either. Siteworks lives on the plan view, so C116 §11 still names
+// the RIGHT extraction (`BoundaryLinePlanToolHandler`'s stroke) and it is still open.
+// The lesson to carry across is the shape: extract the FINISH TARGET, not the machine.
 
 import { createId } from '@pryzm/schemas';
 import {

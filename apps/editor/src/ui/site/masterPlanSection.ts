@@ -96,6 +96,19 @@ import type { SpaceEnvelopeReadHandle } from './intendedAreaChannel';
 import { resolveParcelLawModel } from './parcel/resolveParcelLawModel';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 
+// §ARRAY-ALONG-PATH (ADR-0386) — the profile GENERATOR that feeds this roster. ⛔ It ends at
+// `addDrawnEnvelopeProfile`; the create below stays the ONE create.
+import {
+    mountMasterPlanArraySection,
+    type MasterPlanArraySectionDeps,
+    type MasterPlanArraySectionHandle,
+} from './masterPlanArraySection';
+import {
+    clearDrawnArrayPath,
+    getDrawnArrayPath,
+    subscribeDrawnArrayPath,
+} from './envelopeArrayPathState';
+
 const _tracer = trace.getTracer('pryzm.site.masterPlanSection');
 
 /** PRYZM purple — white + violet only ([[preview-color-unified-pryzm-purple]]). */
@@ -172,6 +185,17 @@ export interface MasterPlanSectionDeps {
     readonly mintId: () => string;
     /** Group ids, minted by the CALLER for the same reason. ⛔ Not element ids. */
     readonly mintGroupId: () => string;
+    /**
+     * ⭐ §ARRAY-ALONG-PATH (ADR-0386) — the array sub-section's own deps, or `null`/absent to leave
+     * it unmounted.
+     *
+     * ⛔ OPTIONAL SO EVERY EXISTING CALLER IS UNTOUCHED, and supplied by
+     * `defaultMasterPlanSectionDeps` so PRODUCTION always has it — both production mount sites
+     * (`parcelLawTab`, `siteEnvelopeTool`) go through that factory.
+     * [[authored-but-unwired-is-the-bottleneck]]: an optional surface that no factory supplies is a
+     * feature nobody can reach, and the reachability spec asserts the factory hands it over.
+     */
+    readonly arrayDeps?: MasterPlanArraySectionDeps | null;
 }
 
 export interface MasterPlanSectionHandle {
@@ -258,6 +282,21 @@ export function defaultMasterPlanSectionDeps(runtimeProp?: RuntimeLike | null): 
         // ⛔ NOT a `defineElement` branded id: a group is not an element (C114 §6d), and giving it
         // one would invite the second store that ADR-0383 D1 declined.
         mintGroupId: () => `mg_${Date.now().toString(36)}_${(++_groupMintCount).toString(36)}`,
+        // ⭐ §ARRAY-ALONG-PATH (ADR-0386) — WIRED HERE, so both production mount sites get it with
+        // no edit of their own. Every read is one the roster or the arming module already makes;
+        // the ONLY new thing is `armEnvelopeDraw('array-path')`, which is the same ONE stroke
+        // driver asked for its second finish target rather than a second gesture.
+        arrayDeps: {
+            readProfiles: getDrawnEnvelopeProfiles,
+            subscribeProfiles: subscribeDrawnEnvelopeFootprint,
+            addFootprint: (f) => addDrawnEnvelopeProfile(f),
+            armSpine: () => armEnvelopeDraw('array-path'),
+            readDrawStatus: getEnvelopeDrawStatus,
+            subscribeDrawStatus: subscribeEnvelopeDrawStatus,
+            readSpine: getDrawnArrayPath,
+            subscribeSpine: subscribeDrawnArrayPath,
+            clearSpine: clearDrawnArrayPath,
+        },
     };
 }
 
@@ -450,7 +489,11 @@ export function mountMasterPlanSection(
         createBtn.style.cssText += 'flex:none;padding:6px 10px;font-size:10.5px;';
         entry.append(storeysCol, createBtn);
 
-        root.append(heading, verdict, roster, controls, entry, preview, statusLine);
+        // ⭐ §ARRAY-ALONG-PATH — BETWEEN the roster controls and the storey entry, because that
+        // is where it sits in the founder's own order: draw one block, repeat it along a line,
+        // THEN state the levels and create everything at once.
+        const arrayHost = el('div', 'min-width:0;max-width:100%;');
+        root.append(heading, verdict, roster, controls, arrayHost, entry, preview, statusLine);
 
         // ── reads ────────────────────────────────────────────────────────────────────────────
 
@@ -853,17 +896,36 @@ export function mountMasterPlanSection(
         try { offProfiles = deps.subscribeProfiles(() => { if (!disposed) render(); }); } catch { offProfiles = null; }
         try { offDraw = deps.subscribeDrawStatus(() => { if (!disposed) render(); }); } catch { offDraw = null; }
 
+        // ⛔ MOUNTED, NOT INLINED. The array is a generator with its own state (a spine, a spacing,
+        // an orientation) and its own refusals; folding it into this render would put a fourth
+        // concern in a function that already owns the roster, the preview and the create.
+        let arraySection: MasterPlanArraySectionHandle | null = null;
+        if (deps.arrayDeps != null) {
+            try {
+                arraySection = mountMasterPlanArraySection(arrayHost, deps.arrayDeps);
+            } catch (e) {
+                // ⚠ A generator that fails to mount must not take the CREATE path down with it.
+                console.warn('[site][master-plan] §ARRAY-ALONG-PATH section failed to mount:', e);
+                arraySection = null;
+            }
+        }
+
         render();
 
         return {
             element: root,
-            refresh: render,
+            refresh: (): void => {
+                render();
+                try { arraySection?.refresh(); } catch { /* non-fatal */ }
+            },
             dispose: (): void => {
                 disposed = true;
                 try { offProfiles?.(); } catch { /* mid-teardown */ }
                 try { offDraw?.(); } catch { /* ditto */ }
                 offProfiles = null;
                 offDraw = null;
+                try { arraySection?.dispose(); } catch { /* ditto */ }
+                arraySection = null;
                 root.remove();
             },
         };
