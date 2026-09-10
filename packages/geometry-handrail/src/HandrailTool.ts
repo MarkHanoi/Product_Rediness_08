@@ -217,7 +217,16 @@ export class HandrailTool {
         if (!text && !hint) return;
         const state = this._sketch.previewState();
         if (text) {
-            text.innerHTML = `<strong>Handrail — ${state.mode}</strong> · ${state.spec.typeName}`;
+            // §XSS-SINK-SCAN — BUILT AS DOM, NOT PARSED AS HTML. `state.spec.typeName` is a
+            // USER-AUTHORED type name (handrail types are editable), so it must never reach an
+            // HTML parser. ⛔ `escHtml` is NOT the fix available here: it lives in
+            // `@pryzm/ui-base` (L3) and this package is L2, so importing it would be an upward
+            // layer edge that `check-layer-boundaries` correctly rejects. `textContent` needs no
+            // escaping at all, which is stronger than escaping — there is no parse to subvert.
+            text.textContent = '';
+            const strong = document.createElement('strong');
+            strong.textContent = `Handrail — ${state.mode}`;
+            text.append(strong, ` · ${state.spec.typeName}`);
         }
         if (hint) hint.textContent = HandrailTool._hintFor(state);
     }

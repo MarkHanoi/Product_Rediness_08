@@ -129,7 +129,6 @@
   "packages/geometry-curtain-wall/src/CurtainWallTool.ts": 2,
   "packages/geometry-furniture/src/FurnitureTool.ts": 4,
   "packages/geometry-roof/src/RoofTool.ts": 2,
-  "packages/geometry-slab/src/SlabTool.ts": 2,
   "packages/geometry-slab/src/ceiling/CeilingTool.ts": 4,
   "packages/geometry-slab/src/floor/FloorTool.ts": 4,
   "packages/geometry-stair/src/stairPath/StairPathHUD.ts": 8,

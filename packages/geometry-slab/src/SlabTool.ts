@@ -741,7 +741,11 @@ export class SlabTool {
             const depthStr = Math.abs(p2.z - p1.z).toFixed(2);
             const hudTextElement = document.querySelector('#hud-step-text');
             if (hudTextElement) {
-                hudTextElement.innerHTML = `Preview: ${widthStr}m x ${depthStr}m`;
+                // §XSS-SINK-SCAN — plain text, so it is SET as text. There is no markup in
+                // this string and nothing to parse; `textContent` is the gate's own first
+                // suggestion and is stronger than escaping. (L2 package: `escHtml` is in
+                // `@pryzm/ui-base` at L3 and importing it here would be an upward layer edge.)
+                hudTextElement.textContent = `Preview: ${widthStr}m x ${depthStr}m`;
             }
 
             const confirmBtns = document.getElementById('confirm-btns');
@@ -1420,7 +1424,9 @@ export class SlabTool {
             const reason = boundaryLoopRefusal(loopMode, first, second);
             console.warn('[SlabTool] §FEAT-PLATE-SHAPE-MODES —', reason);
             const hud = document.querySelector('#hud-step-text');
-            if (hud && reason) hud.innerHTML = reason;
+            // §XSS-SINK-SCAN — `boundaryLoopRefusal` returns PROSE (verified: every branch in
+            // `boundaryLoops.ts:345` returns a plain sentence, no markup), so it is set as text.
+            if (hud && reason) hud.textContent = reason;
             return;
         }
 
