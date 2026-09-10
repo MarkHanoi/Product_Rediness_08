@@ -485,12 +485,49 @@ export async function initBuilders(inputs: BuilderInputs): Promise<BuilderRegist
     // them directly removes the implicit window-global runtime lookup.
     bootStep('room (stores + builders, pre-DI)');
     try {
-        // §STARTUP-BUILDERS-LEG — MEASURED NOT TO BE A CHUNK DOWNLOAD. Both specifiers are
-        // already in the engine chunk: `@app/ui/WorkspaceController` is a STATIC import in
+        // §STARTUP-BUILDERS-LEG — not a chunk DOWNLOAD (both specifiers are already in the
+        // engine chunk: `@app/ui/WorkspaceController` is a STATIC import in
         // `engineLauncher.ts:23`, and `@pryzm/core-app-model` is a static import at the top of
-        // this file and is routed to the `domain-engine` manual chunk by `vite.config.ts`. So
-        // this `await` costs a microtask, not a round trip — but it does YIELD the main thread,
-        // which is why it gets its own `await:` step rather than being folded into `room`.
+        // this file, routed to the `domain-engine` manual chunk by `vite.config.ts`).
+        //
+        // ⚠ CORRECTED 2026-09-10 (lane PERF-OPEN, §STARTUP-BOOT-HIDES-INSIDE-THE-GLOBE, L-13272).
+        // This comment used to conclude "so this `await` costs a microtask, not a round trip".
+        // The premise is right and the conclusion was wrong by THREE SECONDS. "Not a download"
+        // does not imply "not a cost": the `await` YIELDS THE MAIN THREAD, and the thread it
+        // yields to is the warm-hidden Cesium globe streaming its photoreal tiles
+        // (§STARTUP-GLOBE-PREWARM mounts it BEFORE the boot, by design). Measured on a cold
+        // new-project open once `bootStep('await:initBuilders')` finally tiled this leg's own
+        // await (L-13270):
+        //
+        //   ══ leg "builders" — 3080ms wall ══ own 72ms · foreign 2898ms · idle 109ms
+        //   await:WorkspaceController + core-app-model    1715 ms  (longtask 1695 ms)
+        //   await:geometry-wall + geometry-slab stores    1287 ms  (longtask 1203 ms)
+        //   …35 further steps, all ≤33 ms…
+        //
+        // ⛔ SO DO NOT "OPTIMISE THE BUILDERS" ON THE STRENGTH OF `boot:builders-done`. The
+        // builders' own code is 72 ms across 37 steps. The mark is measuring the globe.
+        //
+        // ⭐ AND DO NOT SPEED UP THE YIELD EITHER — THAT WAS TRIED HERE AND IT MADE THE USER
+        // WAIT LONGER. Lane PERF-OPEN pre-warmed these four specifiers at the onboarding seam
+        // so the awaits would settle as microtasks. It worked exactly as designed and the
+        // product got slower (medians of 5 runs each, same machine, same harness,
+        // `tools/perf/run-project-open-series.mjs`):
+        //
+        //                            builders leg   boot:ui-done   GESTURE → GLOBE INTERACTIVE
+        //     baseline                    2243 ms        3476 ms        3825 ms
+        //     with the deps pre-warmed    1606 ms        2763 ms        4130 ms   ← +305 ms WORSE
+        //
+        // The 637 ms taken off the builders leg reappeared, +1139 ms of it, in
+        // `globe:eager-init-done` (Δ 80 ms → Δ 1219 ms). Nothing was saved and a little was
+        // lost: the boot and the globe share ONE main thread, the globe's tile load is a fixed
+        // cost, and the boot's awaits were CONCEALING it. Make the boot faster and you do not
+        // make the open faster — you merely uncover the globe. ⛔ The change was REVERTED; only
+        // this note and the instrument that caught it survive. Re-running that experiment
+        // without reading this paragraph is the one guaranteed way to lose a day.
+        //
+        // The floor for "globe interactive" is therefore Cesium's own tile load, NOT this file.
+        // Moving it requires changing WHAT THE LOCATION STEP WAITS FOR (today: the full engine
+        // boot, via `briefBootstrap`'s `pryzm-project-loaded` gate), not how fast the boot runs.
         const [{ workspaceController }, { hierarchyStore }] = await Promise.all([
             import('@app/ui/WorkspaceController'),
             import('@pryzm/core-app-model'),
