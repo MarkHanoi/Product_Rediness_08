@@ -67,6 +67,23 @@ type Stub = {
     sampleContextGroundsBatch: (pts: Array<{ lat: number; lon: number }>) => Promise<void>;
     reseatContextGroundFeaturesForBase: () => void;
     unsampledContextGroundSeatPoints: () => Array<{ lat: number; lon: number }>;
+    // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-13270) — the re-seat now asks WHOSE features these are
+    // before it touches them, so the stub must be able to answer. Baixa for all of it: this file's
+    // subject is the PER-ENTITY seat on one site, and the guard must be satisfied, not exercised.
+    formaMassingOrigin: { lat: number; lon: number; centroidEast: number; centroidNorth: number; areaM2: number } | null;
+    readSiteLocation: () => { lat: number; lon: number } | null;
+    contextGroundFeaturesAt: { lat: number; lon: number } | null;
+    // §A-LIFT-IS-NOT-A-DRAPE (L-13271) — reached only by a layer whose entities ALL lack a seat point.
+    formaTerrainToken: number;
+    groundLayerRedrapedAtToken: Map<string, number>;
+    loadContextRoads: (lat: number, lon: number, force?: boolean) => Promise<void>;
+    loadContextRail: (lat: number, lon: number, force?: boolean) => Promise<void>;
+    loadContextWater: (lat: number, lon: number, force?: boolean) => Promise<void>;
+    loadContextParks: (lat: number, lon: number, force?: boolean) => Promise<void>;
+    loadContextLanduse: (lat: number, lon: number, force?: boolean) => Promise<void>;
+    // §TERRAIN-TILE-MEMO (L-13077) — read + written by the shipped `samplingTerrainProvider`.
+    terrainTileMemoEntry: { provider: object; memo: { clear: () => void }; view: object } | null;
+    samplingTerrainProvider: (p: object) => object;
 };
 
 const key = (p: { lat: number; lon: number }): string => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`;
@@ -90,6 +107,24 @@ function makeStub(over: Partial<Stub> = {}): Stub {
         sampleContextGroundsBatch: async () => {},
         reseatContextGroundFeaturesForBase: () => {},
         unsampledContextGroundSeatPoints: () => [],
+        formaMassingOrigin: { ...BAIXA, centroidEast: 0, centroidNorth: 0, areaM2: 400 },
+        readSiteLocation: () => null,
+        contextGroundFeaturesAt: { ...BAIXA },
+        formaTerrainToken: 1,
+        groundLayerRedrapedAtToken: new Map<string, number>(),
+        loadContextRoads: async () => {},
+        loadContextRail: async () => {},
+        loadContextWater: async () => {},
+        loadContextParks: async () => {},
+        loadContextLanduse: async () => {},
+        // §TERRAIN-TILE-MEMO (L-13077) — the batcher samples THROUGH `samplingTerrainProvider`, which
+        // reads and writes this. It is the SAME omission the header below documents, one lane later:
+        // that method entered the sample path and this file was not touched, so `this.samplingTerrainProvider`
+        // was `undefined`, the flush threw where the batcher swallows it, and the pass-2 assertion read
+        // "0 sampler calls" — a missing stub wearing the costume of a seating regression. Bound below,
+        // not faked, so the memo the production sampler installs is the one under test.
+        terrainTileMemoEntry: null,
+        samplingTerrainProvider: (p: object) => p,
         ...over,
     };
     // The SHIPPED methods, bound to the stub. `sampleGround` is the real one too, so the cache /
@@ -99,7 +134,12 @@ function makeStub(over: Partial<Stub> = {}): Stub {
     // the callee throws inside the pass-2 await — where the reseat's guard swallows it — so the
     // test read "0 sampler calls" and looked like a seating regression instead of a missing stub.
     for (const m of ['reseatContextGroundFeaturesForBase', 'unsampledContextGroundSeatPoints',
-                     'sampleGround', 'sampleContextGroundsBatch', 'groundSampleBatcher']) {
+                     'sampleGround', 'sampleContextGroundsBatch', 'groundSampleBatcher',
+                     // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-13270) / §A-LIFT-IS-NOT-A-DRAPE (L-13271)
+                     // — the two methods the re-seat gained. Bound, not stubbed: a stub here would
+                     // let the re-seat pass a guard the shipped code applies (§FAKE-MORE-CAPABLE).
+                     'currentContextSite', 'reseatAnchorForCurrentSite', 'redrapeGroundLayersBuiltFlat',
+                     'samplingTerrainProvider']) {
         (s as unknown as Record<string, unknown>)[m] = (proto[m] as (...a: unknown[]) => unknown).bind(s);
     }
     return s;

@@ -2391,6 +2391,22 @@ export class CesiumViewport {
    *  Weak: an entity removed by a `clearContext*` takes its record with it. `point: null` = a
    *  feature that could not be located (falls back to the safe base, as at load). */
   private contextGroundSeatPoints = new WeakMap<Cesium.Entity, { layer: GroundLayer; point: GroundLatLon | null }>();
+  /**
+   * §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-13270) — where the FIVE scalar-seated ground layers
+   * (roads · rail · water · parks · landuse) were last PLACED. The sea keeps its own `contextSeaAt`;
+   * the buildings keep `contextBuildingsAt`; the canopies keep `contextTreesAt`. These five had
+   * NOTHING — which is exactly why `reseatContextGroundFeaturesForBase` was the one re-seat outside
+   * the L-12964 guard: there was no anchor for it to check.
+   *
+   * ⚠ IT IS AN INPUT TO THE GUARD, NEVER AN ANCHOR TO REBUILD AT (the L-12964 rule): the only
+   * question it answers is *"are the entities in those five lists this site's?"*. A rebuild always
+   * resolves its own anchor from `currentContextSite()`.
+   *
+   * Safe against a pan: §SITE-SCOPE-ANCHOR-IS-THE-PARCEL (L-13082) re-centres a pan refresh on
+   * `formaMassingOrigin`, so a Forma-mode reload writes the SAME lat/lon `currentContextSite()`
+   * returns and the 250 m tolerance is never approached by panning.
+   */
+  private contextGroundFeaturesAt: { lat: number; lon: number } | null = null;
   /** §LANDUSE-SEA-RECLIP-IN-PLACE (L-12972) — the clip centroid of the land-use AREA each drawn
    *  piece belongs to (many pieces share one area once §GROUND-DRAPE-ON-RELIEF splits it), so the
    *  sea's arrival can remove exactly the pieces over water instead of forcing the whole layer to
@@ -10362,10 +10378,38 @@ export class CesiumViewport {
     }
   }
 
+  /** §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-13270) — record where the five scalar-seated ground
+   *  layers were placed. Called by each loader AFTER its abort check, so a superseded load never
+   *  claims the anchor. One writer rule, five call sites. */
+  private noteGroundFeaturesLoadedAt(lat: number, lon: number): void {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    this.contextGroundFeaturesAt = { lat, lon };
+  }
+
   private reseatContextGroundFeaturesForBase(): void {
     const viewer = this.viewer;
     if (!viewer) return;
     if (!this.groundReliefAttached()) return;              // flat/keyless path already seats exactly.
+    // ⛔ §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-13270, founder 2026-09-09, Albox ≈51 m → Granada ≈800 m
+    // in one session). THIS PASS WAS THE ONE RE-SEAT OUTSIDE THE L-12964 GUARD, and his console shows
+    // exactly what that cost:
+    //
+    //   ground-features re-seat: 5045 road/park/water entity(ies) lifted onto settled ground
+    //     (base 812.3 m) — PER ENTITY on its own ground: 5045 per-feature (51.0–523.6 m), 0 on the safe base
+    //
+    // 51.0–523.6 m is ALBOX's relief, in a Granada scene whose ground is 812 m and whose buildings
+    // seated at 799.9 m — the vertical gap he reported as *"extrusions from the buildings level to the
+    // other layer"*. The tell is `0 on the safe base`: every one of the 5045 resolved a REAL measured
+    // ground, which only happens when the seat points themselves belong to the terrain under them. They
+    // were the PREVIOUS site's entities: `resetProjectScopedState` drops the buildings, the canopies,
+    // the street furniture and the sea, and never dropped these five lists (fixed there too, L-13270).
+    //
+    // ⚠ A WRONG HEIGHT IS NEVER PREFERABLE TO AN HONEST ABSENCE. Re-seating a foreign site's features
+    // "onto settled ground" cannot make them belong here; it only re-states a stale measurement with a
+    // fresh timestamp and a confident log line. Refuse, say which anchor lost, and let the load for
+    // THIS site place its own.
+    const anchor = this.reseatAnchorForCurrentSite('ground-features', this.contextGroundFeaturesAt);
+    if (!anchor) return;
     const base = this.formaTerrainBaseHeight;              // the just-settled city ground (~700 m Madrid).
     // §GROUND-DRAPE-ON-RELIEF (L-12924) — PER ENTITY, never one base for all. This pass used to
     // write `base + offset` into every entity: on Lisbon's hill that is a grey plane 60 m above
@@ -10459,7 +10503,69 @@ export class CesiumViewport {
         `(${Number.isFinite(pass1.min) ? `${pass1.min.toFixed(1)}–${pass1.max.toFixed(1)} m` : 'n/a'}), ` +
         `${pass1.fallback} on the safe base; ${pending.length} seat point(s) queued for pass 2 — no re-fetch, no race.`,
     );
+    this.redrapeGroundLayersBuiltFlat(anchor);
   }
+
+  /**
+   * ⭐ §A-LIFT-IS-NOT-A-DRAPE (L-13271, founder 2026-09-09, Almanzora / Albox: *"the grey layer seems
+   * flat, horizontally flat, whereas this is heavy terrain"*).
+   *
+   * THE BRANCH HE TOOK. `resolveGroundDrapePieces` asks `groundReliefAttached()` FIRST and, when the
+   * answer is no, returns `pieces: features.map((f) => [{ coords: f.coords, seat: null, heightM: h }])`
+   * — ONE piece per feature, ONE scalar for the whole layer, and **`seat: null`**. At Albox landuse and
+   * parks rendered BEFORE the terrain attached, so that is the branch they took:
+   *
+   *   §FORMA-CTX-LANDUSE rendered: §GROUND-DRAPE-ON-RELIEF: flat seat base 0.0 m + 0.005 (no relief attached; one scalar)
+   *   §FORMA-CTX-PARKS   rendered: … flat seat base 0.0 m + 0.01  (no relief attached; one scalar)
+   *
+   * and when the terrain then settled, the re-seat could only report
+   * `0 per-feature (387.5–387.5 m), 8 on the safe base` — because `rec.point` was null for every one
+   * of them, so `sampleGround` was never even asked. **A lift moves a plane; only a re-render makes a
+   * drape.** The plate stayed horizontally flat on heavy terrain, exactly as he described.
+   *
+   * ⭐ THE SAME CODE IS CORRECT AT GRANADA (`3642/3642 piece(s) on their own sampled ground`,
+   * `§DRAPE-CONFORMS-TO-TERRAIN: 2603/3642 feature(s) conform … per vertex`) — the difference is
+   * ARRIVAL ORDER, not the drape. So the fix is not to the drape: it is to notice that a layer was
+   * built on the flat branch and re-render it now that there is relief to drape on.
+   *
+   * A layer qualifies only when it has entities and NOT ONE of them carries a seat point — i.e. the
+   * whole layer came off the flat branch. A layer that is merely partly unsampled has seat points and
+   * is corrected by pass 2, which is cheaper; it must not be dragged in here. Once per terrain token,
+   * so a reload that comes back empty cannot re-arm itself on the next settle. The read is served by
+   * §CTX-ONE-READ-PER-BBOX, so this re-DRAPES rather than re-downloads. Never throws.
+   */
+  private redrapeGroundLayersBuiltFlat(anchor: { lat: number; lon: number }): void {
+    if (!this.groundReliefAttached()) return;
+    const layers: ReadonlyArray<readonly [string, readonly Cesium.Entity[], () => void]> = [
+      ['roads', this.contextRoadEntities, () => { void this.loadContextRoads(anchor.lat, anchor.lon, true); }],
+      ['rail', this.contextRailEntities, () => { void this.loadContextRail(anchor.lat, anchor.lon, true); }],
+      ['water', this.contextWaterEntities, () => { void this.loadContextWater(anchor.lat, anchor.lon, true); }],
+      ['parks', this.contextParkEntities, () => { void this.loadContextParks(anchor.lat, anchor.lon, true); }],
+      ['landuse', this.contextLanduseEntities, () => { void this.loadContextLanduse(anchor.lat, anchor.lon, true); }],
+    ];
+    for (const [name, list, reload] of layers) {
+      if (list.length === 0) continue;                     // nothing placed — its own load will drape.
+      let anySeated = false;
+      for (const ent of list) {
+        if (this.contextGroundSeatPoints.get(ent)?.point) { anySeated = true; break; }
+      }
+      if (anySeated) continue;                             // drawn WITH relief; pass 2 owns the rest.
+      if (this.groundLayerRedrapedAtToken.get(name) === this.formaTerrainToken) continue;
+      this.groundLayerRedrapedAtToken.set(name, this.formaTerrainToken);
+      console.warn(
+        `[CTX-DIAG] §A-LIFT-IS-NOT-A-DRAPE (L-13271) — the ${name} layer's ${list.length} entity(ies) were ` +
+          'built on the FLAT branch (no relief was attached yet), so every one of them carries ONE scalar and ' +
+          'NO seat point. Re-seating them would only move that one plane; on heavy terrain that is the ' +
+          `founder's "horizontally flat" grey plate. Re-rendering the layer at ${anchor.lat.toFixed(5)},` +
+          `${anchor.lon.toFixed(5)} so it drapes per piece (and conforms per vertex) on the now-attached relief.`,
+      );
+      try { reload(); } catch (e) { console.warn(`[CesiumViewport][ctx] ${name} re-drape threw (non-fatal):`, e); }
+    }
+  }
+
+  /** §A-LIFT-IS-NOT-A-DRAPE (L-13271) — the `formaTerrainToken` a layer was last re-draped at, so a
+   *  reload that comes back empty (or is aborted) cannot re-arm on every subsequent terrain settle. */
+  private groundLayerRedrapedAtToken = new Map<string, number>();
 
   /** §GROUND-DRAPE-ON-RELIEF — the recorded seat points the terrain cache does not hold yet (one
    *  entry per distinct point), so pass 2 samples exactly what pass 1 had to fall back on. */
@@ -10875,8 +10981,23 @@ export class CesiumViewport {
                 `served from cache, ${s.pointsJoinedInFlight} joined a trip already in flight, ` +
                 `${s.pointsResolvedByAnEarlierFlight} answered by the flight ahead of them; ` +
                 `${s.deferredFlushes} flush(es) waited their turn, max concurrent flights ` +
-                `${s.maxConcurrentFlights} (MUST be 1 — two calls in the air re-download the same ` +
-                `tiles). BEFORE this lane every caller paid its OWN round-trip (founder Córdoba: ` +
+                // ⛔ §THE-INVARIANT-MOVED-AND-THE-SENTENCE-DID-NOT (L-13272). This read
+                // `(MUST be 1 — two calls in the air re-download the same tiles)`, FLAT, and the
+                // founder's Granada console duly printed `max concurrent flights 2 (MUST be 1 …)`
+                // over and over — a healthy run reporting itself as a breach. §TILE-DEDUP-RETIRES-
+                // THE-FIFO (L-13263, bf96a58c, ONE DAY EARLIER) deliberately allows concurrent
+                // flights once `TerrainTileMemo` de-duplicates at the TILE, and its own doc quotes
+                // this very sentence as the thing that stopped being true. The rule is now
+                // CONDITIONAL, so the line states the condition and reads the counter that says
+                // which regime each flight actually ran under. ⚠ `>1 with 0 flightsRunConcurrently`
+                // is the one reading that IS a breach — a flight that degraded past
+                // `serializeMaxWaitMs`, not a flight the memo licensed.
+                `${s.maxConcurrentFlights} — ${s.flightsRunConcurrently} flight(s) ran concurrently ` +
+                'BY LICENCE (§TILE-DEDUP-RETIRES-THE-FIFO, L-13263: the tile memo de-duplicates one ' +
+                'level down, so the FIFO buys nothing and costs ~3.3 s of queuing per drape layer). ' +
+                'The FIFO still stands for any flight with no memo installed, and THERE the rule is ' +
+                'still 1: concurrency above the licensed count means a flight timed out of its turn. ' +
+                `BEFORE that lane every caller paid its OWN round-trip (founder Córdoba: ` +
                 `parks 493 pts and roads 3555 pts BOTH 14.1 s — the duplicate download, not the points).`
               : ''),
         );
@@ -11178,12 +11299,21 @@ export class CesiumViewport {
       `${safeBase.toFixed(1)} m; ${measured} relief-measured, ${split} split (>${GROUND_DRAPE_RELIEF_SPLIT_M} m relief, piece length from each feature’s own slope) into ` +
       `${pieceCount - (features.length - split)} piece(s); ${batch.length + secondBatch.length} terrain point(s) in ` +
       `${secondBatch.length > 0 ? 2 : 1} batch round-trip(s), ${ms.toFixed(0)} ms (cache-served on a re-seat). ` +
-      // §DRAPE-COST-ATTRIBUTION (L-12972) — WHERE the ms went. `waiting` is time inside
-      // `sampleContextGroundsBatch`, i.e. this layer's own downloads PLUS its wait behind every
-      // other layer in the one-flight-at-a-time FIFO; `own work` is the pure decomposition. When
-      // `waiting` dominates — it did at Sète, by ~50× — splitting less buys nothing and costs the
-      // per-feature seating this whole mechanism exists for.
-      `§DRAPE-COST-ATTRIBUTION: ${waitMs.toFixed(0)} ms waiting for terrain (shared FIFO), ` +
+      // §DRAPE-COST-ATTRIBUTION (L-12972) — WHERE the ms went. `waiting` is ALL the time inside
+      // `sampleContextGroundsBatch`: the 120 ms coalescing window, any queuing, AND the round-trip
+      // itself. `own work` is the pure decomposition. When `waiting` dominates — it did at Sète, by
+      // ~50× — splitting less buys nothing and costs the per-feature seating this mechanism exists for.
+      //
+      // ⛔ §THE-INVARIANT-MOVED-AND-THE-SENTENCE-DID-NOT (L-13272) — this line SAID
+      // `waiting for terrain (shared FIFO)`, and after §TILE-DEDUP-RETIRES-THE-FIFO (L-13263) that
+      // names the one component the wait mostly is NOT. The founder's Granada read
+      // (`4854 ms waiting … 124 ms own work`) came from a session whose coalescer reported flights
+      // running concurrently BY LICENCE — i.e. `awaitTurn` was skipped, so almost none of those
+      // 4854 ms were queuing. Attributing them to the FIFO points the next perf lane at a queue
+      // that is no longer there instead of at the download that is. Name the whole span, and let
+      // the coalescer's own line say how much of it was a turn waited.
+      `§DRAPE-COST-ATTRIBUTION: ${waitMs.toFixed(0)} ms in the shared terrain sampler (coalescing ` +
+      'window + any queuing + the round-trip — read §STARTUP-GROUND-SAMPLE-COALESCE for the split), ' +
       `${(ms - waitMs).toFixed(0)} ms own work (seat points, probes, split decision, grid clips). ` +
       // §DRAPE-LAYER-BUDGET (L-12989) — WHAT THE LAYER WAS NOT ALLOWED TO SPEND. Printed even when
       // nothing was denied, because "0 denied" is the reading that says a city fits, and a budget
@@ -14084,6 +14214,7 @@ export class CesiumViewport {
     );
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    this.noteGroundFeaturesLoadedAt(lat, lon);   // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-13270)
     this.clearContextRoads();
     if (collection.ways.length === 0) {
       // ⛔ §ABORT-PROMISES-NOTHING (L-13171) — THIS RETURN WAS SILENT, and its silence is why the
@@ -14232,6 +14363,7 @@ export class CesiumViewport {
     );
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    this.noteGroundFeaturesLoadedAt(lat, lon);   // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-13270)
     this.clearContextRail();
     if (railWays.length === 0) return; // honest no-op when the layer is un-baked/empty or wholly outside the scope.
 
@@ -14375,6 +14507,7 @@ export class CesiumViewport {
     ], lat, lon);
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    this.noteGroundFeaturesLoadedAt(lat, lon);   // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-13270)
     this.clearContextWater();
     // §FEAT-FORMA-SEA-CONTEXT (L-642 Phase A) — the SEA is now a STANDING, always-on layer with its
     // OWN lifecycle (loadContextSea, promoted to load with the terrain/location like T0 terrain), so
@@ -14810,6 +14943,7 @@ export class CesiumViewport {
     );
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    this.noteGroundFeaturesLoadedAt(lat, lon);   // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-13270)
     this.clearContextParks();
     if (parkAreas.length === 0) return;
 
@@ -14933,6 +15067,7 @@ export class CesiumViewport {
     );
     if (signal.aborted || !this.viewer || this.viewer !== viewer) return;
 
+    this.noteGroundFeaturesLoadedAt(lat, lon);   // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-13270)
     this.clearContextLanduse();
     if (collection.areas.length === 0) return;
 
@@ -19110,6 +19245,41 @@ export class CesiumViewport {
         this.contextSeaAbort = null;
         this.clearContextSea();
         this.contextSeaAt = null;
+        // ⛔ §C13-GROUND-FEATURES-ARE-PROJECT-SCOPED (L-13270, founder 2026-09-09, Albox → Granada).
+        // THE FIVE SCALAR-SEATED GROUND LAYERS WERE THE ONLY CONTEXT LAYERS THIS TEARDOWN DID NOT
+        // TOUCH. Buildings, canopies, street furniture and the sea are all dropped above — roads,
+        // rail, water, parks and land-use were not, and neither was the anchor that says which site
+        // they belong to. So the incoming project inherited the outgoing one's grey plate, its road
+        // grid and its water, and the settled-base re-seat then measured all 5045 of them against
+        // whatever ground was under their OLD coordinates: `5045 per-feature (51.0–523.6 m)` in a
+        // scene whose base was 812.3 m and whose buildings sat at 799.9 m.
+        //
+        // ⚠ This is the FOURTH layer-family found leaking through this same function (footprints
+        // L-676 → canopies + street life L-12964 → these five). The shape does not change: a NEW
+        // context layer is added with its own list, its own abort and sometimes its own `…At`, and
+        // nothing forces its author to come here. The re-seat guard added in
+        // `reseatContextGroundFeaturesForBase` is the second line of defence precisely because this
+        // list will be incomplete again.
+        this.contextRoadsAbort?.abort();
+        this.contextRoadsAbort = null;
+        this.clearContextRoads();
+        this.contextRailAbort?.abort();
+        this.contextRailAbort = null;
+        this.clearContextRail();
+        this.contextWaterAbort?.abort();
+        this.contextWaterAbort = null;
+        this.contextWaterInFlight = null;   // §CTX-WATER-COALESCE — the incoming project must not JOIN the outgoing one's read.
+        this.clearContextWater();
+        this.contextParkAbort?.abort();
+        this.contextParkAbort = null;
+        this.clearContextParks();
+        this.contextLanduseAbort?.abort();
+        this.contextLanduseAbort = null;
+        this.clearContextLanduse();
+        this.contextGroundFeaturesAt = null;
+        // §A-LIFT-IS-NOT-A-DRAPE (L-13271) — the re-drape ledger is keyed by `formaTerrainToken`,
+        // which is bumped below; clearing it as well keeps the two from ever disagreeing.
+        this.groundLayerRedrapedAtToken.clear();
         // §FIX-PHOTOREAL-VOID-CAP (L-10180) — the white plug belongs to ONE parcel's void. It must
         // never survive into the next project: `formaTerrainBaseHeight` resets to 0 below, so a
         // stranded plug would hang at the ellipsoid over a different city. Cleared on BOTH modes
@@ -19307,6 +19477,23 @@ export class CesiumViewport {
       // happened to model. This is the number the founder read off the log.
       cameraSeatedAt: this.cameraSeatedAt ? { ...this.cameraSeatedAt } : null,
       formaMode: this.formaMode,
+      // ⭐ §C13-GROUND-FEATURES-ARE-PROJECT-SCOPED (L-13270) — WHY THE PROBE WAS BLIND TO THIS ONE.
+      // Everything above describes the massing, the footprints, the terrain slug and the camera —
+      // and the five scalar-seated ground layers are none of those. So a viewport carrying the
+      // PREVIOUS site's roads, rail, water, parks and land-use answered this probe with a clean
+      // sheet: `contextBuildingsAt` had been nulled by the teardown, `terrainCity` had been nulled,
+      // and the 5045 stale entities were not in the report at all. An audit can only find a leak in
+      // state it is shown. Reported as counts PLUS the anchor: "0 entities" and "5045 entities that
+      // belong to a site 130 km away" are different facts, and a leak report needs both.
+      groundFeaturesAt: this.contextGroundFeaturesAt ? { ...this.contextGroundFeaturesAt } : null,
+      groundFeatureEntityCounts: {
+        roads: this.contextRoadEntities.length,
+        rail: this.contextRailEntities.length,
+        water: this.contextWaterEntities.length,
+        parks: this.contextParkEntities.length,
+        landuse: this.contextLanduseEntities.length,
+        sea: this.contextSeaEntities.length,
+      },
     };
   }
 
