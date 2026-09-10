@@ -454,6 +454,28 @@ export async function bootstrap(
         // initWallLevelSubscribers below; see its header for the coverage table.
         columnBuilder, roofBuilder,
     } = await initBuilders({ scene: world.scene.three as THREE.Scene, bimManager, projectContext });
+    // §STARTUP-LEG-CLOSES-OVER-ITS-OWN-AWAIT (lane PERF-OPEN, L-13270) — ⭐ THE ONE STEP THE
+    // BUILDERS LEG HAS ALWAYS EXCLUDED, AND IT IS THE LEG'S ONLY `await`.
+    //
+    // `endBootLeg` computes `wallMs = state.lastAtMs - state.startedAtMs` (`bootStepProfile.ts`),
+    // where `lastAtMs` is the last `bootStep()` boundary. Until this line the last tile in the
+    // leg was `fragments.init (kickoff, not awaited)` — declared ~40 lines ABOVE the
+    // `await initBuilders(...)` on the line before this one. So the segment containing the
+    // await was in NEITHER the table rows NOR the wall total, and the leg's own headline
+    // under-reported itself by exactly the span everyone was trying to find.
+    //
+    // That is why `boot:builders-done +2467ms` (measured, lane PERF-OPEN 2026-09-10, cold
+    // new-project open) and the leg's own table's 11.4 ms across 51 constructor steps are BOTH
+    // true and not in contradiction: they measure different spans, and the ~2.5 s one had no
+    // tile. Everyone who read the mark — including the brief that commissioned the previous
+    // lane — concluded `initBuilders` was slow. The constructors are not; something inside or
+    // beneath this await is.
+    //
+    // The `await:` prefix is load-bearing: `bootStepProfile` classifies such a step as
+    // SUSPENDED and books its long-task overlap as `foreign` rather than `own`, which is
+    // precisely the own-vs-waiting question this span could not answer. Passive — one
+    // `performance.now()` and one array push; nothing is gated, delayed or skipped by it.
+    bootStep('await:initBuilders');
     markStartupPhase('boot:builders-done'); // §STARTUP-BUDGET
     // §STARTUP-BUILDERS-LEG — prints the tiled table for the whole span above, with the
     // own / foreign / idle split. Read THAT before believing the `+Nms` on the mark.
@@ -1132,6 +1154,23 @@ export async function bootstrap(
     markStartupPhase('boot:data-platform-done'); // §STARTUP-BUDGET
 
     // ── UI ────────────────────────────────────────────────────────────────────
+    // §STARTUP-UI-LEG (lane PERF-OPEN, L-13271) — the SECOND-largest span of a cold
+    // new-project open, and until now the largest one with no instrument of any kind on it.
+    //
+    // Measured 2026-09-10 (cold new-project open, local production build, gesture-relative):
+    //   boot:data-platform-done  t+4688ms
+    //   globe:eager-init-start   t+5930ms   ← 1242 ms inside initUI with NOTHING named
+    //   boot:ui-done             t+6264ms
+    //
+    // `beginBootLeg` is what attaches the long-task `PerformanceObserver`, so before this line
+    // there was ZERO long-task attribution anywhere outside the builders leg — the whole of
+    // `initUI` (3 579 LOC) and `mountGISArea` (8 823 LOC, where Cesium is adopted) were a
+    // single unnamed 1.6 s block. This makes the leg print the same tiled own/foreign/idle
+    // table the builders leg already prints, using the SAME instrument rather than a rival.
+    //
+    // ⛔ Marks only. `bootStepProfile` gates nothing; a leg that is never ended simply never
+    // prints. Adding it cannot change what runs or in what order.
+    beginBootLeg('ui');
     await initUI({
         runtime, world, components, container, bimManager, projectContext,
         commandManager, selectionManager, toolManager,
@@ -1146,6 +1185,9 @@ export async function bootstrap(
         unselectAll, updateIfManualMode,
     });
 
+    // §STARTUP-UI-LEG — closes over its own await, for the reason the builders leg did not.
+    bootStep('await:initUI');
+    endBootLeg('ui');
     markStartupPhase('boot:ui-done'); // §STARTUP-BUDGET — `initUI` is where `mountGISArea` runs.
     // §FIX-CW-CTRL-REREGISTER: CurtainWallBuilder is constructed inside initUI — re-inject.
     batchCoordinator.registerBuilderControls(
