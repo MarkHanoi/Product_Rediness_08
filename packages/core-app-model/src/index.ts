@@ -321,6 +321,8 @@ export { GLOBE_SCALE_LIMIT_M, isGlobeScalePosition, isGlobeScaleBounds, MAX_BIM_
 export { NEAR_INSPECT_M, NEAR_RAMP_STANDOFF_M, MAX_DEPTH_RATIO, nearForStandoff, standoffFromBounds, applyAdaptiveNearPlane, installAdaptiveNearPlane } from './navigation/adaptiveNearPlane.js';
 export type { AdaptiveNearPlaneBinding, AdaptiveNearControlsLike } from './navigation/adaptiveNearPlane.js';
 export { FirstPersonController } from './navigation/FirstPersonController.js';
+export { publishWalkPose, readWalkPose } from './navigation/WalkPoseBeacon.js';
+export type { WalkPose } from './navigation/WalkPoseBeacon.js';
 export type { KeyboardOrbitCamera } from './navigation/KeyboardOrbitPlugin.js';
 export { KeyboardOrbitPlugin } from './navigation/KeyboardOrbitPlugin.js';
 export type { CameraSlot, CameraState } from './navigation/MultiViewCameraManager.js';

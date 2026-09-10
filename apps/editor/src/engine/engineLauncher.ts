@@ -1598,6 +1598,14 @@ export async function bootstrap(
         if (!_levelCamReady) return;
         if (viewController.viewMode !== '3D') return;
         if (window._ifcLevelImportInProgress) return;
+        // §WALK-CAMERA-FOLLOWS-THE-LEVEL (C59 §2.10 — one writer per view region).
+        // While Walk Mode is engaged the FirstPersonController re-applies its own
+        // pose to `world.camera.three` on EVERY frame and owns the level-follow
+        // behaviour for that mode.  Running this orbit re-seat as well would make
+        // two writers of one camera — the exact shape that caused the split-view
+        // width oscillation — and the animated `setLookAt` below would be undone
+        // by the walk controller's next tick anyway.
+        if (window.firstPersonController?.active) return;
         const detail = (e as CustomEvent).detail ?? {};
         const levelId: string = detail.levelId;
         if (!levelId) return;

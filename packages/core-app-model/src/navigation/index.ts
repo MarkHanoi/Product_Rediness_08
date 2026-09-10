@@ -21,6 +21,8 @@ export type { DepartingCameraContext, GroundPointXZ } from './cameraFraming.js';
 export { NEAR_INSPECT_M, NEAR_RAMP_STANDOFF_M, MAX_DEPTH_RATIO, nearForStandoff, standoffFromBounds, applyAdaptiveNearPlane, installAdaptiveNearPlane } from './adaptiveNearPlane.js';
 export type { AdaptiveNearPlaneBinding, AdaptiveNearControlsLike } from './adaptiveNearPlane.js';
 export { FirstPersonController } from './FirstPersonController.js';
+export { publishWalkPose, readWalkPose } from './WalkPoseBeacon.js';
+export type { WalkPose } from './WalkPoseBeacon.js';
 export type { KeyboardOrbitCamera } from './KeyboardOrbitPlugin.js';
 export { KeyboardOrbitPlugin } from './KeyboardOrbitPlugin.js';
 export type { CameraSlot, CameraState } from './MultiViewCameraManager.js';

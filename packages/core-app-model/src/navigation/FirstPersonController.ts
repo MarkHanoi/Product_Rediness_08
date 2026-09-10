@@ -36,6 +36,7 @@ import * as OBC from '@thatopen/components';
 // §SCC-NO-SELF-BARREL — relative import, NOT the package barrel (see
 // presentation/ViewRangeIntentResolver.ts for the measurement).
 import { unifiedFrameLoop } from '../rendering/UnifiedFrameLoop';
+import { publishWalkPose } from './WalkPoseBeacon.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,7 @@ export class FirstPersonController {
     private _keys: Keys = { ...RESET_KEYS };
 
     private _floorY = 0;
+    private _activeLevelId: string | null = null;
     private _lastDiagLog = 0;
     private _unregisterTick: (() => void) | null = null;
 
@@ -102,6 +104,7 @@ export class FirstPersonController {
     private readonly _onPointerMove:       (e: PointerEvent)  => void;
     private readonly _onPointerUp:         (e: PointerEvent)  => void;
     private readonly _onWindowBlur:        ()                 => void;
+    private readonly _onActiveLevelChanged:(e: Event)         => void;
 
     constructor(
         obcCamera:  OBC.OrthoPerspectiveCamera,
@@ -121,6 +124,7 @@ export class FirstPersonController {
         this._onPointerMove       = this._handlePointerMove.bind(this);
         this._onPointerUp         = this._handlePointerUp.bind(this);
         this._onWindowBlur        = this._handleWindowBlur.bind(this);
+        this._onActiveLevelChanged = this._handleActiveLevelChanged.bind(this);
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -168,6 +172,9 @@ export class FirstPersonController {
         // about Walk Mode: "drop me on the active floor at eye height".
         const floorY = this._getActiveLevelElevation();
         this._floorY = floorY;
+        // §WALK-POSITION-ON-PLAN — the plan pane draws ONE storey, so the marker
+        // needs to know which storey the walker is on, not only how high he is.
+        this._activeLevelId = this._readActiveLevelId();
         this._position.y = floorY + EYE_HEIGHT;
         console.log(`[FPC] Eye seeded at Y=${this._position.y.toFixed(3)} (level elevation ${floorY.toFixed(3)} + eye ${EYE_HEIGHT}).`);
 
@@ -196,6 +203,19 @@ export class FirstPersonController {
                 this._update(Math.min(deltaMs / 1000, 0.1));
             },
         });
+
+        // ── Step 6b: Follow the active level ──────────────────────────────────
+        // §WALK-CAMERA-FOLLOWS-THE-LEVEL.  `activeLevelChanged` is the SAME
+        // window CustomEvent that `LevelPlanViewBinder` and `engineLauncher`
+        // already consume (it is dispatched by `ProjectContext.emit()`), NOT a
+        // parallel signal — if the walk camera listened to something else the
+        // two split panes would drift apart on every storey change.
+        //
+        // The subscription is deliberately scoped to the active session: it is
+        // added here and removed in `deactivate()`, so OUTSIDE walk mode this
+        // controller changes nothing and the orbit camera keeps the behaviour
+        // `engineLauncher` has always given it.
+        window.addEventListener('activeLevelChanged', this._onActiveLevelChanged);
 
         // ── Step 7: Wire input events ─────────────────────────────────────────
         // Listen on BOTH window and document in capture phase so we receive
@@ -245,6 +265,7 @@ export class FirstPersonController {
         document.removeEventListener('keyup',   this._onKeyUp,   { capture: true } as EventListenerOptions);
         window.removeEventListener('blur', this._onWindowBlur);
         window.removeEventListener('mousemove', this._onMouseMove);
+        window.removeEventListener('activeLevelChanged', this._onActiveLevelChanged);
 
         document.removeEventListener('pointerlockchange', this._onPointerLockChange);
         document.removeEventListener('pointerlockerror',  this._onPointerLockError);
@@ -261,6 +282,10 @@ export class FirstPersonController {
         try { this._obcCamera.controls.enabled = true; } catch { /* non-fatal */ }
 
         this._keys = { ...RESET_KEYS };
+        // §WALK-POSITION-ON-PLAN — retract the beacon. A stale pose would leave a
+        // purple dot frozen on the plan after the user stopped walking, which reads
+        // as "he is standing there" and is false.
+        publishWalkPose(null);
 
         this._removeHUD();
 
@@ -345,6 +370,17 @@ export class FirstPersonController {
         const euler = new THREE.Euler(this._pitch, this._yaw, 0, 'YXZ');
         camera.quaternion.setFromEuler(euler);
         camera.updateMatrixWorld(true);
+
+        // §WALK-POSITION-ON-PLAN — publish the pose for the plan pane's marker.
+        // This is deliberately HERE and not in `_update()`: `_applyPose()` is the
+        // single funnel through which every pose change passes, movement frames
+        // and mouse-look deltas alike, so the marker cannot lag the camera.
+        const dir = this._getForwardXZ();
+        publishWalkPose({
+            x: pos.x, y: pos.y, z: pos.z,
+            dirX: dir.x, dirZ: dir.z,
+            levelId: this._activeLevelId,
+        });
 
         // Keep camera-controls' internal target in sync with our look direction
         // so when Walk Mode exits the orbit camera doesn't snap back wildly.
@@ -611,6 +647,89 @@ export class FirstPersonController {
         if (!(target instanceof HTMLElement)) return false;
         if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
         return target.isContentEditable;
+    }
+
+    /**
+     * §WALK-CAMERA-FOLLOWS-THE-LEVEL — re-seat the eye when the active level
+     * changes while Walk Mode is engaged.
+     *
+     * The plan pane already retargets itself on this event; before this handler
+     * existed the 3-D walk camera did not, so a user who switched from Ground to
+     * Level 1 kept walking at Y=1.70 on a storey whose slab is at 5.00 — the two
+     * halves of split view showed different buildings.
+     *
+     * The user's height ABOVE the floor is preserved rather than reset to
+     * EYE_HEIGHT, so someone who flew up with Q arrives at the same height over
+     * the new storey.  The offset is floored at EYE_HEIGHT so arriving inside
+     * the new slab is impossible — landing in the floor is worse than not
+     * moving at all.
+     *
+     * Horizontal position is untouched: he stays over the same point in plan,
+     * which is what the plan pane is still showing him.
+     */
+    private _handleActiveLevelChanged(e: Event): void {
+        if (!this._active) return;
+
+        const levelId = (e as CustomEvent<{ levelId?: string }>).detail?.levelId;
+        if (typeof levelId !== 'string' || levelId.length === 0) return;
+
+        const newFloorY = this._getLevelElevationById(levelId);
+        if (newFloorY === null) return;
+
+        const oldFloorY = this._floorY;
+        if (Math.abs(newFloorY - oldFloorY) < 0.001) return;
+
+        const offset = Math.max(this._position.y - oldFloorY, EYE_HEIGHT);
+        this._floorY        = newFloorY;
+        this._activeLevelId = levelId;
+        this._position.y    = newFloorY + offset;
+
+        this._applyPose();
+
+        console.log(
+            `[FPC] Level change → "${levelId}": eye ${(oldFloorY + offset).toFixed(3)} → ` +
+            `${this._position.y.toFixed(3)} (floor ${oldFloorY.toFixed(3)} → ${newFloorY.toFixed(3)}).`,
+        );
+    }
+
+    /** The active level's id from `ProjectContext`, or `null` when unavailable. */
+    private _readActiveLevelId(): string | null {
+        try {
+            const id = window.projectContext?.activeLevelId;
+            return typeof id === 'string' && id.length > 0 ? id : null;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Elevation (Y, world metres) of ONE level by id, or `null` when it cannot
+     * be resolved.
+     *
+     * `null` and `0` are deliberately different answers: Ground genuinely sits
+     * at 0, so reporting a failed lookup as `0` would silently teleport the user
+     * to the ground floor and call it success.
+     */
+    private _getLevelElevationById(levelId: string): number | null {
+        try {
+            const bim = window.bimManager;
+            if (bim && typeof bim.getLevelById === 'function') {
+                const lvl = bim.getLevelById(levelId);
+                if (lvl && typeof lvl.elevation === 'number' && isFinite(lvl.elevation)) {
+                    return lvl.elevation;
+                }
+            }
+            if (bim && typeof bim.getLevels === 'function') {
+                const levels = bim.getLevels() as Array<{ id: string; elevation: number }>;
+                const lvl = levels.find(l => l.id === levelId);
+                if (lvl && typeof lvl.elevation === 'number' && isFinite(lvl.elevation)) {
+                    return lvl.elevation;
+                }
+            }
+        } catch (err) {
+            console.warn('[FPC] Could not resolve level elevation:', err);
+        }
+        return null;
     }
 
     /**
