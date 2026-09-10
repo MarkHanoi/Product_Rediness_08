@@ -148,6 +148,49 @@ const _ICON_MAP: Record<string, string> = {
         '<circle cx="15" cy="12" r="1.8" fill="currentColor" stroke="none"/>' +
         '<circle cx="21" cy="5"  r="1.8" fill="currentColor" stroke="none"/>',
 
+    // ── Master planning (ADR-0384 D7 · C116 · ADR-0383) ───────────────────────
+    //
+    // ⛔ THE FIVE EMPTY CIRCLES. The founder opened the Master planning category and
+    // saw five identical blank discs. Every one of these names was passed to
+    // `iconFromName()` and NONE of them was in this map, so all five fell to the
+    // `<circle r="4"/>` default below — which renders, occupies the cell, and says
+    // nothing. C82's 267-of-280 census one layer down: not a dead BUTTON, a dead
+    // GLYPH. The labels were never missing; `.da-icon-cell-label` is a hover
+    // tooltip in EVERY category, so with five identical discs there was no way to
+    // tell the five tools apart without hovering each one.
+    //
+    // ⭐ `isMappedIconName()` + `masterPlanningRailIcons.spec.ts` now assert the SET
+    // of registered rail-entry icon names against the SET of keys here, in the
+    // direction that matters (every registered name must resolve), so a sixth entry
+    // cannot ship as a sixth blank disc.
+
+    /** ROAD — a carriageway in plan: two kerbs, a dashed centreline, running off-frame. */
+    'material-symbols:add-road-outline':
+        '<path d="M4 3v18"/><path d="M20 3v18"/>'
+        + '<path d="M12 4v3"/><path d="M12 10v4"/><path d="M12 17v3"/>',
+
+    /** PARKING — the bay marker: a plate carrying a P. */
+    'material-symbols:local-parking-outline':
+        '<rect x="3" y="3" width="18" height="18" rx="2"/>'
+        + '<path d="M9 17V7h3.5a3 3 0 0 1 0 6H9"/>',
+
+    /** PEDESTRIAN — the walking figure: head, torso, two legs, one swung arm. */
+    'material-symbols:directions-walk':
+        '<circle cx="13" cy="4" r="1.6"/>'
+        + '<path d="M13 7.5 11 12l2.5 2 .5 6"/>'
+        + '<path d="m11 12-2 3-1 5"/>'
+        + '<path d="m13 9 3 1.5"/>',
+
+    /** BUILDING PROFILE (ADR-0383) — a pentagonal footprint with its corner nodes. */
+    'material-symbols:pentagon-outline':
+        '<polygon points="12 3 21 9.5 17.5 20 6.5 20 3 9.5"/>',
+
+    /** ANOTHER PROFILE (ADR-0383) — a second plate stacked behind the first, plus. */
+    'material-symbols:library-add-outline':
+        '<rect x="8" y="8" width="13" height="13" rx="2"/>'
+        + '<path d="M4 16V5a2 2 0 0 1 2-2h11"/>'
+        + '<path d="M14.5 11v7"/><path d="M11 14.5h7"/>',
+
     // ── Lighting ──────────────────────────────────────────────────────────────
 
     /**
@@ -353,11 +396,41 @@ const _ICON_MAP: Record<string, string> = {
 };
 
 /**
+ * The glyph `iconFromName()` emits for a name this map has never heard of.
+ *
+ * ⛔ IT IS A RENDERABLE BLANK, AND THAT IS THE HAZARD. An unmapped name produces a
+ * perfectly well-formed disc that fills its cell and identifies nothing — the
+ * founder's *"five empty circles"* on the Master planning rail. It is exported so
+ * the failure is ADDRESSABLE by a test rather than only visible to a person:
+ * `iconFromName(n) === _s(FALLBACK_ICON_PATH, size)` is the predicate that
+ * distinguishes "drew the icon" from "drew a hole".
+ */
+export const FALLBACK_ICON_PATH = '<circle cx="12" cy="12" r="4"/>';
+
+/**
+ * Does this map actually carry a glyph for `name`?
+ *
+ * ⭐ §GATE-BLIND-ON-THE-WRONG-AXIS — the axis that keeps failing here is
+ * MEMBERSHIP, not count. Five rail entries rendered five icons; five icons were
+ * drawn; nothing anywhere compared the NAMES against the KEYS. Any registry that
+ * hands a name to `iconFromName()` should assert this over its own SET.
+ */
+export function isMappedIconName(name: string): boolean {
+    return Object.prototype.hasOwnProperty.call(_ICON_MAP, name);
+}
+
+/** Every name this map answers for. Test seam — production reads it through `iconFromName`. */
+export function mappedIconNames(): readonly string[] {
+    return Object.keys(_ICON_MAP);
+}
+
+/**
  * Returns an inline SVG string for the given icon name.
- * Falls back to a generic dot if the name is not mapped.
+ * Falls back to a generic dot if the name is not mapped — see `FALLBACK_ICON_PATH`
+ * for why that fallback is a liability rather than a courtesy.
  */
 export function iconFromName(name: string, size = 16): string {
-    const path = _ICON_MAP[name] ?? '<circle cx="12" cy="12" r="4"/>';
+    const path = _ICON_MAP[name] ?? FALLBACK_ICON_PATH;
     return _s(path, size);
 }
 
