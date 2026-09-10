@@ -129,10 +129,22 @@ export interface EnvelopeDrawSurface {
      * is stored and the panel names it, there is simply nothing painted. That is a reachability
      * statement, not caution: an adapter is never made to promise a picture it cannot draw.
      *
+     * ⭐ §ARRAY-ALONG-PATH (ADR-0386 D6) — `closed` DEFAULTS TO TRUE, so every adapter written
+     * before this parameter existed is called with the argument list it was written for and keeps
+     * its exact behaviour. `false` asks for an OPEN polyline: the array spine, which is a run and
+     * not a perimeter. An adapter that ignores the parameter draws the old closed shape — visibly
+     * wrong rather than silently absent, which is the right failure mode for an optional method.
+     *
+     * ⛔ AND THE MINIMUM DIFFERS WITH IT: a closed ring needs three vertices to enclose anything,
+     * an open path needs two. An adapter that keeps a hard `length < 3` guard will silently drop
+     * every two-point spine.
+     *
      * @param ring the CLOSED perimeter, in the same project-frame scene-XZ metres as `onPoint` —
      *             the exact vertices handed to `setDrawnEnvelopeFootprint`, never a second copy.
+     *             When `closed` is false this is instead the exact vertices handed to
+     *             `setDrawnArrayPath`.
      */
-    drawSettledRing?(ring: readonly SceneXZPoint[]): void;
+    drawSettledRing?(ring: readonly SceneXZPoint[], closed?: boolean): void;
     /** Drop the settled ring. Idempotent; safe on a surface that never drew one. */
     clearSettledRing?(): void;
     /**

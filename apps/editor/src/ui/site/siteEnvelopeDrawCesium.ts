@@ -543,9 +543,10 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
      * the terrain the preview sat on rather than sinking to the ellipsoid — the same reason
      * `drawPreview` seats absolutely instead of clamping (the 3-D Site hides the globe).
      */
-    drawSettledRing(ring: readonly SceneXZPoint[]): void {
+    drawSettledRing(ring: readonly SceneXZPoint[], closed = true): void {
         this.clearSettledRing();
-        if (ring.length < 3) return;
+        // ⭐ §ARRAY-ALONG-PATH (ADR-0386 D6) — three vertices to enclose anything, two to be a run.
+        if (ring.length < (closed ? 3 : 2)) return;
         const frame = this.frame ?? this.resolveFrameNow();
         if (!frame) {
             // The origin went away between the last click and the finish — a re-seat mid-gesture.
@@ -564,8 +565,11 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
                 const ll = projectXZToLatLon(p, frame);
                 return C.Cartesian3.fromDegrees(ll.lon, ll.lat, this.groundHeightFor(p) + PREVIEW_LIFT_M);
             });
+            // ⛔ NO FILL FOR A SPINE. A run drawn as a filled polygon is a picture of a shape that
+            // does not exist — and on a three-point spine it would be a solid triangle sitting on
+            // the parcel that the user never drew.
             // The FILL first, so the outline and the dots draw over it.
-            this.settledFill = this.viewer.entities.add({
+            if (closed) this.settledFill = this.viewer.entities.add({
                 polygon: {
                     hierarchy: new C.PolygonHierarchy(positions),
                     // ⛔ `perPositionHeight` — the vertices already carry the height each pick
@@ -579,7 +583,7 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
             });
             this.settledLine = this.viewer.entities.add({
                 polyline: {
-                    positions: [...positions, positions[0]!],
+                    positions: closed ? [...positions, positions[0]!] : positions,
                     width: 3,
                     material: C.Color.fromCssColorString(VIOLET_CSS),
                 },

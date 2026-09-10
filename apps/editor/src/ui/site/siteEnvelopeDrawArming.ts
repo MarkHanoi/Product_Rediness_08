@@ -79,6 +79,8 @@ import {
     subscribeDrawnEnvelopeFootprint,
     type EnvelopeDrawMode,
 } from './drawnEnvelopeFootprintState';
+// §ARRAY-ALONG-PATH (ADR-0386 D6) — the SECOND sink this ONE gesture driver can finish into.
+import { arrayPathLengthM, setDrawnArrayPath } from './envelopeArrayPathState';
 
 const _tracer = trace.getTracer('pryzm.site.siteEnvelopeDrawArming');
 
@@ -199,6 +201,62 @@ export function subscribeEnvelopeDrawMode(fn: () => void): () => void {
     return () => { modeListeners.delete(fn); };
 }
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ §ARRAY-ALONG-PATH (ADR-0386 D6, 2026-09-10) — ONE STROKE DRIVER, TWO INTENTS
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// The founder, on master planning: *"as it would be a wall tool (with all the wall modes —
+// straight, ortho, curved etc.) creates a line starting from the CENTRE of the first envelope"*.
+//
+// ⛔ SO A SECOND STROKE MACHINE WAS THE OBVIOUS MOVE AND IT IS THE FORBIDDEN ONE.
+// [[same-rule-two-implementations]] has recurred eight times here and the shape never varies: the
+// fix lands in the copy nobody is looking at, and the guarding test stays green because it measured
+// the other one. Everything the spine needs is ALREADY in this module and already correct —
+// `BoundaryPathAuthor`'s founder-ruled perpendicular-foot ortho, the 3-click arc, Backspace, the
+// arm-every-surface registry, first-click-wins, the six exits that all pass through `disarmAll()`,
+// and L-7801's rule that a disarmed surface's late events are ignored rather than obeyed.
+//
+// ⭐ SO WHAT WAS EXTRACTED IS THE **FINISH TARGET**, WHICH IS THE ONLY THING THAT DIFFERED. The
+// driver is untouched; `finish()` now asks WHICH SINK the stroke was armed for:
+//
+//     'perimeter'   → close the ring, collapse last-vs-first, write `drawnEnvelopeFootprintState`
+//     'array-path'  → keep it OPEN, two vertices is enough, write `envelopeArrayPathState`
+//
+// ⛔ AND THE INTENT IS AN ARGUMENT TO `armEnvelopeDraw`, NEVER A MODE THE USER SETS. It is decided
+// by the BUTTON that armed the gesture and cleared when the gesture ends, so it can never be a
+// stale flag that silently changes what the next click means — the [[view-region-one-owner]] shape
+// this module's own header already refuses for capture-mode flags.
+//
+// ⚠ THE OTHER STROKE FAMILY IN THIS REPO IS *NOT* THIS ONE, AND CONFLATING THEM WOULD BE THE SAME
+// DEFECT INVERTED. `BoundaryLinePlanToolHandler` (549 lines) strokes the BIM plan view through
+// `PlanToolDrawContext`, which is hard-bound to `HTMLCanvasElement` — `envelopeDrawSurface.ts` says
+// in as many words that *"no Cesium or MapLibre adapter could ever satisfy that interface"*. Both
+// families already delegate their RULES to the same `@pryzm/geometry-slab` primitives
+// (`orthoConstrain`, `arcSegmentThroughMidpoint`, `boundaryLoopVertices`), which is the sharing
+// that matters; what differs is the surface binding, and that is not duplication. Recorded for
+// C116 §11 / `siteworksRailTools.ts`, which is waiting on the OTHER family's extraction.
+
+/** Which sink this stroke will finish into. Set by the arm, cleared with the gesture. */
+export type EnvelopeDrawIntent = 'perimeter' | 'array-path';
+
+export function isEnvelopeDrawIntent(v: unknown): v is EnvelopeDrawIntent {
+    return v === 'perimeter' || v === 'array-path';
+}
+
+/**
+ * ⛔ DEFAULTS TO `'perimeter'` AND IS RESET TO IT BY EVERY EXIT. Every pre-existing caller of
+ * `armEnvelopeDraw()` passes nothing and is therefore byte-identical to its behaviour before this
+ * lane — which is what makes this an addition rather than a change.
+ */
+let _intent: EnvelopeDrawIntent = 'perimeter';
+
+/** What the gesture is currently stroking. `'perimeter'` whenever nothing is armed. */
+export function resolveEnvelopeDrawIntent(): EnvelopeDrawIntent {
+    return _intent;
+}
+
+/** A spine needs two distinct vertices; a perimeter needs three. The one place the two differ. */
+const MIN_PATH_VERTICES = 2;
+
 // ── THE REGISTRY ────────────────────────────────────────────────────────────────────────────────
 
 /** Every surface currently mounted, in registration order. */
@@ -233,7 +291,11 @@ let cursor: SceneXZPoint | null = null;
 /** The surface currently showing a settled ring, or `null`. Cleared through `clearSettledRing`. */
 let settledOn: EnvelopeDrawSurface | null = null;
 
-function paintSettledRing(surface: EnvelopeDrawSurface, ring: readonly SceneXZPoint[]): void {
+function paintSettledRing(
+    surface: EnvelopeDrawSurface,
+    ring: readonly SceneXZPoint[],
+    closed: boolean,
+): void {
     ensureSlotSubscription();
     clearSettledRing();
     // ⚠ A SURFACE THAT DOES NOT IMPLEMENT IT IS NOT AN ERROR. The ring is stored either way and
@@ -241,7 +303,13 @@ function paintSettledRing(surface: EnvelopeDrawSurface, ring: readonly SceneXZPo
     // means. Recording the owner anyway would leave a clear pointed at nothing.
     if (typeof surface.drawSettledRing !== 'function') return;
     try {
-        surface.drawSettledRing(ring);
+        // ⭐ §ARRAY-ALONG-PATH — `closed` is OMITTED for a perimeter rather than passed as
+        // `true`, so an adapter that predates this parameter is called with the exact same
+        // argument list it was written for. A spine passes `false` and an adapter that ignores
+        // it draws the old closed shape — wrong, but visible and non-fatal, which is the right
+        // failure mode for an OPTIONAL port method.
+        if (closed) surface.drawSettledRing(ring);
+        else surface.drawSettledRing(ring, false);
         settledOn = surface;
     } catch (e) {
         console.warn('[site][envelope-draw] settled-ring draw threw (non-fatal):', e);
@@ -284,6 +352,13 @@ export interface EnvelopeDrawStatus {
     /** The surface that owns the gesture in progress, once a first click has landed. */
     readonly owner: EnvelopeDrawSurface['surfaceId'] | null;
     readonly mode: EnvelopeDrawMode;
+    /**
+     * ⭐ §ARRAY-ALONG-PATH — WHICH STROKE IS RUNNING. `'perimeter'` whenever nothing is armed.
+     * Carried as a VALUE so the two Draw buttons paint their own pressed state from the one status
+     * rather than each keeping a private "did I arm this?" flag — two flags for one gesture is the
+     * [[view-region-one-owner]] shape, and both buttons would light up together.
+     */
+    readonly intent: EnvelopeDrawIntent;
     /** Vertices placed so far (path modes) — 0 or 1 in loop modes. */
     readonly vertices: number;
     /** The next thing to do, in one sentence. Empty when idle. */
@@ -346,6 +421,18 @@ function hintFor(): string {
     if (author.pendingArcMidpoint !== null) {
         return 'Click the arc END — the last click was the arc midpoint · Backspace re-picks the bulge · Esc cancels.';
     }
+    // ⭐ §ARRAY-ALONG-PATH — ONE HINT PRODUCER, TWO STROKES. A second `hintFor` for the spine would
+    // be the third place in this module that has to know what a stroke can do next.
+    if (_intent === 'array-path') {
+        if (author.pointCount === 0) {
+            return 'The spine starts at the first envelope\'s centre — click where the line of '
+                + 'blocks should run · Esc cancels.';
+        }
+        return author.pointCount >= MIN_PATH_VERTICES
+            ? 'Click the next point · double-click or Enter finishes the spine · Backspace removes '
+              + 'the last point · Esc cancels.'
+            : 'Click the end of the spine · Backspace removes the last point · Esc cancels.';
+    }
     if (author.pointCount === 0) {
         return 'Click to place the first corner of the envelope perimeter · Esc cancels.';
     }
@@ -360,6 +447,7 @@ export function getEnvelopeDrawStatus(): EnvelopeDrawStatus {
         surfaces: armed.size,
         owner: owner?.surfaceId ?? null,
         mode: _mode,
+        intent: _intent,
         vertices: isBoundaryLoopMode(_mode) ? (loopFirst === null ? 0 : 1) : author.pointCount,
         hint: hintFor(),
         refusal: lastRefusal,
@@ -449,6 +537,10 @@ function resetGesture(): void {
     loopFirst = null;
     cursor = null;
     owner = null;
+    // ⛔ §ARRAY-ALONG-PATH — THE INTENT DIES WITH THE GESTURE. Every exit runs through here
+    // (finish, cancel, re-arm, an unregister while armed), so `'array-path'` can never outlive
+    // the stroke it was armed for and silently change what the NEXT Draw button means.
+    _intent = 'perimeter';
 }
 
 function disarmAll(): void {
@@ -465,11 +557,16 @@ function disarmAll(): void {
  *
  * P8: `pryzm.site.armEnvelopeDraw`.
  */
-export function armEnvelopeDraw(): EnvelopeDrawActivation {
+export function armEnvelopeDraw(
+    intent: EnvelopeDrawIntent = 'perimeter',
+): EnvelopeDrawActivation {
     const span = _tracer.startSpan('pryzm.site.armEnvelopeDraw');
     _owningProjectId = activeProjectId();   // C13 §3.10 — stamp WHOSE plot is being drawn on
     try {
         if (armed.size > 0) { resetGesture(); disarmAll(); }
+        // ⛔ AFTER the reset above, never before — `resetGesture()` puts the intent back to
+        // `'perimeter'`, so setting it first would arm a spine and immediately forget.
+        _intent = isEnvelopeDrawIntent(intent) ? intent : 'perimeter';
         // ⛔ THE PREVIOUS DRAWING'S OUTLINE GOES WHEN A NEW DRAW STARTS, not when it finishes. A
         // user re-arming has decided to replace the perimeter; leaving the old one painted would
         // put two rings on the globe and no way to tell which one the panel is talking about.
@@ -484,6 +581,7 @@ export function armEnvelopeDraw(): EnvelopeDrawActivation {
         }
         span.setAttribute('pryzm.envelopeDraw.registered', registered.length);
         span.setAttribute('pryzm.envelopeDraw.accepted', accepted);
+        span.setAttribute('pryzm.envelopeDraw.intent', _intent);
         if (accepted === 0) {
             // ⭐ §ENVELOPE-DRAW C5 — A SURFACE THAT IS ATTACHED BUT CANNOT ARM GETS TO SAY WHY.
             // With no surface registered the refusal is the generic one (the route back is "open a
@@ -502,7 +600,8 @@ export function armEnvelopeDraw(): EnvelopeDrawActivation {
         }
         console.log(
             `[site][envelope-draw] §ENVELOPE-DRAW armed on ${accepted} surface(s) `
-            + `(${[...armed].map((s) => s.surfaceId).join(', ')}) · mode=${_mode} · the first click wins.`,
+            + `(${[...armed].map((s) => s.surfaceId).join(', ')}) · mode=${_mode} · intent=${_intent}`
+            + ' · the first click wins.',
         );
         notifyStatus();
         return { ok: true, surfaces: accepted };
@@ -549,7 +648,13 @@ function repaintPreview(): void {
         }
         const committed = author.points;
         const tail = author.previewTail(mode, cursor);
-        target.drawPreview(committed, tail, committed.length + tail.length >= 3);
+        // ⛔ §ARRAY-ALONG-PATH — A SPINE IS NEVER PREVIEWED CLOSED. Without this clause the
+        // third click on a spine draws the closing edge back to the first vertex, and the user
+        // aims at a triangle while the tool is measuring a polyline — the preview and the
+        // commit disagreeing about what is being drawn, which is the defect the loop preview's
+        // own "generated from THE SAME ring the commit will use" note exists to prevent.
+        const closeRing = _intent === 'perimeter' && committed.length + tail.length >= 3;
+        target.drawPreview(committed, tail, closeRing);
     } catch (e) {
         console.warn('[site][envelope-draw] preview draw threw (non-fatal):', e);
     }
@@ -569,26 +674,90 @@ function repaintPreview(): void {
  * any real corner); no collinear-vertex removal, no smoothing, no reordering. The user's corners
  * are the user's corners.
  */
-function collapseCoincident(ring: readonly ArcVertex2D[]): ArcVertex2D[] {
-    const EPS_M = 1e-3;
+const COLLAPSE_EPS_M = 1e-3;
+
+/**
+ * ⭐ §ARRAY-ALONG-PATH — THE HALF OF THE COLLAPSE THAT IS TRUE OF ANY STROKE. Consecutive corners
+ * on the same spot are one corner whether the stroke is a perimeter or a spine, and both gestures
+ * produce them for the same reason (the closing click is delivered as a corner FIRST and the finish
+ * SECOND, on both renderers).
+ */
+function collapseConsecutive(stroke: readonly ArcVertex2D[]): ArcVertex2D[] {
     const out: ArcVertex2D[] = [];
-    for (const p of ring) {
+    for (const p of stroke) {
         const prev = out[out.length - 1];
-        if (prev && Math.abs(prev.x - p.x) < EPS_M && Math.abs(prev.z - p.z) < EPS_M) continue;
+        if (prev
+            && Math.abs(prev.x - p.x) < COLLAPSE_EPS_M
+            && Math.abs(prev.z - p.z) < COLLAPSE_EPS_M) continue;
         out.push({ x: p.x, z: p.z });
     }
+    return out;
+}
+
+/**
+ * ⛔ THE RING RULE, AND IT IS NOT APPLIED TO A SPINE. Popping a last vertex that coincides with the
+ * first is right for a perimeter — the closing edge is implied, so repeating the vertex would be a
+ * zero-length edge in a committed footprint. It is WRONG for a spine: a path that deliberately
+ * returns to its start (a loop road, a courtyard block ring) would silently lose its last vertex
+ * and the array would stop one spacing short of where the user drew.
+ */
+function collapseCoincident(ring: readonly ArcVertex2D[]): ArcVertex2D[] {
+    const out = collapseConsecutive(ring);
     while (out.length >= 2) {
         const a = out[0]!;
         const b = out[out.length - 1]!;
-        if (Math.abs(a.x - b.x) < EPS_M && Math.abs(a.z - b.z) < EPS_M) out.pop();
+        if (Math.abs(a.x - b.x) < COLLAPSE_EPS_M && Math.abs(a.z - b.z) < COLLAPSE_EPS_M) out.pop();
         else break;
     }
     return out;
 }
 
+/**
+ * ⭐ §ARRAY-ALONG-PATH (ADR-0386 D6) — THE SECOND FINISH TARGET. Everything above this function is
+ * shared with the perimeter stroke; this is the entirety of what differs.
+ *
+ * ⛔ IT DISPATCHES NOTHING AND CREATES NOTHING (P6). It writes ONE transient slot, exactly as the
+ * perimeter finish writes ONE transient roster — the copies, the storeys and the single
+ * `spaceEnvelope.batch.create` all happen later, in the panel, through the ONE planner.
+ */
+function finishArrayPath(
+    rawStroke: readonly ArcVertex2D[],
+    mode: EnvelopeDrawMode,
+    from: EnvelopeDrawSurface,
+): void {
+    // ⛔ CONSECUTIVE-ONLY: a spine that returns to its own start keeps that vertex. See the rule.
+    const path = collapseConsecutive(rawStroke);
+    const lengthM = arrayPathLengthM(path);
+    if (path.length < MIN_PATH_VERTICES || lengthM <= 0) {
+        lastRefusal =
+            `Those ${rawStroke.length} clicks are all on the same spot, so the spine has no length `
+            + 'to place blocks along. Click the end point away from the first envelope and try '
+            + 'again — nothing was stored.';
+        notifyStatus();
+        return;
+    }
+    const stored = path.map((v) => ({ x: v.x, z: v.z }));
+    resetGesture();
+    disarmAll();
+    setDrawnArrayPath({ path: stored, lengthM, surfaceId: from.surfaceId, mode });
+    // The finished spine stays on screen for the same reason the finished perimeter does
+    // (§ENVELOPE-DRAW-SETTLED-RING, L-13148 — the founder: *"when i click enter - it desappar from
+    // hte screen - it should continue"*). It is painted OPEN; a spine drawn as a filled polygon
+    // would be a picture of a shape that does not exist.
+    paintSettledRing(from, stored, false);
+    console.log(
+        `[site][array-path] §ARRAY-ALONG-PATH spine finished on ${from.surfaceId}: `
+        + `${stored.length} vertices · ${lengthM.toFixed(1)} m · mode=${mode}. Handed to the `
+        + 'master-planning panel — nothing is dispatched here (P6).',
+    );
+    notifyStatus();
+}
+
 function finish(rawRing: readonly ArcVertex2D[], mode: EnvelopeDrawMode): void {
     const from = owner;
     if (!from) return;
+    // ⛔ READ BEFORE `resetGesture()`, which puts the intent back to `'perimeter'`.
+    if (_intent === 'array-path') { finishArrayPath(rawRing, mode, from); return; }
     const ring = collapseCoincident(rawRing);
     if (ring.length < 3) {
         // The collapse ate the perimeter — every corner landed on the same spot. That is a REFUSAL
@@ -608,7 +777,7 @@ function finish(rawRing: readonly ArcVertex2D[], mode: EnvelopeDrawMode): void {
     // that can refuse (a degenerate ring), and painting first would leave an outline on screen for
     // a perimeter the slot rejected. `from` is captured above because `resetGesture()` has already
     // nulled `owner` by the time we get here.
-    paintSettledRing(from, stored);
+    paintSettledRing(from, stored, true);
     console.log(
         `[site][envelope-draw] §ENVELOPE-DRAW finished on ${from.surfaceId}: ${stored.length} corners · `
         + `${areaM2.toFixed(1)} m² · mode=${mode}. Handed to the create panel — nothing is dispatched here (P6).`,
@@ -636,6 +805,19 @@ function makeSink(surface: EnvelopeDrawSurface): EnvelopeDrawSink {
             }
             const mode = _mode; // ⛔ read fresh per click, never latched at arm
             cursor = p;
+            if (_intent === 'array-path' && isBoundaryLoopMode(mode)) {
+                // ⛔ REFUSED BY NAME, never silently coerced to `'linear'`. A rectangle is a
+                // CLOSED shape and a spine is an open run, so there is no honest reading of
+                // "array along a circle" that this generator implements. Quietly switching the
+                // mode under the user is the §FIX-STAIR-SHAPE-DESYNC defect — a circle that
+                // became a rectangle is worse than a refusal (C16 CA-18).
+                lastRefusal =
+                    'Rectangle, circle and ellipse draw a CLOSED shape, and the spine is an open '
+                    + 'line. Pick Linear, Orthogonal or Curved on the mode strip and click again '
+                    + '— the first envelope you already drew is untouched.';
+                notifyStatus();
+                return;
+            }
             if (isBoundaryLoopMode(mode)) {
                 if (loopFirst === null) {
                     loopFirst = { x: p.x, z: p.z };
@@ -667,6 +849,27 @@ function makeSink(surface: EnvelopeDrawSurface): EnvelopeDrawSink {
             if (!live() || owner !== surface) return;
             const mode = _mode;
             if (isBoundaryLoopMode(mode)) return; // loops close on their second click
+            if (_intent === 'array-path') {
+                // ⭐ TWO, NOT THREE. A single straight run is a perfectly good spine — the same
+                // distinction `BoundaryLinePlanToolHandler` draws with `MIN_PATH_VERTS = 2`. The
+                // pending-arc block below still applies, so a half-drawn bulge cannot be finished.
+                if (author.pendingArcMidpoint !== null) {
+                    lastRefusal =
+                        'The spine cannot finish while an arc is half-drawn: click the arc END '
+                        + 'first, or press Backspace to drop the midpoint.';
+                    notifyStatus();
+                    return;
+                }
+                if (author.pointCount < MIN_PATH_VERTICES) {
+                    lastRefusal =
+                        `A spine needs at least ${MIN_PATH_VERTICES} points — `
+                        + `${author.pointCount} placed so far. Nothing was stored.`;
+                    notifyStatus();
+                    return;
+                }
+                finish(author.points, mode);
+                return;
+            }
             if (!author.canClose()) {
                 lastRefusal = author.pendingArcMidpoint !== null
                     ? 'The perimeter cannot close while an arc is half-drawn: click the arc END first, '
@@ -711,6 +914,7 @@ export function __resetEnvelopeDrawArmingForTests(): void {
     modeListeners.clear();
     lastRefusal = null;
     _mode = 'linear';
+    _intent = 'perimeter';
     _owningProjectId = null;
 }
 

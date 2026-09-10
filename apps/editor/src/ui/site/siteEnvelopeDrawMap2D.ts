@@ -254,8 +254,12 @@ export class SiteEnvelopeDrawMap2D implements EnvelopeDrawSurface {
      * ⚠ IT RESOLVES ITS OWN FRAME, for the same reason the 3-D adapter does: `this.frame` is
      * nulled by `disarm()`, and the finish disarms before it paints.
      */
-    drawSettledRing(ring: readonly SceneXZPoint[]): void {
-        if (ring.length < 3) { this.clearSettledRing(); return; }
+    drawSettledRing(ring: readonly SceneXZPoint[], closed = true): void {
+        // ⭐ §ARRAY-ALONG-PATH (ADR-0386 D6) — the MINIMUM MOVES WITH THE SHAPE. Three vertices to
+        // enclose anything; two to be a run. Keeping the hard 3 here would have dropped every
+        // straight two-point spine silently, which is the shape this repo logs as "the fix landed
+        // and the founder still reports it".
+        if (ring.length < (closed ? 3 : 2)) { this.clearSettledRing(); return; }
         const frame = this.frame ?? this.resolveFrameNow();
         if (!frame) {
             console.warn(
@@ -276,8 +280,14 @@ export class SiteEnvelopeDrawMap2D implements EnvelopeDrawSurface {
                 features: [{
                     type: 'Feature',
                     properties: {},
-                    // GeoJSON polygons close explicitly — first vertex repeated last.
-                    geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]!]] },
+                    // ⭐ A SPINE IS A LineString, NOT A CLOSED RING. The existing `fill` layer
+                    // simply renders nothing for one and the `line` layer draws it, so the open
+                    // case needs no third layer — and a spine pushed through the Polygon branch
+                    // would be painted as a filled shape that does not exist.
+                    geometry: closed
+                        // GeoJSON polygons close explicitly — first vertex repeated last.
+                        ? { type: 'Polygon', coordinates: [[...coords, coords[0]!]] }
+                        : { type: 'LineString', coordinates: coords },
                 }],
             });
         } catch (e) {
