@@ -109,6 +109,11 @@ import {
     lightsWithPendingCasterRelease,
     lightOwnsLiveShadowMap,
     releaseLightOwnedShadowNow,
+    // §FOREIGN-SHADOW-MAP-CLAIM (L-13281) — the FOURTH arm. The three above order a
+    // free THIS package is about to cause. This one detects a free caused by a
+    // SECOND THREE.WebGLRenderer over the same scene, which changes NOTHING the
+    // caster fingerprint observes and is therefore invisible to every other arm.
+    lightsWithForeignShadowMapClaim,
     type ShadowOwningLight,
 } from '../safeDispose';
 const _bus = new DOMEventBus();
@@ -1220,6 +1225,16 @@ export class RenderPipelineManager implements IViewSwitchListener {
         drainShadowCasterFlipQueue();
         this._orderPendingCasterReleasesAtBoundary();
 
+        // ── §FOREIGN-SHADOW-MAP-CLAIM (L-13281) ───────────────────────
+        // The three arms above order frees THIS package causes. This one detects a
+        // free caused by a SECOND THREE.WebGLRenderer over the same scene — the
+        // L-205 dual-renderer claim, which moves nothing the caster fingerprint
+        // observes and is therefore invisible to all three. Deliberately BEFORE
+        // every early-return below: a frame we decline to submit is still a frame
+        // boundary, and this arm is what lets a viewport already latched shut by
+        // §RECOVERY-MUST-REFUSE-NO-FLOOD come back.
+        this._healForeignShadowMapClaimsAtBoundary();
+
         // ── §L-328 SS-FIX-ELEVATION-VIEW-ZERO-SIZE-RENDER-TARGET (P1) ─────────
         // NEVER submit a render pass against a zero-size / incomplete framebuffer.
         // Creating a documentation view (elevation) spins up a split pane whose render
@@ -1296,7 +1311,7 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // progressive build the user can watch — produced nothing. Past the ceiling the pause
         // releases and the viewport paints; the realloc freeze that prevents the device loss
         // stays on.
-        if (this._shadowRebuildPaused && !this._submitPauseHasOverstayed()) {
+        if (this._submitPauseIsHolding()) {
             return this._skipFrame('shadowRebuildPaused');
         }
 
@@ -1797,6 +1812,55 @@ export class RenderPipelineManager implements IViewSwitchListener {
         if (this._submitPauseOpenedAtMs === null) {
             this._submitPauseOpenedAtMs = performance.now();
             this._submitPauseCapReported = false;
+        } else if (performance.now() - this._submitPauseOpenedAtMs >= MAX_SUBMIT_PAUSE_MS) {
+            // ⛔⛔ §A-LIVENESS-CEILING-MAY-NOT-DEFEAT-A-CORRECTNESS-PAUSE (L-13283).
+            //
+            // ⭐ THIS BRANCH IS THE FOUNDER'S 2026-09-10 DEAD VIEWPORT, AND IT IS THE HALF THAT
+            //    KILLS THE RECOVERY — not the crash, the FAILURE TO RECOVER FROM IT.
+            //
+            // The ceiling above is a LIVENESS device: past MAX_SUBMIT_PAUSE_MS the pause
+            // releases so the user is not staring at a frozen frame. Correct, and it stays.
+            // But the clock belongs to the window, and — with the outermost stamp rule alone —
+            // an ALREADY-OVERSTAYED window swallows every guard opened after it: the depth
+            // counter rises, `_shadowRebuildPaused` is set, and `render()` submits anyway
+            // because the clock is still the expired one.
+            //
+            // ⛔ That silently disarms `recoverFromRenderFailure()`. Its whole safety argument
+            // is step 1: *"Close the submit gate BEFORE anything is freed … so no frame is
+            // encoded between the free and the new pipeline's install."* It opens THIS guard
+            // and then calls `_recreateLightOwnedShadowMaps()`, which frees every light-owned
+            // `ShadowDepthTexture`. On an overstayed window that gate never actually shuts, so
+            // the recovery frees those textures WHILE FRAMES ARE BEING SUBMITTED — re-creating,
+            // from inside the repair, the exact fault it was invoked to repair:
+            //
+            //   Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+            //
+            // Which is why the founder's console reads §RECOVERY-MUST-REFUSE → recovery 1/2 →
+            // §RECOVERY-MUST-REFUSE → recovery 2/2 → budget EXHAUSTED → phase=error. The ladder's
+            // repair is RIGHT; it was being performed with the gate wedged open, so each
+            // attempt re-armed the fault and spent a life doing it. On his open the outer
+            // window had held 16 799 ms against a 2 000 ms ceiling — the recovery never had a
+            // closed gate to work behind.
+            //
+            // ⭐ THE RULE: a liveness ceiling may bound how long ITS OWN window darkens the
+            // screen; it may never pre-expire a pause a LATER caller opens for correctness.
+            // So a guard nesting onto an expired window RE-STAMPS the clock and gets its own
+            // bounded window. This does NOT restore the unbounded case L-13270 closed: every
+            // re-stamped window is itself capped at MAX_SUBMIT_PAUSE_MS, so sustained
+            // re-arming yields bounded darkness with paints in between — which is what that
+            // ceiling was asking for — rather than a pause that never holds at all.
+            this._submitPauseOpenedAtMs  = performance.now();
+            this._submitPauseCapReported = false;
+            console.warn(
+                '[RenderPipelineManager] §A-LIVENESS-CEILING-MAY-NOT-DEFEAT-A-CORRECTNESS-PAUSE '
+                + '(L-13283) — a new submit pause was opened on top of a window that had already '
+                + `overstayed its ${MAX_SUBMIT_PAUSE_MS} ms liveness ceiling. RE-STAMPING the clock so `
+                + 'this guard actually holds submits: the caller is about to free or rebind GPU '
+                + 'state, and an expired clock would let frames encode straight through it — which '
+                + 'is how a recovery re-creates the very "Destroyed texture [ShadowDepthTexture] '
+                + 'used in a submit" fault it was invoked to repair. The new window is bounded by '
+                + 'the same ceiling.',
+            );
         }
         this.setShadowReallocFrozen(true);
     }
@@ -1830,6 +1894,49 @@ export class RenderPipelineManager implements IViewSwitchListener {
             );
         }
         return true;
+    }
+
+    /**
+     * §PAUSE-FLAG-IS-NOT-THE-SUBMIT-GATE (L-13282) — is the submit pause ACTUALLY holding
+     * this frame back?
+     *
+     * ⭐⭐ THE DISTINCTION THIS METHOD EXISTS FOR IS THE FOUNDER'S 2026-09-10 DEAD VIEWPORT.
+     *
+     * Before §SUBMIT-PAUSE-IS-BOUNDED (L-13270, landed 2026-09-09 — ONE DAY earlier),
+     * `_shadowRebuildPaused === true` and "no frame will be submitted" were the SAME FACT,
+     * and every boundary arm was written against that equivalence. The ceiling split them:
+     * past {@link MAX_SUBMIT_PAUSE_MS} the pause RELEASES and the viewport paints while the
+     * flag is still `true`. The founder's own console shows the gap it opens —
+     * `SHADOW_REBUILD_COMPLETE elapsed=16799.0ms` against a 2000 ms ceiling, i.e.
+     * **~14.8 SECONDS OF SUBMITTED FRAMES WITH THE FLAG SET.**
+     *
+     * ⛔ `_orderPendingCasterReleasesAtBoundary()` early-returns on that flag, and its own
+     * comment states the premise out loud: *"Already inside a paused window …: the
+     * fingerprint is deliberately NOT recorded, so a change that lands during the pause is
+     * still seen on the first unpaused boundary."* That is sound ONLY while the pause holds
+     * submits — a latent free cannot detonate in a frame that is never encoded. Once the
+     * ceiling lets frames through, the derived caster detector is switched off across a
+     * window in which three IS building node graphs inside open command encoders, and a
+     * `castShadow` flip landing anywhere in those ~14.8 s frees the `ShadowDepthTexture`
+     * mid-submit with nothing watching:
+     *
+     *   Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+     *    - While calling [Queue].Submit([[CommandBuffer from CommandEncoder "renderContext_1"]])
+     *
+     * …which §RECOVERY-MUST-REFUSE correctly refuses, the bounded ladder spends 2/2 on, and
+     * the viewport dies. The ladder's repair is RIGHT; the hole simply re-opens behind it,
+     * because the detector that would have ordered the free is still gated off.
+     *
+     * ⭐ THE RULE: a boundary arm must gate on *"will this frame submit?"*, never on
+     * *"is a pause flag set?"* — those stopped being the same question on 2026-09-09.
+     * `render()`'s own frame gate already asks it this way; this method is that question
+     * given a name so the two can never drift apart again.
+     *
+     * Cheap and idempotent: {@link _submitPauseHasOverstayed} latches its report, so calling
+     * it from both the frame gate and the boundary arms cannot double-log.
+     */
+    private _submitPauseIsHolding(): boolean {
+        return this._shadowRebuildPaused && !this._submitPauseHasOverstayed();
     }
 
     /**
@@ -1976,10 +2083,20 @@ export class RenderPipelineManager implements IViewSwitchListener {
 
     private _orderPendingCasterReleasesAtBoundary(): void {
         if (!this._webGpuActive) return;
-        // Already inside a paused window (a rebuild, a mesh-release window, a tier
-        // mutation): the fingerprint is deliberately NOT recorded, so a change that
-        // lands during the pause is still seen on the first unpaused boundary.
-        if (this._shadowRebuildPaused) return;
+        // Inside a submit pause that is ACTUALLY HOLDING (a rebuild, a mesh-release
+        // window, a tier mutation): the fingerprint is deliberately NOT recorded, so a
+        // change that lands during the pause is still seen on the first boundary that
+        // submits. Safe, because a latent free cannot detonate in a frame nobody encodes.
+        //
+        // ⚠ §PAUSE-FLAG-IS-NOT-THE-SUBMIT-GATE (L-13282) — this used to read
+        // `if (this._shadowRebuildPaused) return;`, and that was correct only while the
+        // flag and "no frame will be submitted" were the same fact. §SUBMIT-PAUSE-IS-BOUNDED
+        // (L-13270) split them on 2026-09-09: past the 2000 ms ceiling the pause releases
+        // and frames submit WITH THE FLAG STILL SET. On the founder's 2026-09-10 open the
+        // rebuild ran 16 799 ms — ~14.8 s of submitted frames during which this detector,
+        // the ONLY thing watching for a latent mid-encode `ShadowDepthTexture` free, was
+        // switched off. Ask whether the frame will submit, never whether a flag is set.
+        if (this._submitPauseIsHolding()) return;
 
         const renderer = this._renderer as unknown as {
             lighting?: { getNode?(scene: unknown): { customCacheKey?(): number; getLights?(): unknown[] } | null };
@@ -2047,6 +2164,147 @@ export class RenderPipelineManager implements IViewSwitchListener {
             'command encoder — "Destroyed texture [ShadowDepthTexture] used in a submit". ' +
             'Compiled node states reset; submits resume next macrotask.',
         );
+    }
+
+
+    /* ── §FOREIGN-SHADOW-MAP-CLAIM (L-13281) ───────────────────────────────────
+     *
+     * ⭐ THE FOURTH BOUNDARY ARM — AND THE FIRST ONE THAT DOES NOT ASK WHO DID IT.
+     *
+     * The founder's production crash (project open → split-view auto-open → dead
+     * viewport, 2026-09-10) is the L-205 dual-renderer claim, and every existing
+     * guard is structurally blind to it:
+     *
+     *   • `drainShadowMapReallocQueue`   orders a resize WE requested.
+     *   • `drainShadowCasterFlipQueue`   orders a caster flip WE requested.
+     *   • `_orderPendingCasterReleasesAtBoundary` derives a caster flip from
+     *     `LightsNode.customCacheKey()` + `shadowMap.type/.enabled` on OUR renderer.
+     *
+     * A foreign `THREE.WebGLRenderer` rendering the same scene with
+     * `shadowMap.enabled === true` moves NONE of those: no `castShadow` flip, no
+     * light id change (so the fingerprint is byte-identical), no `mapSize` write, no
+     * change to OUR `shadowMap.type`. It simply walks into the shared
+     * `LightShadow.map` slot at WebGLShadowMap.js:203-227 and frees the target the
+     * WebGPU `ShadowNode` is still sampling — "Destroyed texture [Texture
+     * ShadowDepthTexture] used in a submit", forever, on a frame this manager never
+     * owned.
+     *
+     * ⛔ THAT is why §RECOVERY-MUST-REFUSE is RIGHT to refuse and why the bounded
+     * ladder spends 2/2 and still dies: the ladder's repair is correct
+     * (`_recreateLightOwnedShadowMaps` + `_resetCompiledNodeStates`), but the
+     * CLAIMANT IS STILL ARMED, so it re-does the damage after each repair. A repair
+     * loop against a live cause is not a fix; DETECTING THE CAUSE is.
+     *
+     * ── THE DETECTION IS A CONSTRUCTION, NOT A HEURISTIC ────────────────────────
+     * three itself brands the two owners of that one slot:
+     *   • node path — `ShadowNode.setupRenderTarget()` → `builder.createRenderTarget()`
+     *     → `new RenderTarget(…)` (NodeBuilder.js:505-509), which sets ONLY
+     *     `isRenderTarget = true` (RenderTarget.js:75).
+     *   • WebGL path — `WebGLShadowMap.render()` → `new WebGLRenderTarget(…)`, whose
+     *     constructor sets `isWebGLRenderTarget = true` (WebGLRenderTarget.js:28).
+     * So on a native-WebGPU session `light.shadow.map.isWebGLRenderTarget === true`
+     * IS the claim, positively identified, with no false-positive branch and no
+     * dependence on WHICH module armed the flag, on a log line, or on any caller
+     * remembering anything. It closes the CLASS, not one call site — the property
+     * the eight existing tests in this family lacked.
+     *
+     * ── THE REPAIR IS THE MACHINERY THAT ALREADY EXISTS ─────────────────────────
+     * Exactly the §SHADOW-CASTER-FLIP-AT-BOUNDARY step, at the same instant, for the
+     * same reason: pause submits, perform three's OWN release
+     * (`releaseLightOwnedShadowNow`), reset the compiled node states so the graph
+     * recompiles with a fresh `ShadowNode` + fresh target, resume next macrotask.
+     * Because this runs at the TOP of `render()` — before any encoder is opened and
+     * before the `pipelineError` / `shadowRebuildPaused` gates — the first frame
+     * after a claim heals it, so no submit references the corpse and the crash is
+     * never reported at all.
+     *
+     * ⚠ HEALING IS THE SECOND LINE, NOT THE FIRST. The claim must not happen: the
+     * arming write is refused and its author named by `sealShadowMapEnabled()`
+     * (§SHADOW-ENABLE-SINGLE-OWNER), installed on the foreign renderer at the
+     * Phase-5 hand-over. This arm exists because five modules declaring an invariant
+     * and nothing enforcing it is how the founder got here twice, and because a seal
+     * can only cover renderers we know to seal.
+     *
+     * COST: one `lighting.getNode(scene).getLights()` (O(#lights) — a Pascal
+     * key/fill/rim plus the fixture budget, single digits) and one property read per
+     * light. No scene traverse; the L-1151/L-1155 defect class is deliberately
+     * avoided. Inert unless the native-WebGPU backend is live.
+     */
+    /** Cumulative count of foreign WebGL shadow-map claims healed at a frame boundary. */
+    private _foreignShadowClaimHeals = 0;
+
+    /** Total foreign WebGL `LightShadow.map` claims this manager has healed. */
+    get foreignShadowClaimHealCount(): number { return this._foreignShadowClaimHeals; }
+
+    private _healForeignShadowMapClaimsAtBoundary(): void {
+        // A `WebGLRenderTarget` in `shadow.map` is CORRECT on a WebGL session — this
+        // predicate is a violation only on the node path. Gate on the live backend.
+        if (!this._webGpuActive) return;
+
+        const renderer = this._renderer as unknown as {
+            lighting?: { getNode?(scene: unknown): { getLights?(): unknown[] } | null };
+        } | null;
+        const scene = this._scene;
+        if (!renderer || !scene) return;
+
+        let lights: unknown[] = [];
+        try {
+            const lightsNode = renderer.lighting?.getNode?.(scene) ?? null;
+            if (!lightsNode || typeof lightsNode.getLights !== 'function') return;
+            lights = lightsNode.getLights() ?? [];
+        } catch {
+            // A backend mid-swap, or a renderer that predates the node path. A
+            // diagnostic read must never kill the frame.
+            return;
+        }
+
+        const claimed = lightsWithForeignShadowMapClaim(lights as ShadowOwningLight[]);
+        if (claimed.length === 0) return;
+
+        // Pause submits FIRST: the reset below recompiles the node graph, and the
+        // frame that recompiles must not be a frame we submit.
+        this._beginShadowRebuildGuard();
+        let healed = 0;
+        const names: string[] = [];
+        for (const light of claimed) {
+            names.push(light.name || `id:${light.id ?? '?'}`);
+            if (releaseLightOwnedShadowNow(light)) healed++;
+        }
+        // Nothing may still BIND the map the foreign renderer freed. Same companion
+        // as §SHADOW-CASTER-FLIP-AT-BOUNDARY — a pipeline rebuild cannot reach a
+        // cached nodeBuilderState, only this can (§L-819).
+        this._resetCompiledNodeStates();
+        this._foreignShadowClaimHeals += healed;
+
+        console.error(
+            `[RenderPipelineManager] §FOREIGN-SHADOW-MAP-CLAIM (L-13281) a SECOND WebGL renderer ` +
+            `claimed the shadow slot of ${claimed.length} light(s) [${names.join(', ')}] — their ` +
+            '`LightShadow.map` is a `WebGLRenderTarget`, which only `WebGLShadowMap.render()` ' +
+            'mints, so a foreign renderer ran a shadow pass over the live scene and freed the ' +
+            'WebGPU ShadowDepthTexture out from under our ShadowNode (WebGLShadowMap.js:209/214). ' +
+            `This is the L-205 dual-renderer claim. HEALED ${healed} at the frame boundary ` +
+            "(three's own release + compiled node-state reset), so no submit references the " +
+            'destroyed texture and the viewport keeps painting. ⛔ THIS IS A SECOND LINE OF ' +
+            'DEFENCE, NOT A FIX: some module armed `shadowMap.enabled = true` on a renderer that ' +
+            'is not the live one. Seal that renderer with `sealShadowMapEnabled()` ' +
+            "(§SHADOW-ENABLE-SINGLE-OWNER) — it refuses the write and prints the violator's stack.",
+        );
+
+        // §RECOVERY-MUST-REFUSE-NO-FLOOD companion — if the refusal latch is holding
+        // the loop shut over exactly the fault we just repaired, lift it. Not from
+        // the terminal state (`phase='error'` is the user's crash card and belongs to
+        // the crash guard's own lever), and not while a rebuild owns the pipeline.
+        if (this._hasPipelineError && this._phase !== 'error' && !this._rebuildInFlight && this._renderPipeline) {
+            this._hasPipelineError = false;
+            console.warn(
+                '[RenderPipelineManager] §FOREIGN-SHADOW-MAP-CLAIM cleared the ' +
+                '§RECOVERY-MUST-REFUSE-NO-FLOOD latch: it was holding the render loop shut over a ' +
+                'destroyed light-owned shadow map, and that map has just been released and ' +
+                'un-bound. Frames resume; the node graph recompiles a fresh ShadowDepthTexture.',
+            );
+        }
+
+        setTimeout(() => { this._endShadowRebuildGuard(); }, 0);
     }
 
     scheduleShadowRebuild(): void {
@@ -4830,10 +5088,16 @@ export class RenderPipelineManager implements IViewSwitchListener {
         // §L930-DETACH-BEFORE-FREE — an unordered free is the whole defect, so say
         // so at the moment it would happen rather than 4 frames later as a
         // "Destroyed texture … used in a submit" the reader must trace backwards.
-        if (!this._shadowRebuildPaused || this._renderPipeline !== null) {
+        // §PAUSE-FLAG-IS-NOT-THE-SUBMIT-GATE (L-13282) — ask whether the gate is ACTUALLY
+        // holding, not whether the flag is set. Past §SUBMIT-PAUSE-IS-BOUNDED's ceiling the
+        // flag stays `true` while frames submit, so the flag alone would suppress exactly
+        // the warning this precondition exists to print — the one case where the free below
+        // really is unordered against submission.
+        if (!this._submitPauseIsHolding() || this._renderPipeline !== null) {
             console.warn(
                 '[RenderPipelineManager] §L930-DETACH-BEFORE-FREE about to free light-owned shadow ' +
-                `maps with the submit gate OPEN (paused=${this._shadowRebuildPaused}, ` +
+                `maps with the submit gate OPEN (pauseFlag=${this._shadowRebuildPaused}, ` +
+                `pauseActuallyHolding=${this._submitPauseIsHolding()}, ` +
                 `pipelineInstalled=${this._renderPipeline !== null}). The next submitted frame will ` +
                 'reference a destroyed ShadowDepthTexture — call _beginShadowRebuildGuard() and null ' +
                 '_renderPipeline BEFORE this sweep (ADR-0297 INVARIANT L2).',

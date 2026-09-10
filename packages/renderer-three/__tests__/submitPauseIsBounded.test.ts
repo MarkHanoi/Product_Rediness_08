@@ -59,12 +59,59 @@ describe('§SUBMIT-PAUSE-IS-BOUNDED — the ceiling exists and the gate consults
     it('⭐ the FRAME GATE consults it — a ceiling nothing reads is decoration', () => {
         // §COMMITTED-IS-NOT-REACHABLE. The constant is worthless unless the one hot path that
         // skips the frame asks whether the window has overstayed.
+        //
+        // ⚠ UPDATED 2026-09-10 (lane SHADOW-CRASH, §PAUSE-FLAG-IS-NOT-THE-SUBMIT-GATE / L-13282).
+        // This arm used to require the LITERAL `_submitPauseHasOverstayed()` inside a 320-char
+        // window around the gate. That inlined expression has been given a name —
+        // `_submitPauseIsHolding()` — because the gate was NOT the only place that needed to
+        // ask this question and the copies had already drifted: three boundary arms were still
+        // gating on the raw `_shadowRebuildPaused` FLAG, which stopped meaning "no frame will
+        // be submitted" the moment this ceiling landed. On the founder's 2026-09-10 open that
+        // gap was ~14.8 s of submitted frames with the derived shadow-caster detector switched
+        // off → "Destroyed texture [ShadowDepthTexture] used in a submit" → dead viewport.
+        //
+        // So the arm now FOLLOWS the indirection instead of banning it, and asserts BOTH legs:
+        // the gate consults the named predicate, and the named predicate consults the ceiling.
+        // That is strictly stronger than the literal match — a rename cannot satisfy it, and it
+        // additionally pins that the one question has exactly one implementation. Do NOT
+        // re-inline the expression to make this pass; that is the defect it now guards against.
         expect(CODE).toContain('_submitPauseHasOverstayed()');
         const gateAt = CODE.indexOf("_skipFrame('shadowRebuildPaused')");
         expect(gateAt).toBeGreaterThan(-1);
         const window = CODE.slice(Math.max(0, gateAt - 260), gateAt + 60);
         expect(window, 'the gate must be conditional on the ceiling')
+            .toContain('_submitPauseIsHolding()');
+
+        // Leg 2 — and the predicate it delegates to must actually read the ceiling.
+        const at = SRC.indexOf('private _submitPauseIsHolding()');
+        expect(at, '_submitPauseIsHolding() must exist — the gate calls it').toBeGreaterThan(-1);
+        const body = SRC.slice(at, SRC.indexOf('\n    }', at));
+        expect(body, 'the named predicate must be the one that consults the ceiling')
             .toContain('_submitPauseHasOverstayed()');
+        expect(body, 'and it must still require the pause flag — the ceiling only RELEASES')
+            .toContain('_shadowRebuildPaused');
+    });
+
+    it('⭐ EVERY boundary arm asks the SAME question — no arm may gate on the bare flag (L-13282)', () => {
+        // ⭐⭐ THE ARM THAT WOULD HAVE CAUGHT THE FOUNDER'S 2026-09-10 CRASH.
+        //
+        // §SUBMIT-PAUSE-IS-BOUNDED split two facts that had always been one:
+        // `_shadowRebuildPaused === true` no longer implies "no frame will be submitted".
+        // Every guard written before 2026-09-09 was gated on the FLAG, and the most important
+        // of them — `_orderPendingCasterReleasesAtBoundary()`, the DERIVED detector that is the
+        // only thing watching for a latent `castShadow` free — therefore switched itself off
+        // across a window in which frames WERE being encoded.
+        //
+        // A boundary arm may read the flag only through `_submitPauseIsHolding()`. The reads
+        // allowed below are the WRITES and the derivation itself, not gates.
+        const bareGate = /if\s*\(\s*this\._shadowRebuildPaused\s*\)/g;
+        const hits = CODE.match(bareGate) ?? [];
+        expect(
+            hits,
+            'a boundary arm is gating on the pause FLAG instead of on whether the frame will ' +
+            'SUBMIT. Past MAX_SUBMIT_PAUSE_MS those are different questions, and the arm is off ' +
+            'exactly when frames are being encoded. Use _submitPauseIsHolding().',
+        ).toEqual([]);
     });
 
     it('⛔ THE DEVICE-LOSS GUARD IS NOT WEAKENED — the realloc freeze is untouched', () => {

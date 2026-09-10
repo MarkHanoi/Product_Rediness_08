@@ -113,6 +113,15 @@ import { retireRenderer, mintedRenderObjectCount, classifyRetirement, describeRe
 // §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS (L-1470) — refuse a pass whose surface has no
 // area, and say so ONCE. See clearObcBaseFramebuffer for the measured mechanism.
 import { admitSurface, getZeroAreaSurfaceReport } from '@pryzm/renderer-three';
+// §SHADOW-ENABLE-SINGLE-OWNER (L-13281) — the ENFORCEMENT half of an invariant this
+// file alone declares three times (1948/1979/2057) and nothing checked. Once Phase 5
+// hands rendering to the PRYZM WebGPU renderer, OBC's WebGL renderer shares the scene
+// but must NEVER run a shadow pass: a THREE light has ONE `LightShadow.map` slot, and
+// `WebGLShadowMap.render()` frees the live WebGPU ShadowDepthTexture out of it
+// (WebGLShadowMap.js:209/214) → "Destroyed texture [ShadowDepthTexture] used in a
+// submit" → a permanently frozen viewport §RECOVERY-MUST-REFUSE cannot repair. The
+// seal REFUSES the arming write and NAMES the violator with its stack.
+import { sealShadowMapEnabled } from '@pryzm/renderer-three';
 import { ViewportCrashGuard } from '@app/ui/primitives/ViewportCrashGuard';
 import { RenderHealthIndicator } from '@app/ui/overlays/RenderHealthIndicator';
 import { pascalSceneLighting } from '@pryzm/core-app-model/rendering';
@@ -2168,6 +2177,12 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
     });
     window.addEventListener('blur', _resetDragOnFocusLoss);
 
+    // §SHADOW-ENABLE-SINGLE-OWNER (L-13281) — release handle for the seal installed on
+    // OBC's renderer once Phase 5 succeeds. Declared OUTSIDE the try so the Phase-5
+    // FAILURE rollback below can lift the seal before handing OBC back its shadow pass:
+    // when Phase 5 fails, OBC IS the live renderer and arming it is correct.
+    let releaseObcShadowEnableSeal: (() => void) | null = null;
+
     // ── Phase 5: PRYZM-Owned WebGPU Renderer (OBC Decoupling) ────────────
     // Option C from 01-WEBGPU-RENDERING-MIGRATION §Phase-5:
     //   @thatopen/components is retained ONLY for IFC/Fragments geometry and
@@ -2344,6 +2359,24 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // ownership of all shadow rendering.
         postproductionRenderer.three.shadowMap.enabled = false;
 
+        // ── §SHADOW-ENABLE-SINGLE-OWNER (L-13281) ─────────────────────────
+        // ⭐ THE LINE ABOVE HAS BEEN WRITTEN FIVE TIMES ACROSS FOUR PACKAGES AND WAS
+        // ENFORCED BY NOTHING. `BimWorld.ts:117`, this file at 1948/1979/2057,
+        // `ViewController.ts:2486`, `ShadowQualityUpgrader.ts:249` and
+        // `RenderPipelineManager._applyShadowEnabledState()` all DECLARE that a
+        // non-live renderer's `shadowMap.enabled` must stay false — and it is a plain
+        // data property that any module, plugin or `as any` cast can flip back. The
+        // founder's viewport died on production because something did, and the console
+        // named a destroyed texture four hops downstream instead of naming the writer.
+        //
+        // Seal it: the write is REFUSED and the violator is printed WITH ITS STACK. A
+        // guard that silently swallowed the write would be worse than the crash — this
+        // one is loud, and the next occurrence identifies its author on the spot.
+        releaseObcShadowEnableSeal = sealShadowMapEnabled(
+            postproductionRenderer.three as unknown as { shadowMap?: { enabled?: boolean } },
+            "OBC postproductionRenderer.three (Phase 5: NOT the live renderer)",
+        );
+
         // ── Phase 5: clear scene.three.background ─────────────────────────
         // The TSL pipeline's bgUniform handles the background colour via the
         // compositing formula: finalOutput = mix(bgUniform, colorSource, contentAlpha).
@@ -2433,6 +2466,13 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
         // failure happened after the lock but before isPhase5Active=true, OBC
         // would be permanently silenced without this rollback.
         try {
+            // §SHADOW-ENABLE-SINGLE-OWNER (L-13281) — lift the seal FIRST. Phase 5 failed,
+            // so OBC is now the SOLE renderer and arming its shadow pass is correct; the
+            // seal exists only to stop a SECOND renderer claiming the shared
+            // `LightShadow.map`. Without this the rollback would be refused (loudly, and
+            // wrongly) and the fallback viewport would render with no shadows at all.
+            try { releaseObcShadowEnableSeal?.(); } catch { /* seal already released */ }
+            releaseObcShadowEnableSeal = null;
             postproductionRenderer.postproduction.enabled = true;
             (postproductionRenderer as any).mode          = OBC.RendererMode.AUTO;
             postproductionRenderer.three.shadowMap.enabled = true;

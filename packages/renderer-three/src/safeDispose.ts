@@ -693,6 +693,97 @@ export function lightOwnsLiveShadowMap(light: ShadowOwningLight | null | undefin
     return map !== null && map !== undefined;
 }
 
+/* ── §FOREIGN-SHADOW-MAP-CLAIM (L-13281) ──────────────────────────────────────
+ *
+ * ⭐ THE FOURTH BOUNDARY ARM, AND THE ONE THAT DOES NOT NEED TO KNOW WHO DID IT.
+ *
+ * The three arms above (`drainShadowMapReallocQueue`, `drainShadowCasterFlipQueue`,
+ * `_orderPendingCasterReleasesAtBoundary`) all order a free that PRYZM's OWN code
+ * is about to cause. None of them can see the fifth trigger, which is caused by
+ * nobody in this package:
+ *
+ *   T5  A SECOND THREE.WebGLRenderer renders the SAME scene with
+ *       `shadowMap.enabled === true`. A THREE light has exactly ONE
+ *       `LightShadow.map` slot, so `WebGLShadowMap.render()` walks straight into
+ *       the WebGPU node's target and frees it (three r183.2,
+ *       WebGLShadowMap.js:203-227):
+ *           :203  if ( shadow.map === null || typeChanged === true ) {
+ *           :209      shadow.map.depthTexture.dispose();
+ *           :214      shadow.map.dispose();      ← frees the LIVE WebGPU target
+ *           :227      shadow.map = new WebGLRenderTarget( … );
+ *       The WebGPU `ShadowNode` keeps its OWN reference (`this.shadowMap`,
+ *       ShadowNode.js:563-564) and keeps sampling the corpse every frame:
+ *           Destroyed texture [Texture "ShadowDepthTexture"] used in a submit.
+ *       — the founder's dead viewport, and the reason §RECOVERY-MUST-REFUSE
+ *       correctly refuses (a light-owned map is unreachable from a pipeline
+ *       rebuild).
+ *
+ * ⛔ WHY THE OTHER ARMS ARE STRUCTURALLY BLIND TO IT. T5 changes NOTHING they
+ * observe: no `castShadow` flip, no light id change (so
+ * `LightsNode.customCacheKey()` is byte-identical), no `renderer.shadowMap.type`
+ * change on OUR renderer, and no `shadow.mapSize` write. The caster-fingerprint
+ * detector reads exactly the state three keys its node cache on — and three's node
+ * cache is not what moved. The slot's CONTENTS moved.
+ *
+ * ⭐ THE DETECTOR IS A CONSTRUCTION, NOT A HEURISTIC. The two renderers mint
+ * structurally different objects for that one slot, and three itself brands them:
+ *   • WebGPU node path — `ShadowNode.setupRenderTarget()` (ShadowNode.js:389-403)
+ *     calls `builder.createRenderTarget()`, which is
+ *     `new RenderTarget(…)` (NodeBuilder.js:505-509). A plain `RenderTarget` sets
+ *     `isRenderTarget = true` and NOTHING else (RenderTarget.js:75).
+ *   • WebGL path — `WebGLShadowMap.render()` calls `new WebGLRenderTarget(…)`,
+ *     whose constructor sets `isWebGLRenderTarget = true` (WebGLRenderTarget.js:28).
+ *
+ * So on a session whose live renderer is the WebGPU node path,
+ * `light.shadow.map.isWebGLRenderTarget === true` is not evidence of a claim —
+ * it IS the claim, positively identified, with no false-positive branch. It does
+ * not depend on WHICH module armed `shadowMap.enabled`, on a log line, on a name,
+ * or on the caller remembering anything. That property is what makes this arm
+ * survive the defect shape this repo keeps re-learning: *the same rule fixed in
+ * the copy nobody is looking at.*
+ *
+ * The REPAIR is the machinery that already exists — `releaseLightOwnedShadowNow()`
+ * plus the caller's `_resetCompiledNodeStates()`, at the boundary, inside the
+ * submit pause. See `RenderPipelineManager._healForeignShadowMapClaimsAtBoundary()`,
+ * the single production caller.
+ */
+
+/**
+ * §FOREIGN-SHADOW-MAP-CLAIM — true iff this light's shadow slot currently holds a
+ * target minted by a `THREE.WebGLRenderer`'s `WebGLShadowMap`, rather than by the
+ * WebGPU `ShadowNode` that owns it on this backend.
+ *
+ * MEANINGFUL ONLY ON THE NODE (WebGPU / WebGPURenderer) PATH. On a genuine WebGL
+ * session a `WebGLRenderTarget` here is the correct and only possible value, so
+ * the caller MUST gate on the live backend — this predicate deliberately does not
+ * guess which renderer is live.
+ */
+export function shadowMapClaimedByWebGlRenderer(
+    light: ShadowOwningLight | null | undefined,
+): boolean {
+    if (!light || !light.shadow) return false;
+    const map = (light.shadow as { map?: unknown }).map as
+        { isWebGLRenderTarget?: boolean } | null | undefined;
+    if (!map) return false;
+    return map.isWebGLRenderTarget === true;
+}
+
+/**
+ * §FOREIGN-SHADOW-MAP-CLAIM — the lights whose shadow slot a foreign WebGL
+ * renderer has claimed. O(#lights), allocation-free on the (overwhelmingly
+ * common) empty result, so it is safe to run at every frame boundary.
+ */
+export function lightsWithForeignShadowMapClaim(
+    lights: Iterable<ShadowOwningLight> | null | undefined,
+): ShadowOwningLight[] {
+    const out: ShadowOwningLight[] = [];
+    if (!lights) return out;
+    for (const light of lights) {
+        if (shadowMapClaimedByWebGlRenderer(light)) out.push(light);
+    }
+    return out;
+}
+
 /**
  * The lights carrying a LATENT, three-side free: they have stopped casting, but
  * their `AnalyticLightNode` still holds a `ShadowNode` whose `shadowMap` is live.

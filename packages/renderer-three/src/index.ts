@@ -223,12 +223,35 @@ export {
   releaseLightOwnedShadowNow,
   lightOwnsLiveShadowMap,
   lightsWithPendingCasterRelease,
+  // §FOREIGN-SHADOW-MAP-CLAIM (L-13281) — the FOURTH trigger, and the only one no
+  // PRYZM queue can see: a SECOND THREE.WebGLRenderer over the same scene frees the
+  // WebGPU ShadowNode's target out of the shared `LightShadow.map` slot. Identified
+  // by CONSTRUCTION, not by name — the WebGL path mints a `WebGLRenderTarget`
+  // (`isWebGLRenderTarget = true`) where the node path mints a bare `RenderTarget`.
+  shadowMapClaimedByWebGlRenderer,
+  lightsWithForeignShadowMapClaim,
 } from './safeDispose.js';
 export type {
   ReallocatableLightShadow,
   ShadowCasterReleaseObserver,
   ShadowOwningLight,
 } from './safeDispose.js';
+
+// §SHADOW-ENABLE-SINGLE-OWNER (L-13281) — the ENFORCEMENT half of an invariant five
+// modules declare in prose and nothing checked. Seals `shadowMap.enabled = false` on
+// a renderer that shares the live scene but must never run a shadow pass, REFUSING
+// any arming write and NAMING the violator with its own stack. A guard that silently
+// swallowed the write would be worse than the crash; this one is loud.
+export {
+  sealShadowMapEnabled,
+  shadowMapEnabledIsSealed,
+  foreignShadowEnableWrites,
+  resetForeignShadowEnableWrites,
+} from './shadowEnableOwnership.js';
+export type {
+  SealableShadowRenderer,
+  ForeignShadowEnableWrite,
+} from './shadowEnableOwnership.js';
 
 // §RETIRE-RENDERER-DETACHES-LISTENERS (L-948) — the single seam for retiring a
 // renderer. `retireRenderer()` replaces every bare `renderer.dispose()` on a live
