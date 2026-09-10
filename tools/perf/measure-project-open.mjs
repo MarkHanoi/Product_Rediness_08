@@ -54,12 +54,29 @@ async function run() {
 
     const marks = [];      // { phase, tMs }  — tMs relative to the gesture
     const allConsole = [];
+    // §STARTUP-UI-LEG — `bootStepProfile`'s own output, kept in a DEDICATED array rather than
+    // read out of `allConsole`: the leg headline prints EARLY in the boot and the console tail
+    // is trimmed, so the one line that attributes the largest leg was the first thing lost.
+    const legLines = [];
+    const legTables = [];
+    const pendingTableReads = [];
     let gestureAt = null;  // performance.now()-ish origin, in harness wall clock
 
     page.on('console', (msg) => {
         const text = msg.text();
         const at = Date.now();
         allConsole.push({ at, text: text.slice(0, 400) });
+        if (text.includes('STARTUP-BUILDERS-LEG')) legLines.push(text);
+        // console.table rows arrive as a structured arg. Read it WITHOUT awaiting inside the
+        // handler — an await here re-enters CDP while the boot holds the main thread and
+        // deadlocks the very click we are timing (observed, lane PERF-OPEN).
+        if (msg.type() === 'table') {
+            try {
+                pendingTableReads.push(
+                    msg.args()[0].jsonValue().then((v) => legTables.push(v)).catch(() => {}),
+                );
+            } catch { /* arg already collected */ }
+        }
         const m = /\[§STARTUP-BUDGET\]\s+(\S+)\s+\+(\d+)ms\s+\(t\+(\d+)ms\)/.exec(text);
         if (m) {
             marks.push({
@@ -154,6 +171,7 @@ async function run() {
 
     // Let a few more marks land so the table is complete.
     await sleep(4000);
+    await Promise.allSettled(pendingTableReads);
 
     const markAt = (phase) => {
         const m = marks.find((x) => x.phase === phase);
@@ -172,6 +190,8 @@ async function run() {
         boot_engine_start_ms: markAt('boot:engine-start'),
         boot_ui_done_ms: markAt('boot:ui-done'),
         domDetail,
+        legLines,
+        legTables,
         marks,
         consoleTail: allConsole.slice(-400),
     };
@@ -189,6 +209,7 @@ async function run() {
     console.log('END (A) globe:camera-host-ready :', result.END_globe_camera_host_ready_ms, 'ms');
     console.log('END (B) DOM interactive        :', result.END_dom_interactive_ms, 'ms');
     console.log('domDetail:', JSON.stringify(domDetail));
+    for (const l of legLines) console.log(l);
 
     await browser.close();
 }
