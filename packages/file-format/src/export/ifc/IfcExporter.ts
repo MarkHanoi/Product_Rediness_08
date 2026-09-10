@@ -30,7 +30,7 @@ import { IfcFileWriter } from './IfcFileWriter';
 import { IfcSemanticWriter, RoomSemanticData } from './IfcSemanticWriter';
 import { ExportDiagnostics, ExportDiagnostic } from './ifcIdentity';
 import { applyBuildingContainment } from './buildingContainment';
-import { Relationship } from '@pryzm/core-app-model';
+import { Relationship, hierarchyStore, readBuildingSubstrate } from '@pryzm/core-app-model';
 import { debug } from '@pryzm/core-app-model';
 
 export type IfcExportScope = 'native-only' | 'native-and-imported';
@@ -87,6 +87,24 @@ export class IfcExporter {
         this.api = new WEBIFC.IfcAPI();
     }
 
+    /**
+     * ADR-0385 §4 - the envelope records the resolver routes elements with, read
+     * off the store handle `ExportIFC.ts` supplies in the registry.
+     *
+     * ⛔ Three distinct answers, never collapsed (L-581 / L-616): `undefined` when
+     * no handle was given at all, `null` when the handle threw, the records when
+     * it read. `readBuildingSubstrate` names each in every element's `why`.
+     */
+    private readEnvelopeRecords(): Iterable<unknown> | null | undefined {
+        const s = this.stores.spaceEnvelopeStore;
+        if (!s) return undefined;
+        try {
+            return [...s.getState().values()];
+        } catch {
+            return null;
+        }
+    }
+
     async export(options: ExportOptions = {}): Promise<Uint8Array> {
         const prog = options.onProgress ?? (() => {});
 
@@ -130,10 +148,21 @@ export class IfcExporter {
             // been appended above: a level added later would carry no buildingId and
             // fall silently to the default. An ungrouped project resolves to exactly
             // one building and emits byte-identically to before (ADR-0383 D3).
-            const containment = applyBuildingContainment(intermediateModel, diagnostics);
+            //
+            // ADR-0385 §4 - the substrate is read HERE, with the envelope geometry
+            // `ExportIFC.ts` handed this exporter, so an element on a storey several
+            // blocks share is routed to the block whose envelope it stands in. No
+            // envelope handle means every such element stays UNRESOLVED and says why.
+            const containment = applyBuildingContainment(
+                intermediateModel,
+                diagnostics,
+                readBuildingSubstrate(hierarchyStore, this.readEnvelopeRecords()),
+            );
             debug(
                 `Building containment: ${containment.buildingCount} IfcBuilding(s); ` +
                 `${containment.unresolvedLevels.length} unresolved level(s); ` +
+                `${containment.routedElements} element(s) routed by envelope, ` +
+                `${containment.unroutedElements.length} unrouted; ` +
                 `${containment.substrateNote}`,
             );
 

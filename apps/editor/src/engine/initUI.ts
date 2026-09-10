@@ -1082,7 +1082,11 @@ export async function initUI(p: UIParams): Promise<void> {
 
         const report = coordinator.run({ mode, selectedOnly, modelId, hideSourceMeshes: true });
         const action = mode === 'dry-run' ? 'Dry run' : 'Conversion';
-        toast(`${action}: ${report.stats.converted.toLocaleString()} candidate${report.stats.converted === 1 ? '' : 's'} ${mode === 'dry-run' ? 'found' : 'converted'}; ${report.stats.failed.toLocaleString()} failed.`, report.stats.failed ? 'warn' : 'success', 6000);
+        // L-13298 — converted / unsupported-BY-NAME / failed, three separate numbers over `scanned`.
+        const { scanned, converted, unsupported, failed } = report.stats;
+        const unsupportedNames = Object.entries(report.stats.unsupportedByIfcType ?? {})
+            .sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t} ×${n}`).join(', ');
+        toast(`${action}: ${converted.toLocaleString()} of ${scanned.toLocaleString()} ${mode === 'dry-run' ? 'convertible' : 'converted'}; ${unsupported.toLocaleString()} unsupported${unsupportedNames ? ` (${unsupportedNames})` : ''}; ${failed.toLocaleString()} failed.`, (failed || unsupported) ? 'warn' : 'success', 8000);
         window.runtime?.events?.emit('pryzm-ifc-native-conversion-complete', report);
     }
 
@@ -1114,16 +1118,18 @@ export async function initUI(p: UIParams): Promise<void> {
                     </div>
                     <button data-close style="border:0;border-radius:10px;background:#263149;color:white;padding:8px 12px;cursor:pointer;">Close</button>
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
-                    <div style="background:#172033;border-radius:12px;padding:12px;"><div style="font-size:12px;color:#94a3b8;">Converted</div><div style="font-size:24px;font-weight:800;">${report.stats.converted}</div></div>
-                    <div style="background:#172033;border-radius:12px;padding:12px;"><div style="font-size:12px;color:#94a3b8;">Candidates</div><div style="font-size:24px;font-weight:800;">${report.stats.candidates}</div></div>
-                    <div style="background:#172033;border-radius:12px;padding:12px;"><div style="font-size:12px;color:#94a3b8;">Failed</div><div style="font-size:24px;font-weight:800;">${report.stats.failed}</div></div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+                    <div style="background:#172033;border-radius:12px;padding:12px;"><div style="font-size:12px;color:#94a3b8;">Scanned</div><div style="font-size:24px;font-weight:800;">${report.stats.scanned ?? 0}</div></div>
+                    <div style="background:#172033;border-radius:12px;padding:12px;"><div style="font-size:12px;color:#94a3b8;">Converted</div><div style="font-size:24px;font-weight:800;color:#86efac;">${report.stats.converted}</div></div>
+                    <div style="background:#172033;border-radius:12px;padding:12px;"><div style="font-size:12px;color:#94a3b8;">Unsupported</div><div style="font-size:24px;font-weight:800;color:#fbbf24;">${report.stats.unsupported ?? 0}</div></div>
+                    <div style="background:#172033;border-radius:12px;padding:12px;"><div style="font-size:12px;color:#94a3b8;">Failed</div><div style="font-size:24px;font-weight:800;color:#f87171;">${report.stats.failed}</div></div>
                 </div>
                 <div style="font-size:13px;line-height:1.7;color:#cbd5e1;margin-bottom:14px;">
                     Rooms ${report.stats.rooms ?? 0} · Walls ${report.stats.walls ?? 0} · Curtain Walls ${report.stats.curtainwalls ?? 0} · Slabs ${report.stats.slabs ?? 0} · Floors ${report.stats.floors ?? 0} · Ceilings ${report.stats.ceilings ?? 0}<br>
                     Columns ${report.stats.columns ?? 0} · Beams ${report.stats.beams ?? 0} · Roofs ${report.stats.roofs ?? 0} · Doors ${report.stats.doors ?? 0} · Windows ${report.stats.windows ?? 0}<br>
                     Railings ${report.stats.railings ?? 0} · Furniture ${report.stats.furniture ?? 0} · Stairs ${report.stats.stairs ?? 0} · Proxies ${report.stats.proxies ?? 0} · Unsupported ${report.stats.unsupported ?? 0}
                 </div>
+                ${Object.keys(report.stats.unsupportedByIfcType ?? {}).length ? `<div style="font-size:13px;line-height:1.7;color:#fbbf24;margin-bottom:14px;"><b>Unsupported by IFC type:</b> ${escHtml(Object.entries(report.stats.unsupportedByIfcType as Record<string, number>).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t} ×${n}`).join(' · '))}</div>` : ''}
                 <div style="font-size:14px;font-weight:700;margin-bottom:8px;">Issues</div>
                 <ul style="padding-left:18px;margin:0;">${issues || '<li style="color:#86efac">No issues reported.</li>'}</ul>
             </div>`;

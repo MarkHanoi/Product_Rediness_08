@@ -322,7 +322,9 @@ describe('§SITE-SCOPE globe — ARM G: the APPLIED line is self-contained', () 
     });
 
     it('the line states whether any baked relief is attached, and whether the globe is even shown', () => {
-        expect(BODY).toMatch(/this\.groundReliefAttached\(\)/);
+        // §RELIEF-FOR-THIS-SITE (L-13301) — the ONE predicate; a foreign tileset is a third state, not "ON".
+        expect(BODY).toMatch(/this\.groundReliefState\(\)/);
+        expect(BODY).toContain("reliefState.kind === 'foreign'");
         expect(BODY).toContain('NO baked terrain attached');
         expect(BODY).toMatch(/globe\.show=\$\{String\(viewer\.scene\.globe\.show\)\}/);
     });

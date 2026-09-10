@@ -368,12 +368,13 @@ import {
 import { realModelStaysVisible } from "./formaBuildingFidelity";
 // §TERRAIN-RENDER (Phase 3) — resolve a site's lon/lat to a baked-terrain city + its R2
 // quantized-mesh tileset URL, so we can attach a CesiumTerrainProvider where terrain exists.
-import { decideBakedTerrainAttach, terrainTilesetUrl } from "./terrainCoverage";
+import { decideBakedTerrainAttach, terrainSlugCandidates, terrainTilesetUrl } from "./terrainCoverage";
 // §TERRAIN-RELOCATION-DETACH (L-12913) — the pure attach/detach/keep transition table, so a bounded
 // tileset attached at one city can never stay attached at a site it does not cover.
 import {
   resolveTerrainTransition, attachOutcomeStillHolds, describeTerrainTransition,
-  type TerrainAttachOutcome, type TerrainProviderState,
+  resolveGroundReliefState, describeGroundReliefState,
+  type TerrainAttachOutcome, type TerrainProviderState, type GroundReliefState,
 } from "./terrainProviderTransition";
 import { terrainTilesetCoversSite } from './terrainTilesetCoverage';
 // §SPACE-ENVELOPE-IN-CESIUM (STR §26.4) — the ONE authority for an authored envelope's colour,
@@ -2952,9 +2953,14 @@ export class CesiumViewport {
     // baked terrain is a real, applied cut with NO relief inside it — visually close to "the feature
     // did nothing", and the founder has no way to tell the two apart from a screenshot. `globe.show`
     // is on the same line for the same reason: the cut is a no-op on a hidden globe.
-    const reliefText = this.groundReliefAttached()
-      ? `baked relief ON ('${this.formaTerrainCity ?? 'untracked'}')`
-      : 'FLAT ellipsoid — NO baked terrain attached, so the cut is real but there is no relief inside it';
+    // §RELIEF-FOR-THIS-SITE (L-13301) — three states, not two: a tileset attached for the PREVIOUS
+    // site is neither "relief ON" nor "flat"; it is the wrong city's ground, and the line says so.
+    const reliefState = this.groundReliefState();
+    const reliefText = reliefState.kind === 'ready'
+      ? `baked relief ON ('${reliefState.city}')`
+      : reliefState.kind === 'foreign'
+        ? `baked relief ${describeGroundReliefState(reliefState)} (tracked slug '${this.formaTerrainCity ?? 'untracked'}')`
+        : 'FLAT ellipsoid — NO baked terrain attached, so the cut is real but there is no relief inside it';
     say(
       'APPLIED',
       `${this.contextScope.shape} of ${Math.round(rScope)} m about ${lat.toFixed(5)},${lon.toFixed(5)} — ` +
@@ -4966,7 +4972,11 @@ export class CesiumViewport {
       const v = this.viewer;
       if (this.isViewerLive() && v) {
         const provider = v.terrainProvider as Cesium.TerrainProvider | undefined;
-        if (provider && this.terrainProviderHasElevationData(provider)) {
+        // §RELIEF-FOR-THIS-SITE (L-13301) — asked about THIS point, not `currentContextSite()`: this
+        // is the pre-plot path, the massing origin may still be the previous site's, and the attach
+        // we just awaited was for exactly this lat/lon. `ready` here means the provider on the viewer
+        // is the one that serves it (a superseded attach reads foreign → the newer site frames itself).
+        if (provider && this.groundReliefState({ lat, lon }).kind === 'ready') {
           // §TERRAIN-TILE-MEMO (L-13077 / D9 lane STARTUP, 2026-09-07) — ⚠ THIS CALL USED THE RAW
           // PROVIDER AND WAS THEREFORE INVISIBLE TO BOTH GUARANTEES THE START-UP TERRAIN PATH
           // RESTS ON. `§GROUND-SAMPLE-ONE-FLIGHT-AT-A-TIME` caps the sampler at ONE flight in the
@@ -5470,7 +5480,7 @@ export class CesiumViewport {
     // only for the `layer.json` fetch on the ATTACH arm — so the ordering holds without an await.
     const at = this.contextBuildingsAt ?? this.formaMassingOrigin;
     if (at) void this.maybeAttachTerrainProvider(at.lat, at.lon);
-    else if (framing === 'world' && this.groundReliefAttached()) this.detachBakedTerrain();
+    else if (framing === 'world' && this.groundReliefState().kind !== 'flat') this.detachBakedTerrain(); // holds ANY tileset → detach (§RELIEF-FOR-THIS-SITE: the `!== 'flat'` arm, not `ready`).
     this.applyCesiumSurface();
     if (changed) {
       // §GLOBE-RENDER-PROBE (L-639) — a bounded tileset leaves a quadtree built for its own
@@ -8387,7 +8397,7 @@ export class CesiumViewport {
       console.log(
         `[CesiumViewport][globe] §SITE-OVERLAY-DATUM-DIAG: site overlay seated at base ` +
           `${baseHeight.toFixed(2)} m ELLIPSOIDAL · path=${input.keepPhotoreal ? 'photoreal-globe' : '3d-site (forma)'} · ` +
-          `relief=${this.groundReliefAttached() ? `on ('${this.formaTerrainCity ?? 'untracked'}')` : 'off (flat ellipsoid)'} · ` +
+          `relief=${describeGroundReliefState(this.groundReliefState())} · ` +
           `baseSource=${this.formaTerrainBaseSource} · baseMeasured=${this.formaTerrainBaseMeasured ? 'y' : 'n'} · ` +
           `groundSource=${this.globeGroundSource} · resolved=${this.globeGroundResolved ? 'y' : 'n'}` +
           (buriedRisk
@@ -10086,7 +10096,11 @@ export class CesiumViewport {
     }
 
     const provider = viewer.terrainProvider as Cesium.TerrainProvider | undefined;
-    if (!provider || !this.terrainProviderHasElevationData(provider)) {
+    // §RELIEF-FOR-THIS-SITE (L-13301) — read ONCE for both branches below: `flat` takes the ellipsoid
+    // seat exactly as before; `foreign` is handled at the sample (never measured against the wrong
+    // city, never memoised); only `ready` samples.
+    const clampRelief = this.groundReliefState();
+    if (!provider || clampRelief.kind === 'flat') {
       // §A.21.D-TERRAIN-GUARD — ROOT CAUSE of "terrain clamp degraded
       // (sampleTerrainMostDetailed rejected — TypeError: Cannot read properties of
       // undefined (reading 'computeMaximumLevelAtPosition'))". The keyless / no-token
@@ -10153,31 +10167,48 @@ export class CesiumViewport {
     // legible, it does not newly hide or move the building.
     let rawHeight: number | null = null;
     let sampleFailed = false;
-    try {
-      const carto = Cesium.Cartographic.fromDegrees(sampleLon, sampleLat);
-      // §TERRAIN-TILE-MEMO (L-13077 / D9) — through the decoded-tile memo, like every other
-      // sampler call on this path. See the note at `frameSiteLocationOnResolvedGround`: four
-      // single-centroid reads fire per start-up over the SAME tile, and each raw one both paid
-      // for it again and ran as a flight the one-flight FIFO could not see.
-      const [result] = await Cesium.sampleTerrainMostDetailed(this.samplingTerrainProvider(provider), [carto]);
-      const h = result?.height;
-      if (typeof h === 'number' && Number.isFinite(h)) {
-        rawHeight = h;
-      } else {
-        sampleFailed = true;
-        this.warnTerrainOnce(
-          'sampled height was NaN/undefined — the ground at this centroid is UNMEASURED; ' +
-            `keeping the last known base ${this.formaTerrainBaseHeight.toFixed(2)} m rather than ` +
-            'fabricating ellipsoid 0.',
-        );
-      }
-    } catch (e) {
+    if (clampRelief.kind === 'foreign') {
+      // §RELIEF-FOR-THIS-SITE (L-13301) — the attached tileset is ANOTHER site's (the previous city's,
+      // still on the viewer while this site's attach is in flight). Sampling it answers with that
+      // city's ground where its tiles exist and a rejection or a hemisphere-root height where they do
+      // not — and the old code seated the massing on whichever came back. The honest reading is the
+      // same as a failed sample: the ground here is UNMEASURED, keep the last known base, record the
+      // provenance, and do NOT memoise the sample point, so the re-clamp the attach chain fires when
+      // it lands (`clampTerrainThenReplace(formaLastMassingInput)`) is not short-circuited by the
+      // "already clamped here" early-out above.
       sampleFailed = true;
       this.warnTerrainOnce(
-        'sampleTerrainMostDetailed rejected — the ground at this centroid is UNMEASURED; ' +
-          `keeping the last known base ${this.formaTerrainBaseHeight.toFixed(2)} m rather than ` +
-          'fabricating ellipsoid 0: ' + String(e),
+        `relief attached is another site's (${describeGroundReliefState(clampRelief)}) — the ground at ` +
+          `this centroid is UNMEASURED; keeping the last known base ${this.formaTerrainBaseHeight.toFixed(2)} m ` +
+          "until this site's attach re-runs the clamp.",
       );
+    } else {
+      try {
+        const carto = Cesium.Cartographic.fromDegrees(sampleLon, sampleLat);
+        // §TERRAIN-TILE-MEMO (L-13077 / D9) — through the decoded-tile memo, like every other
+        // sampler call on this path. See the note at `frameSiteLocationOnResolvedGround`: four
+        // single-centroid reads fire per start-up over the SAME tile, and each raw one both paid
+        // for it again and ran as a flight the one-flight FIFO could not see.
+        const [result] = await Cesium.sampleTerrainMostDetailed(this.samplingTerrainProvider(provider), [carto]);
+        const h = result?.height;
+        if (typeof h === 'number' && Number.isFinite(h)) {
+          rawHeight = h;
+        } else {
+          sampleFailed = true;
+          this.warnTerrainOnce(
+            'sampled height was NaN/undefined — the ground at this centroid is UNMEASURED; ' +
+              `keeping the last known base ${this.formaTerrainBaseHeight.toFixed(2)} m rather than ` +
+              'fabricating ellipsoid 0.',
+          );
+        }
+      } catch (e) {
+        sampleFailed = true;
+        this.warnTerrainOnce(
+          'sampleTerrainMostDetailed rejected — the ground at this centroid is UNMEASURED; ' +
+            `keeping the last known base ${this.formaTerrainBaseHeight.toFixed(2)} m rather than ` +
+            'fabricating ellipsoid 0: ' + String(e),
+        );
+      }
     }
     const resolution = resolveTerrainClampBase({
       hasElevationProvider: true,
@@ -10343,7 +10374,7 @@ export class CesiumViewport {
    */
   private rebuildContextTreesForBase(): void {
     if (!this.viewer) return;
-    if (!this.groundReliefAttached()) return;              // flat/keyless path already seats exactly.
+    if (this.groundReliefState().kind !== 'ready') return;              // flat/keyless path already seats exactly.
     // §CTX-TREES-RESEAT-SITE (L-12949, founder 2026-09-06 at Madrid: "the roads + trees are beneath it
     // on start up — once I select a parcel everything comes into place"). This read `contextBuildingsAt`,
     // which is set only when the FOOTPRINTS are fetched. At startup the layers warm in parallel and the
@@ -10389,7 +10420,7 @@ export class CesiumViewport {
   private reseatContextGroundFeaturesForBase(): void {
     const viewer = this.viewer;
     if (!viewer) return;
-    if (!this.groundReliefAttached()) return;              // flat/keyless path already seats exactly.
+    if (this.groundReliefState().kind !== 'ready') return;              // flat/keyless path already seats exactly.
     // ⛔ §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-13270, founder 2026-09-09, Albox ≈51 m → Granada ≈800 m
     // in one session). THIS PASS WAS THE ONE RE-SEAT OUTSIDE THE L-12964 GUARD, and his console shows
     // exactly what that cost:
@@ -10487,7 +10518,7 @@ export class CesiumViewport {
     const pending = this.unsampledContextGroundSeatPoints();
     if (pending.length > 0) {
       void this.sampleContextGroundsBatch(pending).then(() => {
-        if (!this.viewer || this.viewer !== viewer || !this.groundReliefAttached()) return;
+        if (!this.viewer || this.viewer !== viewer || this.groundReliefState().kind !== 'ready') return;
         const pass2 = applyAll(this.formaTerrainBaseHeight);
         if (pass2.n > 0) viewer.scene.requestRender();
         console.log(
@@ -10510,7 +10541,7 @@ export class CesiumViewport {
    * ⭐ §A-LIFT-IS-NOT-A-DRAPE (L-13271, founder 2026-09-09, Almanzora / Albox: *"the grey layer seems
    * flat, horizontally flat, whereas this is heavy terrain"*).
    *
-   * THE BRANCH HE TOOK. `resolveGroundDrapePieces` asks `groundReliefAttached()` FIRST and, when the
+   * THE BRANCH HE TOOK. `resolveGroundDrapePieces` asks `groundReliefState()` FIRST and, when the
    * answer is no, returns `pieces: features.map((f) => [{ coords: f.coords, seat: null, heightM: h }])`
    * — ONE piece per feature, ONE scalar for the whole layer, and **`seat: null`**. At Albox landuse and
    * parks rendered BEFORE the terrain attached, so that is the branch they took:
@@ -10535,7 +10566,7 @@ export class CesiumViewport {
    * §CTX-ONE-READ-PER-BBOX, so this re-DRAPES rather than re-downloads. Never throws.
    */
   private redrapeGroundLayersBuiltFlat(anchor: { lat: number; lon: number }): void {
-    if (!this.groundReliefAttached()) return;
+    if (this.groundReliefState().kind !== 'ready') return;
     const layers: ReadonlyArray<readonly [string, readonly Cesium.Entity[], () => void]> = [
       ['roads', this.contextRoadEntities, () => { void this.loadContextRoads(anchor.lat, anchor.lon, true); }],
       ['rail', this.contextRailEntities, () => { void this.loadContextRail(anchor.lat, anchor.lon, true); }],
@@ -10603,7 +10634,7 @@ export class CesiumViewport {
   private reseatContextPlacementsForBase(): void {
     const viewer = this.viewer;
     if (!viewer) return;
-    if (!this.groundReliefAttached()) return;              // flat/keyless path already seats exactly.
+    if (this.groundReliefState().kind !== 'ready') return;              // flat/keyless path already seats exactly.
     if (this.contextBuildingPlacements.length === 0) return; // nothing placed yet — initial load will seat.
     const now = Cesium.JulianDate.now();
     const safeBase = this.formaTerrainBaseHeight;          // the just-settled city ground (~650 m Madrid).
@@ -10725,7 +10756,11 @@ export class CesiumViewport {
       // beside it so a live session can tell which one it is looking at.
       out.formaTerrainBaseSource = this.formaTerrainBaseSource;
       out.formaTerrainBaseMeasured = this.formaTerrainBaseMeasured;
-      out.groundReliefAttached = this.groundReliefAttached();
+      // §RELIEF-FOR-THIS-SITE (L-13301) — the boolean is "ready for THIS site", and the state beside
+      // it says WHICH of the three answers it is (a foreign tileset used to read `attached: true`).
+      const reliefState = this.groundReliefState();
+      out.groundReliefReadyForSite = reliefState.kind === 'ready';
+      out.groundReliefState = describeGroundReliefState(reliefState);
       const provider = viewer?.terrainProvider;
       out.terrainProviderType = provider ? provider.constructor?.name ?? 'unknown' : 'none';
       out.depthTestAgainstTerrain = !!viewer?.scene.globe.depthTestAgainstTerrain;
@@ -10846,8 +10881,12 @@ export class CesiumViewport {
     if (typeof cached === 'number' && Number.isFinite(cached)) return cached;
     try {
       const globe = this.viewer?.scene.globe;
-      const provider = this.viewer?.terrainProvider;
-      if (!globe || !provider || !this.terrainProviderHasElevationData(provider)) return fallback;
+      // §RELIEF-FOR-THIS-SITE (L-13301) — `ready` ONLY. `flat` keeps the exact fallback as before;
+      // `foreign` (the previous city's tileset, still attached across this site's re-attach) must
+      // not be read at all: `getHeight` against it is the wrong city's ground where its tiles happen
+      // to be tessellated, and `undefined` everywhere else. The fallback is the caller's SAFE base —
+      // a number that says "unmeasured", not one that looks measured.
+      if (!globe || this.groundReliefState().kind !== 'ready') return fallback;
       // `getHeight` is `undefined` where the tile is not yet tessellated → the pure fallback rule
       // (`resolveGroundSample`) reuses the centroid base rather than a stray 0 (the L-259 rule).
       return resolveGroundSample(globe.getHeight(Cesium.Cartographic.fromDegrees(lon, lat)), fallback);
@@ -10871,7 +10910,9 @@ export class CesiumViewport {
     const viewer = this.viewer;
     if (!viewer || centroids.length === 0) return;
     const provider = viewer.terrainProvider as Cesium.TerrainProvider | undefined;
-    if (!provider || !this.terrainProviderHasElevationData(provider)) return; // flat/keyless → base is exact.
+    // §RELIEF-FOR-THIS-SITE (L-13301) — flat/keyless → the base is exact; FOREIGN → this batch would
+    // fill the cache with the previous city's answers for THIS site's points. Wait for the attach.
+    if (!provider || this.groundReliefState().kind !== 'ready') return;
     // §STARTUP-TERRAIN-SAMPLE-REUSE (founder 2026-08-07, 5–10× startup) — THE CACHE IS KEPT
     // ACROSS LOADS, AND ONLY THE MISSING POINTS ARE SAMPLED. The ground under a footprint does
     // not change between passes; a lat/lon key is globally unique, so retention is safe. The
@@ -10929,7 +10970,9 @@ export class CesiumViewport {
       sample: async (points) => {
         const viewer = this.viewer;
         const provider = viewer?.terrainProvider as Cesium.TerrainProvider | undefined;
-        if (!viewer || !provider || !this.terrainProviderHasElevationData(provider)) {
+        // §RELIEF-FOR-THIS-SITE (L-13301) — checked at FLIGHT time, not enqueue time: the 120 ms
+        // window can straddle a site change, and a foreign tileset must answer UNMEASURED.
+        if (!viewer || !provider || this.groundReliefState().kind !== 'ready') {
           return points.map(() => null);   // UNMEASURED, not 0 — the seat ladder falls back safely.
         }
         const cartos = points.map((p) => Cesium.Cartographic.fromDegrees(p.lon, p.lat));
@@ -11126,7 +11169,7 @@ export class CesiumViewport {
     summary: string;
   }> {
     const offset = GROUND_LAYER_OFFSET_M[layer];
-    const relief = this.groundReliefAttached();
+    const relief = this.groundReliefState().kind === 'ready';   // §RELIEF-FOR-THIS-SITE: FOREIGN takes the flat branch and is re-draped when this site's attach lands.
     if (!relief || features.length === 0) {
       // FLAT / KEYLESS — the pre-L-12924 seat, unchanged: one scalar for the layer, nothing sampled.
       const h = decideGroundFeatureSeat({ reliefAttached: false, baseM: this.formaTerrainBaseHeight, layer, groundAtPointM: null }).heightM;
@@ -11386,7 +11429,7 @@ export class CesiumViewport {
    */
   private resolveContextSafeBase(lat: number, lon: number): number {
     const base = this.formaTerrainBaseHeight;
-    if (!this.groundReliefAttached()) return base;          // flat path — exact as-is.
+    if (this.groundReliefState().kind !== 'ready') return base;          // flat path — exact as-is.
     if (Math.abs(base) >= 1) return base;                    // clamp already resolved a real ground.
     // Relief attached but base ≈ 0 → seating here would depth-cull. Recover from streamed terrain.
     const centroidGround = this.sampleGround(lat, lon);
@@ -11394,23 +11437,84 @@ export class CesiumViewport {
   }
 
   /**
-   * §SITEFRAME-GROUND (C12 §9 T0) — TRUE when a REAL baked terrain provider (relief) is
-   * currently attached, so `sampleGround` yields per-point elevation AND ground-clamped
-   * overlays (the site-metric heatmap) should DRAPE on the mesh instead of hovering on one
-   * flat centroid plane (where the relief occludes them → the faint heatmap). FALSE on the
-   * keyless / un-baked-city / ellipsoid path, where the flat base is exactly correct and the
-   * legacy flat placement must be preserved byte-for-byte (no regression).
+   * ⭐ §RELIEF-FOR-THIS-SITE (L-13301) — THE ONE PREDICATE every ground seat in this class reads.
+   *
+   * This method REPLACES `groundReliefAttached()`, which answered "is A provider with elevation data
+   * on the viewer?" and which every caller read as "may I sample the relief for THIS site?". Those
+   * two questions have different answers in exactly one window — the previous city's tileset stays
+   * attached across the async re-attach for the new site — and the founder's console shows what
+   * that cost: `relief=on ('albox')` printed inside a Granada scene, and 5045 ground features
+   * seated at 51–523 m (Albox's relief) under buildings at 799.9 m. `cbb09c23` refused foreign
+   * ENTITIES in one re-seat; this refuses the foreign RELIEF for all of them, at the source.
+   *
+   * §SITEFRAME-GROUND (C12 §9 T0) still holds for the `ready` arm: `sampleGround` yields per-point
+   * elevation AND ground-clamped overlays (the site-metric heatmap) DRAPE on the mesh instead of
+   * hovering on one flat centroid plane. `flat` is the keyless / un-baked-city / ellipsoid path,
+   * where the flat base is exactly correct and the legacy flat placement is preserved
+   * byte-for-byte. `foreign` is the new, third answer: a bounded tileset is attached and it is NOT
+   * this site's — the caller must WAIT for the attach already in flight for this site, never
+   * sample, never clamp, never fall through to a number that looks measured.
+   *
+   * "This site" is `currentContextSite()` — the same authority the L-12964 re-seat guard uses —
+   * unless the caller hands in the point it is asking about (`at`): the pre-plot frame path awaits
+   * the attach for an explicit lat/lon BEFORE any massing origin exists, and must ask about THAT
+   * point. "Serves" is `attachedTilesetServesSite`, the transition table's own keep-attached rule,
+   * so what the viewer KEEPS and what a caller may SAMPLE cannot disagree
+   * ([[same-rule-two-implementations]]).
+   *
+   * A `foreign` reading is LOUD once per window (C84 EI-6): the previous line said `relief=on` and
+   * nothing anywhere said "for the wrong city".
    */
-  private groundReliefAttached(): boolean {
+  private groundReliefState(at?: { lat: number; lon: number } | null): GroundReliefState {
     const provider = this.viewer?.terrainProvider;
-    return !!provider && this.terrainProviderHasElevationData(provider);
+    const reliefAttached = !!provider && this.terrainProviderHasElevationData(provider);
+    const site = at ?? this.currentContextSite();
+    const state = resolveGroundReliefState(
+      { attachedCity: this.formaTerrainCity, reliefAttached },
+      site ? { candidates: this.terrainSlugsServing(site) } : null,
+    );
+    if (state.kind === 'foreign') {
+      const key = `${state.attached ?? '∅'}|${state.siteKnown ? state.wants.join(',') : '?'}`;
+      if (this.foreignReliefNoted !== key) {
+        this.foreignReliefNoted = key;
+        console.warn(
+          `[CesiumViewport][terrain] §RELIEF-FOR-THIS-SITE (L-13301) relief=${describeGroundReliefState(state)}. ` +
+            'Every ground seat (buildings, drape layers, canopies, street life, the massing clamp) WAITS in this ' +
+            'state instead of measuring against the wrong city\'s terrain; the attach for this site re-seats them when it lands.',
+        );
+      }
+    } else if (this.foreignReliefNoted !== null) {
+      this.foreignReliefNoted = null;                        // the window closed — the next one is news again.
+    }
+    return state;
   }
+
+  /** §RELIEF-FOR-THIS-SITE — the latch key of the foreign window last warned about, so one window
+   *  prints once however many callers ask during it. */
+  private foreignReliefNoted: string | null = null;
+
+  /** §RELIEF-FOR-THIS-SITE — every tileset slug that would serve `site`, most detailed first
+   *  (`terrainSlugCandidates`, the resolver's own list). Memoised on the site point: the gates ask
+   *  on every settle and `sampleGround` asks on every cache miss, and the coverage tables are a
+   *  ~1000-bbox scan. Never a tracked field a site change could leave behind — the key IS the site. */
+  private terrainSlugsServing(site: { lat: number; lon: number }): readonly string[] {
+    const key = `${site.lat.toFixed(6)},${site.lon.toFixed(6)}`;
+    const memo = this.terrainSlugsServingMemo;
+    if (memo && memo.key === key) return memo.slugs;
+    const slugs = terrainSlugCandidates(site.lon, site.lat);
+    this.terrainSlugsServingMemo = { key, slugs };
+    return slugs;
+  }
+  private terrainSlugsServingMemo: { key: string; slugs: readonly string[] } | null = null;
 
   /** §TERRAIN-RELOCATION-DETACH (L-12913) — what the viewer HOLDS right now, read from the live
    *  provider (never from the tracked slug alone: the project-switch reset nulls `formaTerrainCity`
-   *  while leaving the provider attached, and that inconsistency must still read as "attached"). */
+   *  while leaving the provider attached, and that inconsistency must still read as "attached").
+   *  §RELIEF-FOR-THIS-SITE — this is the `!== 'flat'` arm of the one predicate: the transition table
+   *  needs "holds a tileset" (a foreign one must be DETACHED, which requires knowing it is there),
+   *  which is a different question from "ready for this site". */
   private terrainProviderState(): TerrainProviderState {
-    return { attachedCity: this.formaTerrainCity, reliefAttached: this.groundReliefAttached() };
+    return { attachedCity: this.formaTerrainCity, reliefAttached: this.groundReliefState().kind !== 'flat' };
   }
 
   /**
@@ -11580,9 +11684,18 @@ export class CesiumViewport {
         return { kind: 'unavailable' };                  // memoised → future calls await this, no re-hammer
       }
       const url = attachedUrl;
-      if (this.formaTerrainCity === attachedSlug && this.groundReliefAttached()) {
+      if (this.formaTerrainCity === attachedSlug && this.groundReliefState().kind !== 'flat') {
         return { kind: 'attached', slug: attachedSlug }; // a concurrent call for the SAME tileset already attached.
       }
+      // §RELIEF-FOR-THIS-SITE (L-13301) — a REPLACE is a detach and an attach in one assignment, and
+      // until now only `detachBakedTerrain` purged the ground answers. Every entry in the point cache,
+      // every sampler round-trip still in the air and every decoded tile belonged to the provider
+      // being replaced; the batcher's `invalidate()` fences the in-flight ones so the OLD tileset's
+      // heights cannot land in the cache the NEW one is about to fill. Cheap: a replace happens once
+      // per city change, and the post-attach clamp re-samples this site's points regardless.
+      this.contextGroundCache.clear();
+      this.groundSampleBatcherInstance?.invalidate();
+      this.invalidateTerrainTileMemo();
       viewer.terrainProvider = provider;
       this.formaTerrainCity = attachedSlug;
       // §TERRAIN-NORMALS (L-636) — with baked relief + per-vertex normals attached, LIGHT the globe so the
@@ -12821,7 +12934,7 @@ export class CesiumViewport {
     console.log(
       `[CesiumViewport][forma] context buildings rendered: ${placed} footprint(s) ` +
         `around LAT ${lat} LON ${lon} (§SITEFRAME-GROUND per-footprint seat, centroid base ` +
-        `${base.toFixed(1)} m${this.groundReliefAttached() ? ', relief ON' : ', flat'}) — ` +
+        `${base.toFixed(1)} m, relief ${describeGroundReliefState(this.groundReliefState())}) — ` +
         `§SOLID-OR-WIREFRAME: ${nearTierSplit.solid} SOLID (height known — opaque ` +
         `${FORMA_PALETTE.contextFill}, shadows on) · ${nearTierSplit.estimated} ESTIMATED (storey ` +
         `count real, metres ours — opaque ${FORMA_PALETTE.contextEstimatedHeight}) · ` +
@@ -12841,7 +12954,7 @@ export class CesiumViewport {
     //   • relief         — whether real baked terrain is attached (so depthTestAgainstTerrain culls).
     //   • seat finite/fb — per-point terrain hits vs fallbacks: a fallback-heavy run on relief is
     //                      "seated before terrain streamed" and relies on the safe base being right.
-    const reliefOn = this.groundReliefAttached();
+    const reliefOn = this.groundReliefState().kind === 'ready';
     const baseAtRisk = reliefOn && Math.abs(contextSafeBase) < 1;
     // §TERRAIN-TOGGLE / §CTX-DEPTH-CULL-FIX (founder 2026-07-27) — the depth-cull isolation line:
     //   • terrainOn — the USER toggle (baked terrain attached at all).
@@ -13162,7 +13275,7 @@ export class CesiumViewport {
           }
         } catch (e) { cullDump = ` | §CULL-PROBE err:${(e as Error).message}`; }
         console.log(
-          `[CTX-TERRAIN-GAP] ${tag} terrainOn=${this.formaTerrainEnabled} relief=${this.groundReliefAttached() ? 'ON' : 'off'} ` +
+          `[CTX-TERRAIN-GAP] ${tag} terrainOn=${this.formaTerrainEnabled} relief=${describeGroundReliefState(this.groundReliefState())} ` +
             // §COARSE-VS-DETAILED (L-12964) — the POINT and the PROVENANCE, without which
             // `centroidTerrainSurface` and `seatBase` cannot be compared: they are only the same
             // ground when they name the same lat/lon and the base was actually measured there.
@@ -13236,7 +13349,7 @@ export class CesiumViewport {
    * decision is visible in the founder's console at the exact site it would have armed for.
    */
   private armContextTerrainReseat(lat: number, lon: number): void {
-    if (!this.groundReliefAttached()) return; // flat/keyless path already seats exactly — nothing to note.
+    if (this.groundReliefState().kind !== 'ready') return; // flat/keyless path already seats exactly — nothing to note.
     console.log(
       `[CTX-DIAG] terrain re-seat: DISABLED (pulled, L-635) at LAT ${lat.toFixed(5)} LON ${lon.toFixed(5)} — ` +
         `context stays at the settled-ground base (${this.formaTerrainBaseHeight.toFixed(1)} m), visible; ` +
@@ -13981,7 +14094,7 @@ export class CesiumViewport {
     const st = this.contextFarTierState;
     const viewer = this.viewer;
     if (!st || !viewer) return;
-    if (!this.groundReliefAttached()) return;
+    if (this.groundReliefState().kind !== 'ready') return;
     // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — the far tier is SAFER than the canopies (it holds
     // its own features beside its own lat/lon, so it can only ever redraw what it already shows, and it
     // re-fetches nothing), but it is still a baked-position primitive: rebuilding a PREVIOUS site's
@@ -15636,7 +15749,7 @@ export class CesiumViewport {
    */
   private rebuildStreetLifeForBase(): void {
     if (!this.viewer) return;
-    if (!this.groundReliefAttached()) return;            // flat/keyless already seated exactly.
+    if (this.groundReliefState().kind !== 'ready') return;            // flat/keyless already seated exactly.
     if (!this.streetLife.hasContent) return;             // nothing placed yet — the initial load seats it.
     const at = this.reseatAnchorForCurrentSite('street-life', this.streetLife.builtAt);
     if (!at) return;
@@ -17244,7 +17357,7 @@ export class CesiumViewport {
     // relief is attached), but it is not a full terrain-following drape — a real per-vertex
     // terrain-sampled mesh is the correct long-term fix and is OUT OF SCOPE here (open item,
     // §L-11840).
-    const relief = this.groundReliefAttached();
+    const relief = this.groundReliefState().kind === 'ready';   // §RELIEF-FOR-THIS-SITE: FOREIGN takes the flat branch and is re-draped when this site's attach lands.
     if (relief) {
       console.log(
         `[CesiumViewport][site-metric] §L-11840 ${metric} heatmap: relief attached — seating at ` +

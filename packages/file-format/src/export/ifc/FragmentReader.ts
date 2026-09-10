@@ -67,6 +67,15 @@ export interface StoreRegistry {
     floorStore?: FloorStore;
     ceilingStore?: CeilingStore;
     liftStore?: LiftStoreLike;
+    /**
+     * ADR-0385 §4 — the space envelope store (`runtime.stores.spaceEnvelope`, C114
+     * §2), whose grouped level footprints route elements on a storey several blocks
+     * share. STRUCTURAL: `plugins/space-envelope` is L6 and this package is L4, so
+     * the class is never imported; the one method the exporter reads is named.
+     * Not a reader — no envelope is written to the file — it is the resolver's
+     * evidence, handed through so `IfcExporter` need not reach for a window global.
+     */
+    spaceEnvelopeStore?: { getState(): ReadonlyMap<string, unknown> };
 }
 
 export interface SceneRegistry {

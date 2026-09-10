@@ -1,5 +1,5 @@
 {
-  "startedAt": "2026-08-17T09:32:06.186Z",
+  "startedAt": "2026-09-09T19:28:55.647Z",
   "vitestStatus": 0,
   "failedRows": {
     "persistence": 0,
@@ -12,24 +12,24 @@
     "check-propagation-trackers-reach": 1,
     "check-preview-purity": 0,
     "check-plan-determinism": 0,
-    "check-execution-plan-agreement": 0,
+    "check-execution-plan-agreement": 2,
     "check-room-identity-survives-wall-move": 0,
     "check-room-reshape-fidelity": 0,
     "check-room-reshape-undo": 0,
     "check-undo-resume-flushes-topology": 0,
-    "check-consequence-report-completeness": 0,
+    "check-consequence-report-completeness": 2,
     "check-approval-binding": 0,
-    "check-ai-human-parity": 3221225794,
-    "check-authored-state-protection": 3221225794,
-    "check-authoritative-state": 3221225794,
-    "check-two-client-convergence": 3221225794,
-    "check-topology-survives": 3221225794,
-    "check-derived-classification": 3221225794,
-    "check-room-aabb-canonical": 3221225794,
-    "check-move-propagation": 3221225794
+    "check-ai-human-parity": 1,
+    "check-authored-state-protection": 1,
+    "check-authoritative-state": 3,
+    "check-two-client-convergence": 0,
+    "check-topology-survives": 0,
+    "check-derived-classification": 1,
+    "check-room-aabb-canonical": 0,
+    "check-move-propagation": 0
   },
-  "exitCode": 3221225794,
-  "finishedAt": "2026-08-17T09:37:02.116Z",
+  "exitCode": 2,
+  "finishedAt": "2026-09-09T19:44:48.272Z",
   "floors": {
     "persistence": {
       "floors": [

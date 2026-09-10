@@ -1,6 +1,6 @@
 {
   "harness": "twoclient.cert.ts",
-  "generatedAt": "2026-08-17T18:04:05.543Z",
+  "generatedAt": "2026-09-09T19:43:34.206Z",
   "provenance": {
     "composed": [
       "two independent buildWorld() topologies — separate geometry stores, CommandBus, CommandManager undo history",
@@ -78,7 +78,7 @@
     "   sync      8 update crossing(s) transported (state-vector deltas; 0 = nothing moved)",
     "   doc[A]   height=5 materialColor=\"#c0ffee\" thickness=undefined",
     "   doc[B]   height=5 materialColor=\"#c0ffee\" thickness=undefined",
-    "   read-leg  A.applied=2 B.applied=2 (remote updates each client's reader delivered INTO its own store)",
+    "   read-leg  A.applied=2 B.applied=1 (remote updates each client's reader delivered INTO its own store)",
     "   write-leg A replicated [wall.updateDimensions]",
     "             A wall.updateDimensions payload keys [wallId, height] = {\"wallId\":\"tc-wall-1\",\"height\":5}",
     "   write-leg B replicated [wall.updateColor]",
@@ -98,7 +98,7 @@
     "   after resync      B.materialColor=\"#c0ffee\"",
     "",
     "ARM 1b · RIVAL RECORD MINT — two peers first-touch the same element while partitioned",
-    "   rival mint    doc1={\"height\":5,\"materialColor\":\"#c0ffee\"}  doc2={\"height\":5,\"materialColor\":\"#c0ffee\"}",
+    "   rival mint    doc1={\"materialColor\":\"#c0ffee\",\"height\":5}  doc2={\"materialColor\":\"#c0ffee\",\"height\":5}",
     "   control       pre-replicated record → doc1={\"height\":5,\"thickness\":0.2,\"materialColor\":\"#c0ffee\"}",
     "   rival lost [nothing] · control held both edits=true",
     "",
@@ -106,6 +106,6 @@
     "   fed the comparator 0.2 vs 'DELIBERATELY-DIVERGED' → reports DIVERGED ✓ (it can fail)",
     "   fed the comparator two IDENTICAL values → reports agree ✓ (it is not always-red)",
     "",
-    "read-leg counters  A.applied=2 B.applied=2 · unappliedRemoteCreates A=0 B=0 · sinkErrors A=0 B=0"
+    "read-leg counters  A.applied=2 B.applied=1 · unappliedRemoteCreates A=0 B=0 · sinkErrors A=0 B=0"
   ]
 }

@@ -36,7 +36,7 @@
 // baked. The last case pins that: with the pre-sample removed, the seat drops back to the coarse mesh.
 //
 // Drives the SHIPPED `loadContextTrees` bound to a stub `this`, with `sampleGround` /
-// `resolveContextSafeBase` / `groundReliefAttached` the real prototype methods, so what is asserted is
+// `resolveContextSafeBase` the real prototype methods, so what is asserted is
 // the real seat ladder and the real ORDER, not a paraphrase of it.
 
 import { describe, it, expect, vi } from 'vitest';
@@ -118,6 +118,9 @@ function makeStub(over: Record<string, unknown> = {}): Stub {
         // Pre-settle: the base is still the value the coarse pass left behind.
         formaTerrainBaseHeight: COARSE_GLOBE_M,
         terrainProviderHasElevationData: () => true,
+        // §RELIEF-FOR-THIS-SITE (L-13301) — the ONE predicate, stubbed READY for this site (this suite
+        // measures the seat-first ordering, not the predicate; its own suite binds the real one).
+        groundReliefState: () => ({ kind: 'ready' as const, city: 'cordoba' }),
         clearContextTrees: () => {},
         // The parcel path's sampler: `sampleTerrainMostDetailed` at the site centroid.
         ensureGroundBaseForContext: vi.fn(async function (this: Record<string, unknown>) {
@@ -135,7 +138,7 @@ function makeStub(over: Record<string, unknown> = {}): Stub {
         }),
         ...over,
     };
-    for (const m of ['loadContextTrees', 'sampleGround', 'resolveContextSafeBase', 'groundReliefAttached'] as const) {
+    for (const m of ['loadContextTrees', 'sampleGround', 'resolveContextSafeBase'] as const) {
         s[m] = (proto[m] as (...a: unknown[]) => unknown).bind(s);
     }
     return s as Stub;

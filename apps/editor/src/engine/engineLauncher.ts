@@ -153,6 +153,9 @@ import { createTransformControllers } from './initTransformControllers';
 import { registerTransformDragHandler } from './registerTransformDragHandler';
 import { initViewpointsPanel }        from './initViewpointsPanel';
 import { initViewSetup }              from './initViewSetup';
+// §STARTUP-HOIST-THE-GLOBE-SURFACE (L-13278) — the GIS layout mount, called from this boot right
+// after `initViewSetup` instead of from `initUI`. Not a barrel; not accessed at module load (§SCC).
+import { preMountGISArea }            from '@app/ui/layout/GISAreaLayout';
 import { createAddFurniture }         from './initFurnitureInteraction';
 import { initWallLevelSubscribers }   from './initWallLevelSubscribers';
 import { ProjectLifecycleController } from '@pryzm/runtime-composer';
@@ -345,6 +348,41 @@ export async function bootstrap(
 
     const { zoomToAll } = initViewSetup({ components, world, viewController });
     bootStep('initViewSetup');
+
+    // §STARTUP-HOIST-THE-GLOBE-SURFACE (lane PERF-OPEN, L-13278) — ⭐ THE GLOBE SURFACE GOES
+    // LIVE HERE, ~2.8 s EARLIER THAN IT DID.
+    //
+    // FOUNDER: "rendering the Cesium globe for the user to select the location / cadastro
+    // number should take LESS THAN A SECOND."
+    //
+    // The onboarding location step waits on `markGlobeSurfaceLive()` (L-13277), which
+    // `mountGISArea` raises the instant it installs `pryzmToggleGIS` + the camera host. Until
+    // this line, the ONLY caller of `mountGISArea` was `initUI` → `createMainLayout` — the last
+    // stage of this boot, behind `initBuilders` (2 243 ms measured, and 72 ms of it the boot's
+    // own code), `initTools`, `initBusHandlers`, `registerAllStores` and `initDataPlatform`.
+    // So the gate move bought ~480 ms and stopped at `t+3338 ms`, while the viewport it needed
+    // had been constructed and mounted warm-hidden since ~t+550 ms (§STARTUP-GLOBE-PREWARM).
+    //
+    // `mountGISArea` reads FOUR props — `world`, `grid`, `navManager`, `_viewController` —
+    // and every one of them exists on the line above this comment. Nothing else it touches at
+    // call time (`#container`, `window.runtime`, the lazily-imported Cesium chunk the prewarm
+    // already warmed) comes from a later stage. So it is mounted here, and
+    // `createMainLayout` ADOPTS the result instead of mounting a second one — the same
+    // prewarm/consume shape as `eagerGlobeStart.ts`, and no new mechanism.
+    //
+    // ⛔ `null` for the runtime, on purpose: that is what `createMainLayout(props, null)` has
+    // always passed on this path (§L-12916); the mount resolves `window.runtime`, published as
+    // the first act of this function. Passing the live handle here would be a behaviour change
+    // hidden inside a reorder.
+    //
+    // ⚠ THE RE-CONVERGENCE STILL HOLDS, and it is what makes this safe rather than a race: the
+    // location step may now open while `initBuilders` has not run, but every onboarding path
+    // that AUTHORS a site funnels through `OnboardingStepController.createSite()`, which awaits
+    // `whenEngineReadyForSite()` — i.e. `pryzm-project-loaded`, the fact the OLD gate used for
+    // everything — before `createSiteFromRect` dispatches a single bus command.
+    // `preMountGISArea.spec.ts` pins this call's position ahead of `await initBuilders(`.
+    preMountGISArea({ world, grid, navManager, _viewController: viewController }, null);
+    bootStep('preMountGISArea (globe surface live)');
 
     // ── Inspector (TDZ-lazy: selectionManager captured after initTools) ────────
     const materialMap = new Map(STANDARD_MATERIAL_LIBRARY.map(m => [m.id, m]));

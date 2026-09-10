@@ -84,6 +84,8 @@ export class FirstPersonController {
 
     private _floorY = 0;
     private _activeLevelId: string | null = null;
+    /** §WALK-DISARMS-THE-GIZMO — `transformControls.enabled` as found on entry, restored on exit. */
+    private _gizmoWasEnabled: boolean | null = null;
     private _lastDiagLog = 0;
     private _unregisterTick: (() => void) | null = null;
 
@@ -187,6 +189,19 @@ export class FirstPersonController {
         // ── Step 3: Disable user input on camera-controls ─────────────────────
         controls.enabled = false;
 
+        // ── Step 3b: Disarm the transform gizmo (§WALK-DISARMS-THE-GIZMO) ─────
+        // The orbit controls were disabled above; the gizmo is the sibling input
+        // consumer that was forgotten. Under pointer lock three's TransformControls
+        // is broken twice over: `getPointer()` returns NDC (0,0) for every event,
+        // so a drag operates at screen-centre regardless of the mouse; and its
+        // `onPointerDown` guard reads `document.pointerLockElement`, which Chrome
+        // reports as `null` while a lock is PENDING even though the browser
+        // already refuses `setPointerCapture` — the founder's
+        // `Uncaught InvalidStateError: Failed to execute 'setPointerCapture'`.
+        // Disabling it makes `onPointerDown` return at its first line, before the
+        // capture call, closing every timing window at once.
+        this._setGizmoEnabled(false);
+
         // ── Step 4: Apply pose immediately ───────────────────────────────────
         // CRITICAL: _applyPose() now calls controls.update(0) after setLookAt().
         // Without that call the THREE.Camera position is never actually updated.
@@ -280,6 +295,7 @@ export class FirstPersonController {
         }
 
         try { this._obcCamera.controls.enabled = true; } catch { /* non-fatal */ }
+        this._restoreGizmoEnabled();
 
         this._keys = { ...RESET_KEYS };
         // §WALK-POSITION-ON-PLAN — retract the beacon. A stale pose would leave a
@@ -690,6 +706,34 @@ export class FirstPersonController {
             `[FPC] Level change → "${levelId}": eye ${(oldFloorY + offset).toFixed(3)} → ` +
             `${this._position.y.toFixed(3)} (floor ${oldFloorY.toFixed(3)} → ${newFloorY.toFixed(3)}).`,
         );
+    }
+
+    /**
+     * §WALK-DISARMS-THE-GIZMO — the app publishes its TransformControls at
+     * `window.transformControls` (initTransformControllers.ts). Read through a
+     * narrow cast, never `(window as any)` (P4); absent ⇒ nothing to disarm.
+     */
+    private _gizmo(): { enabled?: boolean } | null {
+        try {
+            const tc = (window as { transformControls?: { enabled?: boolean } }).transformControls;
+            return tc && typeof tc === 'object' ? tc : null;
+        } catch {
+            return null;
+        }
+    }
+
+    private _setGizmoEnabled(enabled: boolean): void {
+        const tc = this._gizmo();
+        if (!tc) return;
+        if (this._gizmoWasEnabled === null) this._gizmoWasEnabled = tc.enabled !== false;
+        tc.enabled = enabled;
+    }
+
+    /** Puts the gizmo back exactly as it was found — a user who had it OFF keeps it OFF. */
+    private _restoreGizmoEnabled(): void {
+        const tc = this._gizmo();
+        if (tc && this._gizmoWasEnabled !== null) tc.enabled = this._gizmoWasEnabled;
+        this._gizmoWasEnabled = null;
     }
 
     /** The active level's id from `ProjectContext`, or `null` when unavailable. */

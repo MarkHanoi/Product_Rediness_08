@@ -52,7 +52,7 @@ type ConstantProperty = InstanceType<typeof ConstantProperty>;
 type Ent = { polygon?: { height?: ConstantProperty }; corridor?: { height?: ConstantProperty } };
 type Stub = {
     viewer: { scene: { requestRender: () => void }; terrainProvider: object } | null;
-    groundReliefAttached: () => boolean;
+    groundReliefState: () => { kind: 'flat' } | { kind: 'ready'; city: string };
     formaTerrainBaseHeight: number;
     contextGroundCache: Map<string, number>;
     contextGroundSeatPoints: WeakMap<object, { layer: string; point: { lat: number; lon: number } | null }>;
@@ -92,7 +92,7 @@ function makeStub(over: Partial<Stub> = {}): Stub {
     const proto = CesiumViewport.prototype as unknown as Record<string, (...a: unknown[]) => unknown>;
     const s: Stub = {
         viewer: { scene: { requestRender: () => {} }, terrainProvider: { availability: {} } },
-        groundReliefAttached: () => true,
+        groundReliefState: () => ({ kind: 'ready' as const, city: 'stub' }),
         formaTerrainBaseHeight: 71.0,                   // the founder's settled Baixa base
         contextGroundCache: new Map(),
         contextGroundSeatPoints: new WeakMap(),
@@ -217,7 +217,7 @@ describe('§GROUND-DRAPE-ON-RELIEF (L-12924) — the ground-feature re-seat is P
     });
 
     it('is a no-op on flat / keyless ground (the load-time single scalar was already exact)', () => {
-        const s = makeStub({ groundReliefAttached: () => false });
+        const s = makeStub({ groundReliefState: () => ({ kind: 'flat' as const }) });
         const e = ent(s, 'contextLanduseEntities', 'polygon', 'landuse', { lat: BAIXA.lat, lon: BAIXA.lon }, 0.005);
         s.reseatContextGroundFeaturesForBase();
         expect(h(e)).toBe(0.005);

@@ -45,7 +45,7 @@ type LatLon = { lat: number; lon: number };
 
 type Stub = {
     viewer: { scene: { requestRender: () => void } } | null;
-    groundReliefAttached: () => boolean;
+    groundReliefState: () => { kind: 'flat' } | { kind: 'ready'; city: string };
     formaMassingOrigin: (LatLon & { centroidEast: number; centroidNorth: number; areaM2: number }) | null;
     readSiteLocation: () => LatLon | null;
     contextBuildingsAt: LatLon | null;
@@ -74,7 +74,7 @@ function makeStub(over: Partial<Stub> = {}): Stub {
     const proto = CesiumViewport.prototype as unknown as Record<string, (...a: unknown[]) => unknown>;
     const s = {
         viewer: { scene: { requestRender: () => {} } },
-        groundReliefAttached: () => true,
+        groundReliefState: () => ({ kind: 'ready' as const, city: 'stub' }),
         formaMassingOrigin: originOf(SITE_A),
         readSiteLocation: () => null,
         contextBuildingsAt: { ...SITE_A },
@@ -219,7 +219,7 @@ describe('§CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — no layer may be rebu
     });
 
     it('stays a no-op on flat ground and before anything is placed (unchanged pre-conditions)', () => {
-        const flat = makeStub({ groundReliefAttached: () => false });
+        const flat = makeStub({ groundReliefState: () => ({ kind: 'flat' as const }) });
         flat.rebuildContextTreesForBase();
         flat.rebuildStreetLifeForBase();
         expect(flat.loadContextTrees).not.toHaveBeenCalled();

@@ -41,25 +41,29 @@
  *
  * ── ⛔ AND THE HONEST PART ───────────────────────────────────────────────────
  *
- * ADR-0385 §4 states it before it is built: mapping group -> `IfcBuilding` alone
+ * ADR-0385 §4 stated it before it was built: mapping group -> `IfcBuilding` alone
  * produces N correct CONTAINERS with NO CONTENTS, because no element schema
  * carries a building or group axis (`Wall` and `Slab`: 0 grep hits). An element's
- * building is therefore resolved THROUGH ITS LEVEL, and when two buildings claim
- * one PRYZM levelId the element is genuinely unroutable — that resolves `unknown`
+ * building is resolved THROUGH ITS LEVEL — and, when two buildings claim one PRYZM
+ * levelId, through the grouped ENVELOPE it stands in (lane BLOCK-CONTAINMENT,
+ * 2026-09-10): this module hands the resolver a plan sample taken from the export
+ * model's world-space geometry, and the resolver selects among the store's
+ * candidates. An element standing in no envelope, or in two, resolves `unknown`
  * and is REPORTED, never guessed at. The storeys are still correct; the element
- * lands in the fallback building with an `UNRESOLVED_BUILDING` diagnostic against
- * it, so the gap is visible in the export report instead of being discovered in
- * Solibri.
+ * lands in the explicit UNASSIGNED storey with an `UNRESOLVED_BUILDING` diagnostic
+ * naming the reason, so the gap is visible in the export report instead of being
+ * discovered in Solibri.
  */
 
 import {
     buildBuildingRoster,
     readBuildingSubstrate,
+    resolveElementBuilding,
     resolveLevelBuilding,
     DEFAULT_BUILDING_ID,
     type BuildingSubstrate,
 } from '@pryzm/core-app-model';
-import type { IntermediateModel } from './IntermediateModel';
+import type { ExportElement, IntermediateModel } from './IntermediateModel';
 import type { ExportDiagnostics } from './ifcIdentity';
 
 export interface BuildingContainmentReport {
@@ -67,6 +71,23 @@ export interface BuildingContainmentReport {
     readonly buildingCount: number;
     /** Levels whose building could not be resolved, with the reason for each. */
     readonly unresolvedLevels: readonly { readonly levelId: string; readonly why: string }[];
+    /**
+     * ⭐ ADR-0385 §4 — elements on a FANNED storey that envelope geometry placed in
+     * one block. The "contents" half of the founder's ask, counted.
+     */
+    readonly routedElements: number;
+    /**
+     * Elements on a fanned storey that could NOT be routed, each with the resolver's
+     * reason (no plan position, envelope geometry unreadable, standing in no grouped
+     * envelope, standing in two). They land in the explicit UNASSIGNED storey with an
+     * `UNRESOLVED_LEVEL` diagnostic from `IfcModelBuilder`; listed here so the report
+     * can say WHY rather than only THAT.
+     */
+    readonly unroutedElements: readonly {
+        readonly elementId: string;
+        readonly levelId: string;
+        readonly why: string;
+    }[];
     /**
      * Buildings `hierarchyStore` holds that NO exported level resolved into. Not
      * emitted — an `IfcBuilding` owning no storey asserts something the model does
@@ -163,36 +184,70 @@ export function applyBuildingContainment(
     model.levels = expanded;
 
     // ── the elements ───────────────────────────────────────────────────────
-    // ⛔ AN ELEMENT ON A FANNED LEVEL IS LEFT UNSTAMPED, DELIBERATELY. ADR-0385 §4
-    // names it before it is built: no element schema carries a building axis, so a
-    // wall on a storey two blocks share genuinely cannot be routed to one of them.
-    // Choosing would be the "answer confidently and be wrong" failure C84 §9 records;
-    // `IfcModelBuilder` then places it in the explicit UNASSIGNED storey with a loud
-    // `UNRESOLVED_LEVEL` diagnostic (L-8510), which is visible rather than wrong.
+    // ⭐ ADR-0385 §4 — THE CONTENTS JOIN. Every element asks the ONE resolver, and
+    // hands it where it stands on the plan. On a storey with one owner the answer is
+    // the store's, as before. On a FANNED storey — the founder's master plan, where
+    // every block sits on the project's shared ladder — the resolver selects among
+    // the store's candidates by the grouped envelope the element stands in, and
+    // says `unknown` for anything it cannot place: no position, unreadable envelope
+    // geometry, standing in no envelope, standing in two. Such an element is LEFT
+    // UNSTAMPED and `IfcModelBuilder` places it in the explicit UNASSIGNED storey
+    // with a loud `UNRESOLVED_LEVEL` diagnostic (L-8510) — visible rather than wrong,
+    // which is ADR-0385's own rule. This module still contains NO RULE: it computes
+    // the plan sample from what the export model holds, and the resolver decides.
+    const fanned = new Set(roster.fannedLevelIds);
+    const unroutedElements: { elementId: string; levelId: string; why: string }[] = [];
+    const routedOn = new Map<string, number>();
+    const unroutedOn = new Map<string, number>();
+    let routedElements = 0;
     for (const element of model.elements) {
-        const owners = element.levelId ? buildingsOfLevel.get(element.levelId) ?? [] : [];
-        const buildingId = owners.length === 1 ? owners[0] : undefined;
-        if (buildingId && buildingId !== DEFAULT_BUILDING_ID) element.buildingId = buildingId;
-        else delete element.buildingId;
+        const r = resolveElementBuilding(
+            element.id, element.levelId, substrate, elementPlanSample(element),
+        );
+        if (r.kind === 'carried' && r.buildingId !== null && r.buildingId !== DEFAULT_BUILDING_ID) {
+            element.buildingId = r.buildingId;
+            if (r.envelopeId !== undefined && element.levelId) {
+                routedElements++;
+                routedOn.set(element.levelId, (routedOn.get(element.levelId) ?? 0) + 1);
+            }
+            continue;
+        }
+        delete element.buildingId;
+        if (r.kind === 'unknown' && element.levelId && fanned.has(element.levelId)) {
+            unroutedElements.push({ elementId: element.id, levelId: element.levelId, why: r.why });
+            unroutedOn.set(element.levelId, (unroutedOn.get(element.levelId) ?? 0) + 1);
+        }
     }
 
     // ── report every failure, and never as an emptiness ────────────────────
-    const fanned = new Set(roster.fannedLevelIds);
     for (const u of roster.unknown) {
         diagnostics?.add({
             severity: 'warning',
             code: 'UNRESOLVED_BUILDING',
             message: fanned.has(u.levelId)
                 // ⭐ A FANNED LEVEL IS NOT A FALLBACK, AND SAYING SO WOULD BE A LIE.
-                // Its storeys were written correctly, one per owning building; what
-                // could not be answered is which of them the ELEMENTS belong to.
+                // Its storeys were written correctly, one per owning building, and
+                // its elements were routed by the envelope each stands in; what is
+                // reported is how many could not be.
                 ? `${u.why}. The STOREYS are written correctly — one IfcBuildingStorey per ` +
-                  `owning building, per C25 §1.3 — but ELEMENTS on this level carry no ` +
-                  `building axis and are therefore placed in the explicit UNASSIGNED ` +
-                  `storey rather than guessed into one of the blocks.`
+                  `owning building, per C25 §1.3. ELEMENTS on this level are routed by the ` +
+                  `grouped envelope each stands in (ADR-0385 §4): ` +
+                  `${routedOn.get(u.levelId) ?? 0} routed, ${unroutedOn.get(u.levelId) ?? 0} ` +
+                  `could not be and are placed in the explicit UNASSIGNED storey rather than ` +
+                  `guessed into a block.`
                 : `${u.why}. The storey is still written, under building ` +
                   `"${DEFAULT_BUILDING_ID}", so nothing is lost — but its building is a ` +
                   `FALLBACK, not a recorded fact.`,
+        });
+    }
+    for (const u of unroutedElements) {
+        // One per element, with the resolver's reason and the element named, so the
+        // export report answers "why is wall_7 in UNASSIGNED" without a debugger.
+        diagnostics?.add({
+            severity: 'warning',
+            code: 'UNRESOLVED_BUILDING',
+            message: u.why,
+            elementId: u.elementId,
         });
     }
     if (roster.unusedBuildingIds.length > 0) {
@@ -210,10 +265,48 @@ export function applyBuildingContainment(
     return {
         buildingCount: model.buildings.length,
         unresolvedLevels: roster.unknown,
+        routedElements,
+        unroutedElements,
         unusedBuildingIds: roster.unusedBuildingIds,
         fannedLevelIds: roster.fannedLevelIds,
         substrateNote: substrate.note,
     };
+}
+
+/**
+ * Where an element stands on the plan — the XZ centre of its world-space geometry,
+ * or its placement when it carries no vertices, or `null` when it carries neither.
+ *
+ * `FragmentReader.extractGeometry` bakes `matrixWorld` into every vertex and
+ * `WallReader`'s parametric fallback builds from the world base line, so the
+ * vertices ARE world metres — the same frame `SpaceEnvelope.footprint` is drawn in
+ * (`attachSpaceEnvelopeRender` reads the ring as world XZ). The bounding-box centre
+ * is used rather than a vertex mean so a wall's sample is its midpoint however its
+ * mesh happens to be triangulated.
+ *
+ * ⛔ This is a READ of the export model, not a rule: which building the sample lands
+ * in is decided by `resolveElementBuilding` and nowhere else.
+ */
+export function elementPlanSample(element: ExportElement): { x: number; z: number } | null {
+    const v = element.geometry?.vertices;
+    if (v && v.length >= 9) {
+        let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+        for (let i = 0; i + 2 < v.length; i += 3) {
+            const x = v[i]!;
+            const z = v[i + 2]!;
+            if (!Number.isFinite(x) || !Number.isFinite(z)) continue;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (z < minZ) minZ = z;
+            if (z > maxZ) maxZ = z;
+        }
+        if (Number.isFinite(minX) && Number.isFinite(minZ)) {
+            return { x: (minX + maxX) / 2, z: (minZ + maxZ) / 2 };
+        }
+    }
+    const p = element.position;
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.z)) return { x: p.x, z: p.z };
+    return null;
 }
 
 /**

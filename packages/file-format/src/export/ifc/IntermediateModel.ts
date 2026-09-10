@@ -71,8 +71,12 @@ export interface ExportElement {
      *
      * Resolved THROUGH the element's level, because no element schema carries a
      * building or group axis today (measured: `grep -n "group"
-     * packages/schemas/src/elements/Wall.ts Slab.ts` → 0 hits). `undefined` means
-     * the default building, which is the pre-ADR-0385 behaviour unchanged.
+     * packages/schemas/src/elements/Wall.ts Slab.ts` → 0 hits) — and, on a storey
+     * several blocks share, through the grouped envelope the element's world-space
+     * geometry stands in (ADR-0385 §4, `buildingContainment.elementPlanSample` →
+     * `resolveElementBuilding`). `undefined` means the default building, which is
+     * the pre-ADR-0385 behaviour unchanged — or, on a fanned storey, an element the
+     * resolver declined to place, which `IfcModelBuilder` reports as UNRESOLVED.
      */
     buildingId?: string;
     parentId?: string;

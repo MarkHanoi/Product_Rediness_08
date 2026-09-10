@@ -75,7 +75,7 @@ function makeStub(reliefAttached: boolean): {
     stub: {
         viewer: unknown;
         siteMetricEntities: unknown[];
-        groundReliefAttached: () => boolean;
+        groundReliefState: () => { kind: 'flat' } | { kind: 'ready'; city: string };
         paintMetricTexture: typeof proto.paintMetricTexture;
     };
     captured: CapturedEntity[];
@@ -93,8 +93,8 @@ function makeStub(reliefAttached: boolean): {
         // The method this whole fix is about: while it returned `true` for relief-attached
         // scenes, the OLD code took the broken classification branch. The fix must ignore this
         // for its render-graphics DECISION (it may still consult it for logging).
-        groundReliefAttached: () => reliefAttached,
-    } as unknown as { viewer: unknown; siteMetricEntities: unknown[]; groundReliefAttached: () => boolean; paintMetricTexture: typeof proto.paintMetricTexture };
+        groundReliefState: () => (reliefAttached ? { kind: 'ready' as const, city: 'stub' } : { kind: 'flat' as const }),
+    } as unknown as { viewer: unknown; siteMetricEntities: unknown[]; groundReliefState: () => { kind: 'flat' } | { kind: 'ready'; city: string }; paintMetricTexture: typeof proto.paintMetricTexture };
     stub.paintMetricTexture = proto.paintMetricTexture.bind(stub);
     return { stub, captured };
 }

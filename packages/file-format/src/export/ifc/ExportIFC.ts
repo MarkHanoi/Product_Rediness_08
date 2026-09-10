@@ -21,6 +21,20 @@ import * as OBC from '@thatopen/components';
 import * as THREE from '@pryzm/renderer-three/three';
 import { debug } from '@pryzm/core-app-model';
 
+/**
+ * The composed runtime's space envelope store, if the runtime is up and the slot
+ * is a store. `undefined` otherwise — and `IfcExporter` then reports every element
+ * on a fanned storey as unrouted WITH that reason, rather than reading an empty
+ * store as "no envelopes" (§CONTEXT-DATA-HONESTY).
+ */
+function readEnvelopeStoreHandle(w: Window): { getState(): ReadonlyMap<string, unknown> } | undefined {
+    const slot = (w as unknown as { runtime?: { stores?: { spaceEnvelope?: unknown } } })
+        .runtime?.stores?.spaceEnvelope;
+    return slot && typeof (slot as { getState?: unknown }).getState === 'function'
+        ? (slot as { getState(): ReadonlyMap<string, unknown> })
+        : undefined;
+}
+
 export async function exportIFC(
     components: OBC.Components,
     _fragments: OBC.FragmentsManager,
@@ -57,6 +71,11 @@ export async function exportIFC(
             floorStore:       window.floorStore ?? undefined, // TODO(TASK-07)
             ceilingStore:     window.ceilingStore ?? undefined, // TODO(TASK-07)
             liftStore:        window.liftStore ?? undefined, // TODO(TASK-07)
+            // ADR-0385 §4 — the grouped envelopes' footprints route elements on a
+            // storey several blocks share. This one is NOT a window global: the
+            // envelope family has exactly one store, the composed runtime's
+            // (`runtime.stores.spaceEnvelope`, C114 §2), read the way initTools reads it.
+            spaceEnvelopeStore: readEnvelopeStoreHandle(window),
         };
 
         // Try to get a valid Three.js scene — check all registered worlds, not just the first.

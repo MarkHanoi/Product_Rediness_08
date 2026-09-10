@@ -28,7 +28,7 @@ type LatLon = { lat: number; lon: number };
 
 type Stub = {
     viewer: { scene: { requestRender: () => void } } | null;
-    groundReliefAttached: () => boolean;
+    groundReliefState: () => { kind: 'flat' } | { kind: 'ready'; city: string };
     // §CTX-RESEAT-ANCHOR-IS-CURRENT-SITE (L-12964) — the CURRENT site, which is what the rebuild
     // anchors on now. The two `…At` memos below are demoted to a staleness check.
     formaMassingOrigin: (LatLon & { centroidEast: number; centroidNorth: number; areaM2: number }) | null;
@@ -50,7 +50,7 @@ function makeStub(over: Partial<Stub> = {}): Stub {
     const proto = CesiumViewport.prototype as unknown as Record<string, (...a: unknown[]) => unknown>;
     const s: Stub = {
         viewer: { scene: { requestRender: () => {} } },
-        groundReliefAttached: () => true,
+        groundReliefState: () => ({ kind: 'ready' as const, city: 'stub' }),
         formaMassingOrigin: { ...MADRID, centroidEast: 0, centroidNorth: 0, areaM2: 400 },
         readSiteLocation: () => null,
         contextBuildingsAt: { ...MADRID },
@@ -79,7 +79,7 @@ describe('§CTX-TREES-RESEAT (L-12918) — canopies are rebuilt on the settled t
     });
 
     it('is a no-op on flat ground (the load-time seat was already exact)', () => {
-        const s = makeStub({ groundReliefAttached: () => false });
+        const s = makeStub({ groundReliefState: () => ({ kind: 'flat' as const }) });
         s.rebuildContextTreesForBase();
         expect(s.loadContextTrees).not.toHaveBeenCalled();
     });

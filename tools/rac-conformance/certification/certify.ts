@@ -33,17 +33,67 @@
 //   npx tsx certify.ts --gates-only run only the Wave-3 gates
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFloors, SUITE_FLOORS, type SuiteArtefact } from './floors.js';
 import {
   EXIT_CLEAN, EXIT_DECLARED, EXIT_MISCONFIGURED, EXIT_RATCHET_EXCEEDED, type ExitCode,
 } from './contract.js';
+import {
+  classifyGateLaunch, classifyProcessLaunch, describeLaunchFailure,
+  type LaunchFailure, type RecordedGateOutcome,
+} from './gateLaunch.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const RESULTS = resolve(__dirname, 'results');
+// §LAUNCH-FAILED-IS-NOT-A-VERDICT (2026-09-10) — the two directories are
+// overridable from the environment for ONE reason: the surface test
+// (tools/ga-gate/__tests__/certifyLaunchFailure.spec.ts) drives THIS script as a
+// child against a fixture gate roster and must read the certify.json it wrote.
+// Both values are RECORDED in the artefact (`gatesDir` / `resultsDir`), so a run
+// that was pointed anywhere but the real tree says so in its own output. The gate
+// ROSTER itself is not overridable: a wrong directory yields SCRIPT_MISSING for
+// every name, which is exit 2 — an override can make a run redder, never quietly
+// greener.
+const RESULTS = process.env.PRYZM_CERTIFY_RESULTS_DIR
+  ? resolve(process.env.PRYZM_CERTIFY_RESULTS_DIR)
+  : resolve(__dirname, 'results');
+const GATES_DIR = process.env.PRYZM_CERTIFY_GATES_DIR
+  ? resolve(process.env.PRYZM_CERTIFY_GATES_DIR)
+  : resolve(__dirname, 'gates');
 const RATCHET_FILE = resolve(__dirname, 'cert-ratchet.json');
+
+// ─── Local CLI resolution — `node <entry>` instead of `npx <bin>` ─────────────
+// MEASURED 2026-09-10 on the founder's box under fleet load: `npx tsx trivial.ts`
+// = 79.8 s; `node <tsx cli> trivial.ts` = 8.6 s. npx's per-spawn resolution was
+// ~90 % of every gate's wall time, twenty-one times per run. Resolving the
+// workspace's own tsx / vitest entry ONCE and spawning node on it is the same
+// binary npx would have picked (npx prefers the local install), minus the
+// resolution — and, spawning node.exe directly, no `.cmd` shim is involved, so
+// `shell: true` (and its DEP0190 concatenation warning) is not needed. If the
+// package cannot be resolved the runner falls back to `npx` via the shell,
+// exactly as before, and SAYS SO.
+const require_ = createRequire(import.meta.url);
+function localCli(pkg: string, binName: string): string[] | null {
+  try {
+    const pkgJsonPath = require_.resolve(`${pkg}/package.json`);
+    const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8')) as { bin?: string | Record<string, string> };
+    const rel = typeof pkgJson.bin === 'string' ? pkgJson.bin : pkgJson.bin?.[binName];
+    return rel ? [resolve(dirname(pkgJsonPath), rel)] : null;
+  } catch {
+    return null;
+  }
+}
+/** `[command, ...leadingArgs, shell]` for a workspace CLI. */
+function cliInvocation(pkg: string, binName: string): { cmd: string; lead: string[]; shell: boolean } {
+  const local = localCli(pkg, binName);
+  if (local) return { cmd: process.execPath, lead: local, shell: false };
+  console.log(`   ! ${pkg} could not be resolved locally — falling back to \`npx ${binName}\` (slow; see the note above).`);
+  return { cmd: 'npx', lead: [binName], shell: true };
+}
+const TSX = cliInvocation('tsx', 'tsx');
+const VITEST = cliInvocation('vitest', 'vitest');
 
 interface Ratchet {
   '//': string[];
@@ -57,11 +107,24 @@ const gatesOnly = argv.includes('--gates-only');
 
 const worst = (a: ExitCode, b: ExitCode): ExitCode => {
   const rank: Record<number, number> = { 0: 0, 1: 1, 3: 2, 2: 3 };
-  return rank[a] >= rank[b] ? a : b;
+  // §LAUNCH-FAILED-IS-NOT-A-VERDICT — a value outside the contract has no rank.
+  // Before 2026-09-10 the comparison below read `undefined >= n` → false and the
+  // unranked value simply REPLACED the running code; that is how a gate crashing
+  // with 0xC0000142 made this run's own exitCode 3221225794. Nothing outside the
+  // contract should reach here any more (gateLaunch.ts classifies first), but if
+  // it does, the only honest fold is MISCONFIGURED — never the raw number.
+  const ra = rank[a];
+  const rb = rank[b];
+  if (ra === undefined || rb === undefined) return EXIT_MISCONFIGURED;
+  return ra >= rb ? a : b;
 };
 
 let exitCode: ExitCode = EXIT_CLEAN;
-const summary: Record<string, unknown> = { startedAt: new Date().toISOString() };
+const summary: Record<string, unknown> = {
+  startedAt: new Date().toISOString(),
+  gatesDir: GATES_DIR,
+  resultsDir: RESULTS,
+};
 
 // ── 1. Run the suites ────────────────────────────────────────────────────────
 // The stamp is taken BEFORE the run and every artefact must be newer than it.
@@ -72,19 +135,33 @@ let vitestStatus: number | null = null;
 
 if (!noRun && !gatesOnly) {
   console.log('── running the certification suites (red = findings, not breakage) ──');
-  // `shell: true` is REQUIRED on win32 — Node refuses to spawnSync a .cmd shim
-  // directly (EINVAL) since the CVE-2024-27980 hardening, and this repo's founder
-  // runs Windows. A gate that only spawns on the CI runner is the L-774 shape:
-  // "the runner could not spawn on win32 and reported 25/25 FAILED to anyone who
-  // tried". Arguments are fixed literals here, so there is no injection surface.
+  // Spawned as `node <vitest entry>` (see cliInvocation). The `npx` fallback keeps
+  // `shell: true`, which is REQUIRED on win32 for a .cmd shim — Node refuses to
+  // spawnSync one directly (EINVAL) since the CVE-2024-27980 hardening, and this
+  // repo's founder runs Windows. A gate that only spawns on the CI runner is the
+  // L-774 shape: "the runner could not spawn on win32 and reported 25/25 FAILED to
+  // anyone who tried". Arguments are fixed literals here, so there is no injection
+  // surface either way.
   const r = spawnSync(
-    'npx',
-    ['vitest', 'run', '__tests__/persistence.cert.ts', '__tests__/undoredo.cert.ts', '__tests__/regenerable.cert.ts'],
-    { cwd: __dirname, stdio: 'inherit', env: process.env, shell: true },
+    VITEST.cmd,
+    [...VITEST.lead, 'run', '__tests__/persistence.cert.ts', '__tests__/undoredo.cert.ts', '__tests__/regenerable.cert.ts'],
+    { cwd: __dirname, stdio: 'inherit', env: process.env, shell: VITEST.shell },
   );
-  vitestStatus = r.status;
-  if (r.error) console.error('vitest spawn error: ' + String(r.error));
-  console.log(`── vitest exited ${r.status} (informational — the verdict is the ARTEFACT below) ──`);
+  // §LAUNCH-FAILED-IS-NOT-A-VERDICT — vitest's exit code is informational, but a
+  // vitest that never LAUNCHED is not "vitest exited N". The freshness floors below
+  // would catch the stale artefacts anyway; this records the cause beside them so
+  // the reader sees "the runner could not start" rather than three unmet floors.
+  const launch = classifyProcessLaunch(r);
+  if (launch.outcome === 'LAUNCH_FAILED') {
+    vitestStatus = null;
+    summary.vitestLaunch = launch;
+    console.error(`── vitest LAUNCH FAILED — ${describeLaunchFailure(launch)} ──`);
+    console.error('   The suites did not run. This is MISCONFIGURED, never a verdict and never absorbable.');
+    exitCode = worst(exitCode, EXIT_MISCONFIGURED);
+  } else {
+    vitestStatus = launch.status;
+    console.log(`── vitest exited ${launch.status} (informational — the verdict is the ARTEFACT below) ──`);
+  }
 }
 summary.vitestStatus = vitestStatus;
 
@@ -462,29 +539,58 @@ if (!gatesOnly && existsSync(RATCHET_FILE)) {
 // runner:'certify' (added in the same commit) so its reviewBy is enforced by
 // run-all even though its READING is not run-all's to report.
 const gates = ['check-identity-roundtrip', 'check-propagation-reaches', 'check-derived-regenerable', 'check-propagation-trackers-reach', 'check-preview-purity', 'check-plan-determinism', 'check-execution-plan-agreement', 'check-room-identity-survives-wall-move', 'check-room-reshape-fidelity', 'check-room-reshape-undo', 'check-undo-resume-flushes-topology', 'check-consequence-report-completeness', 'check-approval-binding', 'check-ai-human-parity', 'check-authored-state-protection', 'check-authoritative-state', 'check-two-client-convergence', 'check-topology-survives', 'check-derived-classification', 'check-room-aabb-canonical', 'check-move-propagation'];
-const gateCodes: Record<string, number | null> = {};
+// §LAUNCH-FAILED-IS-NOT-A-VERDICT (2026-09-10). `gates` holds a contract code OR a
+// NAMED non-verdict — never a raw process status. The 2026-08-17 baseline recorded
+// 3221225794 (0xC0000142 STATUS_DLL_INIT_FAILED — Windows could not START the
+// child) for eight gates in this very map, and for three weeks that read as a
+// verdict to every consumer. gateLaunch.ts is the one classifier; the raw
+// evidence goes to `launchFailures`, keyed by gate, beside it.
+const gateCodes: Record<string, RecordedGateOutcome> = {};
+const launchFailures: Record<string, LaunchFailure> = {};
 console.log(`\n── WAVE-3 GATES ${'─'.repeat(48)}`);
 for (const g of gates) {
-  const p = resolve(__dirname, 'gates', g + '.ts');
+  const p = resolve(GATES_DIR, g + '.ts');
   if (!existsSync(p)) {
     // L-812: a gate whose SCRIPT FILE is missing is never excusable as debt.
     console.log(`   ❌ ${g}: SCRIPT FILE MISSING at ${p} — MISCONFIGURED, never absorbable.`);
-    gateCodes[g] = null;
+    gateCodes[g] = 'SCRIPT_MISSING';
     exitCode = worst(exitCode, EXIT_MISCONFIGURED);
     continue;
   }
-  const r = spawnSync('npx', ['tsx', p], { cwd: __dirname, stdio: 'inherit', env: process.env, shell: true });
-  // A gate that could not even be SPAWNED has measured nothing. `?? 2` files that
-  // as MISCONFIGURED rather than letting an absent status read as clean — L-774
-  // is the fossil of a runner that failed to spawn and was believed anyway.
-  const code = (r.status ?? 2) as ExitCode;
-  gateCodes[g] = code;
-  exitCode = worst(exitCode, code);
+  const r = spawnSync(TSX.cmd, [...TSX.lead, p], { cwd: __dirname, stdio: 'inherit', env: process.env, shell: TSX.shell });
+  const launch = classifyGateLaunch(r);
+  if (launch.outcome === 'LAUNCH_FAILED') {
+    // A gate that could not even be SPAWNED — or died before reporting — has
+    // measured NOTHING. That is recorded as what it is, in its own field, and the
+    // run is MISCONFIGURED: the harness is broken, not the subject. L-774 is the
+    // fossil of a runner that failed to spawn and was believed anyway; the
+    // 2026-08-17 baseline is the second fossil of the same shape.
+    console.log(`   ❌ ${g}: LAUNCH FAILED — ${describeLaunchFailure(launch)}`);
+    console.log('      NOT a verdict: the check did not run. Recorded as LAUNCH_FAILED, never as a code — MISCONFIGURED, never absorbable.');
+    gateCodes[g] = 'LAUNCH_FAILED';
+    launchFailures[g] = launch;
+    exitCode = worst(exitCode, EXIT_MISCONFIGURED);
+    continue;
+  }
+  gateCodes[g] = launch.code;
+  exitCode = worst(exitCode, launch.code);
 }
 summary.gates = gateCodes;
+// Written even when EMPTY — `{}` says "every gate launched"; an ABSENT key would
+// say "this runner predates the distinction", and those must not print alike.
+summary.launchFailures = launchFailures;
+const launchFailedCount = Object.keys(launchFailures).length;
+if (launchFailedCount > 0) {
+  console.log(`\n   ⛔ ${launchFailedCount} gate(s) DID NOT LAUNCH: ${Object.keys(launchFailures).join(', ')}`);
+  console.log('      Their verdict field reads LAUNCH_FAILED. Do not commit this results directory as a baseline.');
+}
 summary.exitCode = exitCode;
 summary.finishedAt = new Date().toISOString();
 
+// The real results/ directory is tracked; an OVERRIDDEN one (the surface test)
+// may not exist yet. A run that measured 21 gates and then died on ENOENT while
+// writing its own record is the exact "verdict lost to a harness fault" shape.
+mkdirSync(RESULTS, { recursive: true });
 writeFileSync(resolve(RESULTS, 'certify.json'), JSON.stringify({ ...summary, floors: floorReport }, null, 2));
 
 const NAME: Record<number, string> = {

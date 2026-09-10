@@ -598,7 +598,94 @@ export interface GISCallbacks {
     cancelBoundaryDraw: () => void;
 }
 
-export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISCallbacks {
+/**
+ * §STARTUP-HOIST-THE-GLOBE-SURFACE (lane PERF-OPEN, L-13278) — what `mountGISArea` ACTUALLY
+ * reads from the UI props bag. Measured by grep, not by belief: across ~8 300 lines the body
+ * touches `props.world`, `props.grid`, `props.navManager` and `props._viewController` — four
+ * fields, every one of which exists the moment `initScene` + `initViewSetup` return, i.e.
+ * ~2.8 s before `initUI` is reached on a cold new-project open.
+ *
+ * Narrowing the parameter to exactly those four is what makes the early call HONEST rather
+ * than a cast: the type now says what the function needs, so a caller at t+560 ms can satisfy
+ * it without pretending to hold a tool manager or an inspector it does not have (the
+ * `fake-more-capable-than-real` shape). `UIProps` is assignable to this, so the classic
+ * `createMainLayout` call site compiles unchanged.
+ */
+export type GISMountProps = Pick<UIProps, 'world' | 'grid' | 'navManager' | '_viewController'>;
+
+/**
+ * §STARTUP-HOIST-THE-GLOBE-SURFACE — the ONE pre-mounted GIS layout, held between the early
+ * call in `engineLauncher.bootstrap()` and its adoption by `createMainLayout`.
+ *
+ * ⛔ Same shape as `eagerGlobeStart.ts`'s `_prewarm` / `consumePrewarmedGlobe()`, and for the
+ * same reason: there must be AT MOST ONE mounted GIS layout per tab, whichever of the two
+ * callers arrives first. `preMountGISArea` fills the slot; `mountGISArea` drains it (or, if it
+ * is empty, constructs cold — byte for byte what it did before this seam existed).
+ */
+let _preMountedGis: GISCallbacks | null = null;
+
+/**
+ * §STARTUP-HOIST-THE-GLOBE-SURFACE (lane PERF-OPEN, L-13278) — mount the GIS layout NOW, from
+ * `engineLauncher.bootstrap()` immediately after `initViewSetup`, instead of ~2.8 s later from
+ * `initUI` → `createMainLayout`.
+ *
+ * WHY. L-13277 moved the onboarding location step's gate from `pryzm-project-loaded` onto
+ * "the globe surface is live" (`markGlobeSurfaceLive()`, called by this very function once
+ * `pryzmToggleGIS` + the camera host + its readiness are installed). That recovered ~480 ms and
+ * then hit a ceiling — because the signal it waits for was itself raised from inside `initUI`,
+ * the LAST stage of the boot, behind the 2 243 ms builders leg. Measured (median of 5, cold
+ * new-project open): `globe:eager-init-start t+3338 ms`. The globe had been constructed and
+ * mounted warm-hidden since ~t+550 ms (§STARTUP-GLOBE-PREWARM); the ~2.8 s between was the
+ * boot doing work the location step does not use.
+ *
+ * This function is the hoist. It runs the SAME mount, with the SAME four inputs, at the point
+ * in the boot where those inputs first exist. Nothing is skipped, re-ordered inside the mount,
+ * or gated: `createMainLayout` still calls `mountGISArea`, which now ADOPTS this result the way
+ * `ensureGisInitialized` adopts the prewarmed viewport.
+ *
+ * ⛔ `runtime` is passed as `null` by the boot, deliberately — that is what
+ * `createMainLayout(props, null)` has always passed on the live path (§L-12916), and every
+ * read inside resolves `runtime ?? window.runtime`, which `bootstrap()` publishes as its first
+ * act. Passing the live handle here would be a behaviour change smuggled inside a reorder.
+ *
+ * Idempotent: a second call returns the first mount. Never throws into the boot beyond what
+ * `mountGISArea` itself would have thrown from `initUI`.
+ */
+export function preMountGISArea(props: GISMountProps, runtime: PryzmRuntime | null): GISCallbacks {
+    if (_preMountedGis === null) {
+        _preMountedGis = mountGISAreaImpl(props, runtime);
+        console.log(
+            '[gis] §STARTUP-HOIST-THE-GLOBE-SURFACE — GIS layout mounted from the boot, right after ' +
+            'initViewSetup; createMainLayout will adopt it instead of mounting a second one.',
+        );
+    }
+    return _preMountedGis;
+}
+
+/**
+ * The public mount, unchanged in contract: returns the ONE `GISCallbacks` for this tab.
+ *
+ * If `preMountGISArea` already ran (the onboarding/new-project boot), this ADOPTS that mount
+ * and drains the slot — so a later re-mount (a project switch, per the module header) still
+ * constructs fresh exactly as before. If it did not run (any path that reaches `initUI` without
+ * the early call), this constructs cold, byte for byte what it did before L-13278.
+ */
+export function mountGISArea(props: GISMountProps, runtime: PryzmRuntime | null): GISCallbacks {
+    if (_preMountedGis !== null) {
+        const adopted = _preMountedGis;
+        _preMountedGis = null;
+        console.log('[gis] §STARTUP-HOIST-THE-GLOBE-SURFACE — createMainLayout ADOPTED the pre-mounted GIS layout.');
+        return adopted;
+    }
+    return mountGISAreaImpl(props, runtime);
+}
+
+/** ⛔ Tests only — drop a pre-mounted layout so a spec can drive the seam twice. */
+export function __resetPreMountedGISArea(): void {
+    _preMountedGis = null;
+}
+
+function mountGISAreaImpl(props: GISMountProps, runtime: PryzmRuntime | null): GISCallbacks {
     // §L-12916 (2026-09-05) — THE LIVE RUNTIME, RESOLVED ONE WAY. On the live boot path this
     // function is handed `runtime = null` BY DESIGN (`createMainLayout(props, null)`, see the note
     // at §L-1580 below) and the composed runtime lives at `window.runtime`. The commit path already

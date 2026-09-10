@@ -1,6 +1,6 @@
 {
   "harness": "H1-persistence",
-  "generatedAt": "2026-08-17T09:34:10.129Z",
+  "generatedAt": "2026-09-09T19:34:04.278Z",
   "seedOutcomes": {
     "level": "SEEDED",
     "grid": "SEEDED",
@@ -92,13 +92,13 @@
       },
       {
         "path": "wall.cert-wall-1.metadata.createdAt",
-        "expected": 1786959244562,
-        "actual": 1786959248738
+        "expected": 1788982405851,
+        "actual": 1788982442408
       },
       {
         "path": "wall.cert-wall-1.metadata.modifiedAt",
-        "expected": 1786959244640,
-        "actual": 1786959248738
+        "expected": 1788982406031,
+        "actual": 1788982442408
       },
       {
         "path": "wall.cert-wall-1.metadata.version",
@@ -112,13 +112,13 @@
       },
       {
         "path": "wall.cert-wall-2.metadata.createdAt",
-        "expected": 1786959244565,
-        "actual": 1786959248739
+        "expected": 1788982405858,
+        "actual": 1788982442410
       },
       {
         "path": "wall.cert-wall-2.metadata.modifiedAt",
-        "expected": 1786959244650,
-        "actual": 1786959248739
+        "expected": 1788982406044,
+        "actual": 1788982442410
       },
       {
         "path": "wall.cert-wall-2.metadata.version",
@@ -133,13 +133,13 @@
     "roof": [
       {
         "path": "roof.cert-roof-1.metadata.createdAt",
-        "expected": 1786959244579,
-        "actual": 1786959248747
+        "expected": 1788982405885,
+        "actual": 1788982442442
       },
       {
         "path": "roof.cert-roof-1.metadata.modifiedAt",
-        "expected": 1786959244635,
-        "actual": 1786959248747
+        "expected": 1788982406024,
+        "actual": 1788982442442
       },
       {
         "path": "roof.cert-roof-1.metadata.version",
@@ -157,32 +157,32 @@
     "ceiling": [
       {
         "path": "ceiling.cert-ce-1.metadata.createdAt",
-        "expected": 1786959244605,
-        "actual": 1786959248741
+        "expected": 1788982405959,
+        "actual": 1788982442413
       },
       {
         "path": "ceiling.cert-ce-1.metadata.modifiedAt",
-        "expected": 1786959244610,
-        "actual": 1786959248742
+        "expected": 1788982405979,
+        "actual": 1788982442414
       }
     ],
     "floor": [
       {
         "path": "floor.cert-fl-1.metadata.createdAt",
-        "expected": 1786959244612,
-        "actual": 1786959248742
+        "expected": 1788982405983,
+        "actual": 1788982442414
       },
       {
         "path": "floor.cert-fl-1.metadata.modifiedAt",
-        "expected": 1786959244612,
-        "actual": 1786959248742
+        "expected": 1788982405983,
+        "actual": 1788982442414
       }
     ],
     "room": [
       {
-        "path": "room.8c3e451b-040b-4d6f-8ab8-e513f417e39b.metadata.modifiedAt",
-        "expected": 1786959244653,
-        "actual": 1786959248750
+        "path": "room.48a260b4-1088-4e4d-a9dd-52ceb97de060.metadata.modifiedAt",
+        "expected": 1788982406049,
+        "actual": 1788982442447
       }
     ]
   },
@@ -239,20 +239,20 @@
     },
     "door": {
       "expected": [
-        "ee9d04e3-8ca7-4b3f-b5f0-5ea3d5fd37a4"
+        "4215742c-df77-4d99-a194-b89583abd560"
       ],
       "actual": [
-        "ee9d04e3-8ca7-4b3f-b5f0-5ea3d5fd37a4"
+        "4215742c-df77-4d99-a194-b89583abd560"
       ],
       "reachedExpected": true,
       "reachedActual": true
     },
     "window": {
       "expected": [
-        "4c64e4cb-e80f-4814-95bf-8062ec3efeda"
+        "663cc8cc-21d3-47ce-a231-956555d25e7d"
       ],
       "actual": [
-        "4c64e4cb-e80f-4814-95bf-8062ec3efeda"
+        "663cc8cc-21d3-47ce-a231-956555d25e7d"
       ],
       "reachedExpected": true,
       "reachedActual": true
@@ -289,20 +289,20 @@
     },
     "column": {
       "expected": [
-        "column_01M07H4B96XJZ7VXSCF3ZWMFG0"
+        "column_01M23TJAR22PF3EAHSP8YNWJ0G"
       ],
       "actual": [
-        "column_01M07H4B96XJZ7VXSCF3ZWMFG0"
+        "column_01M23TJAR22PF3EAHSP8YNWJ0G"
       ],
       "reachedExpected": true,
       "reachedActual": true
     },
     "beam": {
       "expected": [
-        "a60b7128-169d-42ff-9873-be69a9bad32f"
+        "e8f3fcde-5946-47b7-b1bf-f4330534b1c6"
       ],
       "actual": [
-        "a60b7128-169d-42ff-9873-be69a9bad32f"
+        "e8f3fcde-5946-47b7-b1bf-f4330534b1c6"
       ],
       "reachedExpected": true,
       "reachedActual": true
@@ -379,10 +379,10 @@
     },
     "room": {
       "expected": [
-        "8c3e451b-040b-4d6f-8ab8-e513f417e39b"
+        "48a260b4-1088-4e4d-a9dd-52ceb97de060"
       ],
       "actual": [
-        "8c3e451b-040b-4d6f-8ab8-e513f417e39b"
+        "48a260b4-1088-4e4d-a9dd-52ceb97de060"
       ],
       "reachedExpected": true,
       "reachedActual": true

@@ -17,7 +17,7 @@ function esc(s: string): string {
     return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
 }
 
-type BadgeStyle = 'green' | 'orange' | 'blue' | 'grey';
+type BadgeStyle = 'green' | 'orange' | 'blue' | 'grey' | 'red';
 
 function badge(count: number, label: string, style: BadgeStyle = 'blue'): string {
     if (count === 0) return '';
@@ -26,6 +26,7 @@ function badge(count: number, label: string, style: BadgeStyle = 'blue'): string
         orange: 'background:#fef3c7;color:#92400e;',
         blue:   'background:#eff6ff;color:#1e40af;',
         grey:   'background:#f1f5f9;color:#475569;',
+        red:    'background:#fee2e2;color:#991b1b;',
     };
     return `<span style="${colors[style]}padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">${count.toLocaleString()} ${esc(label)}</span>`;
 }
@@ -33,7 +34,12 @@ function badge(count: number, label: string, style: BadgeStyle = 'blue'): string
 export function showIfcFidelityReport(report: IfcConversionReport, sourceApp?: 'revit' | 'unknown', runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null = null /* B-runtime showIfcFidelityReport */): void {
     void runtime; /* B-runtime-void showIfcFidelityReport — TODO(C.3.x): once runtime.toasts is wired in the import path, replace _showCard's bespoke DOM toast with runtime.toasts.show(...) */
     const s = report.stats;
-    const total = s.converted ?? 0;
+    // L-13298 — three SEPARATE numbers over the SCANNED denominator. `converted / (converted +
+    // failed)` read 100% while eleven categories were dropped, because a dropped element left
+    // both halves of the fraction (§CONTEXT-DATA-HONESTY, L-581/L-616).
+    const scanned = s.scanned ?? 0;
+    const converted = s.converted ?? 0;
+    const unsupported = s.unsupported ?? 0;
     const failed = s.failed ?? 0;
     const issues = report.issues?.filter(i => i.severity === 'warn' || i.severity === 'error') ?? [];
 
@@ -52,16 +58,27 @@ export function showIfcFidelityReport(report: IfcConversionReport, sourceApp?: '
     for (const [count, label] of cats) {
         if (count > 0) rows.push(`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f0f2f8;"><span style="font-size:12px;color:#4a5a78;">${esc(label)}</span><span style="font-size:12px;font-weight:700;color:#1a2035;">${count.toLocaleString()}</span></div>`);
     }
+    // Unsupported elements BY IFC TYPE NAME — the row the user needs to know what was left behind.
+    const unsupportedByType = Object.entries(s.unsupportedByIfcType ?? {}).sort((a, b) => b[1] - a[1]);
+    for (const [typeName, count] of unsupportedByType) {
+        rows.push(`<div data-unsupported-type="${esc(typeName)}" style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f0f2f8;"><span style="font-size:12px;color:#92400e;">${esc(typeName)} — unsupported</span><span style="font-size:12px;font-weight:700;color:#92400e;">${count.toLocaleString()}</span></div>`);
+    }
 
     _showCard({
         sourceLabel: appLabel,
         sourceColor: appColor,
-        total,
+        scanned,
+        converted,
+        unsupported,
         failed,
         bodyRows: rows.join(''),
         issueCount: issues.length,
         issues: issues.slice(0, 3).map(i => `<div style="font-size:11px;color:${i.severity === 'error' ? '#dc2626' : '#92400e'};padding:3px 0;">${esc(i.message)}</div>`).join(''),
-        footerNote: total > 0 ? 'Elements are now editable as native PRYZM objects.' : undefined,
+        footerNote: converted > 0
+            ? (unsupported > 0
+                ? `${converted.toLocaleString()} element${converted !== 1 ? 's are' : ' is'} now editable as native PRYZM objects; ${unsupported.toLocaleString()} left as IFC reference geometry.`
+                : 'Elements are now editable as native PRYZM objects.')
+            : undefined,
     });
 }
 
@@ -78,7 +95,9 @@ export function showRhinoFidelityReport(stats: RhinoImportStats, _fileName: stri
     _showCard({
         sourceLabel: 'Rhino (.3DM)',
         sourceColor: '#00A86B',
-        total: stats.objectCount,
+        scanned: stats.objectCount,
+        converted: stats.objectCount,
+        unsupported: 0,
         failed: 0,
         bodyRows: rows.join(''),
         issueCount: issues.length,
@@ -91,7 +110,11 @@ export function showRhinoFidelityReport(stats: RhinoImportStats, _fileName: stri
 interface CardOptions {
     sourceLabel: string;
     sourceColor: string;
-    total:       number;
+    /** Everything the importer looked at — the ONLY honest denominator. */
+    scanned:     number;
+    converted:   number;
+    /** Counted and named; never folded into `converted` or `failed`. */
+    unsupported: number;
     failed:      number;
     bodyRows:    string;
     issueCount:  number;
@@ -117,10 +140,10 @@ function _showCard(opts: CardOptions): void {
         'transform:translateY(20px)', 'opacity:0', 'transition:transform .28s ease,opacity .28s ease',
     ].join(';');
 
-    const fidelityPct = opts.total > 0 && opts.failed === 0
-        ? 100
-        : opts.total > 0
-        ? Math.round((opts.total / (opts.total + opts.failed)) * 100)
+    // L-13298 — converted over SCANNED. The old `converted / (converted + failed)` could not
+    // see an element that was dropped without being counted, and printed 100% over it.
+    const fidelityPct = opts.scanned > 0
+        ? Math.round((opts.converted / opts.scanned) * 100)
         : 0;
 
     const fidelityColor = fidelityPct >= 90 ? '#16a34a' : fidelityPct >= 70 ? '#d97706' : '#dc2626';
@@ -133,23 +156,24 @@ function _showCard(opts: CardOptions): void {
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
                 <div style="text-align:center;">
-                    <div style="font-size:20px;font-weight:800;color:#ffffff;line-height:1;">${opts.total}</div>
-                    <div style="font-size:9px;color:rgba(255,255,255,0.7);font-weight:600;">ELEMENTS</div>
+                    <div data-fidelity-converted style="font-size:20px;font-weight:800;color:#ffffff;line-height:1;">${opts.converted}</div>
+                    <div data-fidelity-scanned="${opts.scanned}" style="font-size:9px;color:rgba(255,255,255,0.7);font-weight:600;">OF ${opts.scanned} SCANNED</div>
                 </div>
                 <button id="pfr-close" style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;" title="Close">✕</button>
             </div>
         </div>
         <div style="padding:14px 16px;">
-            ${opts.total > 0 ? `
+            ${opts.scanned > 0 ? `
             <div style="margin-bottom:12px;">
                 <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
                     <span style="font-size:11px;font-weight:600;color:#7a8aaa;text-transform:uppercase;letter-spacing:.06em;">Conversion fidelity</span>
-                    <span style="font-size:12px;font-weight:800;color:${fidelityColor};">${fidelityPct}%</span>
+                    <span data-fidelity-pct style="font-size:12px;font-weight:800;color:${fidelityColor};">${fidelityPct}%</span>
                 </div>
                 <div style="height:5px;border-radius:999px;background:#f0f2f8;">
                     <div style="height:100%;width:${fidelityPct}%;border-radius:999px;background:${fidelityColor};transition:width .5s ease;"></div>
                 </div>
-                ${opts.failed > 0 ? `<div style="font-size:11px;color:#dc2626;margin-top:4px;">${opts.failed} element${opts.failed !== 1 ? 's' : ''} failed to convert</div>` : ''}
+                ${opts.unsupported > 0 ? `<div data-fidelity-unsupported style="font-size:11px;color:#92400e;margin-top:4px;">${opts.unsupported} element${opts.unsupported !== 1 ? 's' : ''} unsupported — left as reference geometry, not converted</div>` : ''}
+                ${opts.failed > 0 ? `<div data-fidelity-failed style="font-size:11px;color:#dc2626;margin-top:4px;">${opts.failed} element${opts.failed !== 1 ? 's' : ''} failed to convert</div>` : ''}
             </div>
             ` : ''}
             <div style="max-height:160px;overflow-y:auto;">${opts.bodyRows || '<div style="font-size:13px;color:#7a8aaa;text-align:center;padding:8px;">No elements found</div>'}</div>
@@ -157,8 +181,9 @@ function _showCard(opts: CardOptions): void {
             ${opts.footerNote ? `<div style="margin-top:10px;font-size:11px;color:#6b7280;line-height:1.5;">${esc(opts.footerNote)}</div>` : ''}
         </div>
         <div style="background:#fafbfd;border-top:1px solid #f0f2f8;padding:8px 16px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-            ${badge(opts.total, 'converted', 'green')}
-            ${opts.failed > 0 ? badge(opts.failed, 'failed', 'orange') : ''}
+            ${badge(opts.converted, 'converted', 'green')}
+            ${badge(opts.unsupported, 'unsupported', 'orange')}
+            ${badge(opts.failed, 'failed', 'red')}
             ${opts.extraBadges ?? ''}
         </div>
     `;

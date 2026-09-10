@@ -25,8 +25,94 @@ export interface TerrainProviderState {
      *  REGION slug when a listed city's `layer.json` 404'd and the caller fell through. */
     readonly attachedCity: string | null;
     /** TRUE when the live `viewer.terrainProvider` is a bounded, availability-bearing provider
-     *  (i.e. NOT the default `EllipsoidTerrainProvider`) — `groundReliefAttached()` in the viewport. */
+     *  (i.e. NOT the default `EllipsoidTerrainProvider`) — `groundReliefState().kind !== 'flat'` in
+     *  the viewport. ⚠ This is "the viewer HOLDS a tileset", which is NOT "relief is ready for this
+     *  site" — see `resolveGroundReliefState` for the difference and why it matters. */
     readonly reliefAttached: boolean;
+}
+
+/**
+ * §RELIEF-FOR-THIS-SITE (L-13301) — THE ONE RULE for "does the attached tileset serve this site":
+ * the attached slug is the site's primary slug OR any of its fallback candidates (a region attached
+ * because the city's `layer.json` 404'd serves the site exactly as well). `resolveTerrainTransition`
+ * (keep-attached vs attach) and `resolveGroundReliefState` (may a caller sample the ground?) BOTH read
+ * this function — a second copy of the rule would be free to disagree with it, which is the
+ * [[same-rule-two-implementations]] defect this repo keeps paying for.
+ */
+export function attachedTilesetServesSite(state: TerrainProviderState, candidates: readonly string[]): boolean {
+    return state.reliefAttached && state.attachedCity !== null && candidates.includes(state.attachedCity);
+}
+
+/**
+ * §RELIEF-FOR-THIS-SITE (L-13301, founder 2026-09-09, Albox ≈51 m → Granada ≈800 m in one session).
+ *
+ * THE DEFECT. `groundReliefAttached()` answered ONE question — "is A provider with elevation data on
+ * the viewer?" — and every ground seat in the viewport read it as "may I sample the relief for THIS
+ * site?". Those are different questions during the one window that matters: relocating from Albox to
+ * Granada, the PREVIOUS city's tileset stays attached across the async re-attach (`fromUrl` for the
+ * new slug is in flight; nothing has replaced the provider yet). His console read
+ * `relief=on ('albox')` inside a Granada scene, and every caller of `sampleGround` in that window
+ * measured Granada's points against Albox's terrain — 51–523 m of the wrong city's relief under
+ * buildings seated at 799.9 m ("extrusions from the buildings level to the other layer").
+ * `cbb09c23` made ONE re-seat immune by refusing foreign ENTITIES; it did nothing for the other
+ * twenty callers, because the predicate they all read was still true.
+ *
+ * THE STATE. Three answers, not two, because a FAILURE and an EMPTINESS must never share a value
+ * (§CONTEXT-DATA-HONESTY, L-581/L-616):
+ *   • `flat`    — no bounded provider; the ellipsoid IS the ground and the flat base is exact.
+ *   • `ready`   — a bounded provider is attached AND it serves the current site (the same rule the
+ *                 transition table uses to say keep-attached). Sampling is honest.
+ *   • `foreign` — a bounded provider is attached and it is NOT this site's: the previous city's
+ *                 tileset during the re-attach window, a slug the project-switch reset nulled
+ *                 (`attached: null`) while the provider stayed, or no current site to compare
+ *                 against at all (`siteKnown: false`). A caller that asks now must WAIT for the
+ *                 attach that is already in flight — never sample, never clamp (§CTX-ABS-SEAT / L-635:
+ *                 clamped geometry renders NOTHING on baked terrain, so "wait" must not become
+ *                 "clamp"), and never fall through to a number that looks measured.
+ *
+ * Pure, so the rule is unit-testable without a viewer; the viewport reads the live provider, the
+ * tracked slug and `currentContextSite()` and passes them here.
+ */
+export type GroundReliefState =
+    | { readonly kind: 'flat' }
+    | { readonly kind: 'ready'; readonly city: string }
+    | {
+        readonly kind: 'foreign';
+        /** The slug the viewport tracks for the attached provider; `null` = attached but untracked. */
+        readonly attached: string | null;
+        /** Every slug that WOULD serve the current site, most detailed first (empty when none, or when no site). */
+        readonly wants: readonly string[];
+        /** FALSE when there is no current site to compare against — "for this site" is then unanswerable. */
+        readonly siteKnown: boolean;
+    };
+
+export function resolveGroundReliefState(
+    state: TerrainProviderState,
+    site: { readonly candidates: readonly string[] } | null,
+): GroundReliefState {
+    if (!state.reliefAttached) return { kind: 'flat' };
+    if (site && attachedTilesetServesSite(state, site.candidates)) {
+        return { kind: 'ready', city: state.attachedCity as string };
+    }
+    return { kind: 'foreign', attached: state.attachedCity, wants: site?.candidates ?? [], siteKnown: site !== null };
+}
+
+/** One sentence per state, shared by every diagnostic line that used to print `relief=on ('<slug>')`
+ *  — which was true of the viewer and false of the site. */
+export function describeGroundReliefState(s: GroundReliefState): string {
+    switch (s.kind) {
+        case 'flat': return 'off (flat ellipsoid)';
+        case 'ready': return `on ('${s.city}')`;
+        case 'foreign': {
+            const held = s.attached === null ? 'an UNTRACKED tileset is attached' : `'${s.attached}' is attached`;
+            const wants = !s.siteKnown
+                ? 'there is no current site to compare it against'
+                : s.wants.length === 0
+                    ? 'no tileset serves the current site'
+                    : `this site wants ${s.wants.map((w) => `'${w}'`).join(' | ')}`;
+            return `FOREIGN (${held}; ${wants}) — NOT this site's relief; waiting for its attach`;
+        }
+    }
 }
 
 /** Why the site keeps / goes to flat ground. Extends the resolver's reasons with the one the
@@ -78,9 +164,10 @@ export function resolveTerrainTransition(
     }
     // Idempotence: the attached tileset serves this site when it is the primary slug OR any
     // fallback candidate (a region attached because the city's layer.json 404'd must not be
-    // re-probed on every pan — the memo owns re-probing).
-    if (state.reliefAttached && state.attachedCity !== null && decision.candidates.includes(state.attachedCity)) {
-        return { action: 'keep-attached', city: state.attachedCity };
+    // re-probed on every pan — the memo owns re-probing). §RELIEF-FOR-THIS-SITE — the SAME rule
+    // `resolveGroundReliefState` reads, so "keep it" here and "sample it" there cannot disagree.
+    if (attachedTilesetServesSite(state, decision.candidates)) {
+        return { action: 'keep-attached', city: state.attachedCity as string };
     }
     return {
         action: 'attach',

@@ -1,0 +1,2 @@
+__tests__/tglEnsuiteOneToOne.test.ts > §ENSUITE-1TO1 — area cap (defect 1d) > a small ensuite target is NOT inflated (cap only ever shrinks)
+src/workflows/residentialBuilding/__tests__/computeGroundFloor.test.ts > computeGroundFloor — §RESI-GROUND-FLOOR (pure) > orchestrate exposes groundFloor on the ok result

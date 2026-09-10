@@ -88,7 +88,10 @@ type Stub = {
     clampTerrainThenReplace: ReturnType<typeof vi.fn>;
     maybeAttachTerrainProvider: (lat: number, lon: number) => Promise<void>;
     detachBakedTerrain: () => void;
-    groundReliefAttached: () => boolean;
+    /** §RELIEF-FOR-THIS-SITE (L-13301) — the ONE predicate (replaces `groundReliefAttached`). */
+    groundReliefState: (at?: { lat: number; lon: number }) => { kind: string; city?: string };
+    currentContextSite: () => { lat: number; lon: number } | null;
+    formaMassingOrigin: { lat: number; lon: number; centroidEast: number; centroidNorth: number; areaM2: number } | null;
     terrainProviderHasElevationData: (p: unknown) => boolean;
     terrainProviderState: () => unknown;
     isViewerLive: () => boolean;
@@ -123,8 +126,14 @@ function makeStub(): Stub {
         formaLastMassingInput: null,
         frameSiteLocationAtGround: vi.fn(),
         clampTerrainThenReplace: vi.fn(),
+        // §RELIEF-FOR-THIS-SITE (L-13301) — what the ONE predicate reads: the site authority (unknown here,
+        // so the cases ask about the POINT they attached for) and its two memo slots.
+        formaMassingOrigin: null,
+        readSiteLocation: () => null,
+        terrainSlugsServingMemo: null,
+        foreignReliefNoted: null,
     } as unknown as Stub;
-    for (const m of ['maybeAttachTerrainProvider', 'detachBakedTerrain', 'groundReliefAttached',
+    for (const m of ['maybeAttachTerrainProvider', 'detachBakedTerrain', 'groundReliefState', 'terrainSlugsServing', 'currentContextSite',
         'terrainProviderHasElevationData', 'terrainProviderState', 'isViewerLive'] as const) {
         expect(typeof proto[m], `CesiumViewport.prototype.${m} must exist`).toBe('function');
         (stub as unknown as Record<string, unknown>)[m] = proto[m]!.bind(stub);
@@ -160,7 +169,7 @@ describe('§TERRAIN-RELOCATION-DETACH (L-12913) — relocating off a baked city 
         await s.maybeAttachTerrainProvider(BARCELONA.lat, BARCELONA.lon);
         expect(s.viewer.terrainProvider).toBeInstanceOf(FakeBoundedProvider);
         expect(s.formaTerrainCity).toBe('barcelona');
-        expect(s.groundReliefAttached()).toBe(true);
+        expect(s.groundReliefState(BARCELONA)).toEqual({ kind: 'ready', city: 'barcelona' });
         expect(fromUrl).toHaveBeenCalledTimes(1);
     });
 
@@ -176,7 +185,7 @@ describe('§TERRAIN-RELOCATION-DETACH (L-12913) — relocating off a baked city 
         expect(s.viewer.terrainProvider).toBeInstanceOf(FakeEllipsoidTerrainProvider);
         expect(s.viewer.terrainProvider).not.toBe(stale);
         expect(s.formaTerrainCity).toBeNull();
-        expect(s.groundReliefAttached()).toBe(false);
+        expect(s.groundReliefState(PORTO).kind).toBe('flat');
         expect(s.formaTerrainBaseHeight).toBe(0);
         expect(s.viewer.scene.globe.enableLighting).toBe(false);
         // Loud, and naming the mechanism — never a silent state change (C84 EI-6).

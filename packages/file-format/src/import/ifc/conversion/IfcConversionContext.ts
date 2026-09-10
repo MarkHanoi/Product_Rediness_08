@@ -21,7 +21,7 @@ export function executeHumanDirect(commandManager: any, command: any): any {
     return { success: false, affectedElementIds: [], error: 'CommandManager unavailable' };
   }
   // [E.5.x] Bus telemetry — fire-and-forget; legacy commandManager drives state during migration.
-  if (window.runtime?.bus) { window.runtime.bus.executeCommand('import.executeCommand', {}).catch(() => {}); }
+  if (typeof window !== 'undefined' && window.runtime?.bus) { window.runtime.bus.executeCommand('import.executeCommand', {}).catch(() => {}); }
   return commandManager.execute(command, { source: 'HUMAN_DIRECT' });
 }
 

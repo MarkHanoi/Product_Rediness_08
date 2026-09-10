@@ -113,7 +113,7 @@ function makeStub(over: Partial<Stub> = {}): Stub {
     const proto = CesiumViewport.prototype as unknown as Record<string, (...a: unknown[]) => unknown>;
     const s: Stub = {
         viewer: { scene: { requestRender: () => {} }, terrainProvider: { availability: {} } },
-        groundReliefAttached: () => true,
+        groundReliefState: () => ({ kind: 'ready' as const, city: 'stub' }),
         terrainProviderHasElevationData: () => true,
         // The site the viewport is on RIGHT NOW — Granada, the second site.
         formaMassingOrigin: { ...GRANADA, centroidEast: 0, centroidNorth: 0, areaM2: 400 },
@@ -297,7 +297,7 @@ describe('§A-LIFT-IS-NOT-A-DRAPE (L-13271) — a layer built on the flat branch
     });
 
     it('is a no-op with no relief attached — the flat scalar is exactly correct there', () => {
-        const s = makeStub({ contextGroundFeaturesAt: { ...GRANADA }, groundReliefAttached: () => false });
+        const s = makeStub({ contextGroundFeaturesAt: { ...GRANADA }, groundReliefState: () => ({ kind: 'flat' as const }) });
         ent(s, 'contextParkEntities', 'polygon', 'parks', null, 0.01);
         s.reseatContextGroundFeaturesForBase();
         expect(s.loadContextParks).not.toHaveBeenCalled();

@@ -342,7 +342,8 @@ export function decideDrapeStrategy(input: { reliefAttached: boolean; reliefRang
 export type GroundSeatSource = 'flat-base' | 'per-feature' | 'base-fallback';
 
 export interface GroundSeatInput {
-    /** `groundReliefAttached()` — a real baked terrain provider is on the viewer. */
+    /** `groundReliefState().kind === 'ready'` — a real baked terrain provider is on the viewer AND it
+     *  serves the current site (§RELIEF-FOR-THIS-SITE, L-13301: a foreign tileset takes the flat branch). */
     readonly reliefAttached: boolean;
     /** The settled base to fall back to (the flat base, or the SAFE base under relief). */
     readonly baseM: number;

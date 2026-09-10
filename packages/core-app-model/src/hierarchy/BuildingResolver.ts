@@ -56,9 +56,15 @@
  *
  * ── ⛔ WHAT THIS FILE DELIBERATELY DOES NOT DO ────────────────────────────────
  *
- *   • It does not read `SpaceEnvelope.group`. ADR-0385 §2 point 3. It also could
- *     not: `group` lives on an L0 schema read by L7 UI, and this is L2 — but the
- *     reason is the ruling, not the layer.
+ *   • It does not read `SpaceEnvelope.group` FOR CONTAINMENT. ADR-0385 §2 point 3.
+ *     ⚠ Stated precisely, because the ADR-0385 §4 contents join (2026-09-10)
+ *     touches the group: `readEnvelopeSubstrate` reads `group.id` ONLY to key an
+ *     envelope's footprint to the `BuildingData` id the projection minted from
+ *     that same group (`projectedBuildingId`). Which buildings EXIST and which
+ *     CLAIM a storey is still answered by `hierarchyStore` alone; the envelope
+ *     can only select among the store's candidates, never add one. The type is
+ *     still never imported — `group` lives on an L0 schema read by L7 UI, and
+ *     this is L2 — but the reason is the ruling, not the layer.
  *   • It does not WRITE. The projection `massing group → BuildingData` is the
  *     authoring half (ADR-0385 §2 point 1) and belongs with the commands, behind
  *     the bus (P6). This module is pure over its snapshot and never throws.
@@ -66,8 +72,10 @@
  *     beyond the single default. N buildings come from N `BuildingData` rows.
  */
 
+import { distancePointToRing, pointInPolygonXZ } from '@pryzm/geometry-kernel';
 import { hierarchyStore, type HierarchyStore } from './HierarchyStore.js';
 import type { BuildingData, LevelData } from './HierarchyTypes.js';
+import { projectedBuildingId } from './MassingGroupProjection.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The default building
@@ -126,6 +134,45 @@ export interface BuildingSubstrate {
     readonly levels: readonly BuildingSubstrateLevel[] | null;
     /** Why the substrate is shaped as it is — carried into every `why` string. */
     readonly note: string;
+    /**
+     * ⭐ ADR-0385 §4 — THE CONTENTS JOIN. The grouped `role: 'level'` envelopes with
+     * their footprints, so an element on a storey N blocks share can be routed to
+     * the block whose envelope it stands in. This is the axis §4 named as missing:
+     * "N correct containers with nothing inside them".
+     *
+     * ⛔ `null` is NOT `[]`, for the third time in this file. `null` means the
+     * envelope geometry was not supplied or could not be read — and then a fanned
+     * storey's elements stay `unknown` and SAY SO in `why`. `[]` means it was read
+     * and no grouped level envelope exists, which on a fanned storey is the same
+     * `unknown` with a different, equally honest, reason (L-581 / L-616).
+     */
+    readonly envelopes: readonly BuildingSubstrateEnvelope[] | null;
+    /** Why `envelopes` is shaped as it is — carried into every element `why`. */
+    readonly envelopeNote: string;
+}
+
+/**
+ * A grouped `role: 'level'` space envelope, narrowed to the one edge and the one
+ * ring element routing needs.
+ *
+ * ⭐ `buildingId` is `projectedBuildingId(group.id)` — the SAME derivation the
+ * projection uses to mint the `BuildingData` row (`MassingGroupProjection.ts`),
+ * so an envelope keys to a building exactly the way the store spells it. There is
+ * no second rule here; it is the projection's own id function read backwards.
+ *
+ * ⛔ THE STORE STAYS THE AUTHORITY (ADR-0328 / ADR-0385 §2). The resolver only
+ * ever uses an envelope to SELECT AMONG the buildings `hierarchyStore` already
+ * says claim the level. An envelope keyed to a building the store does not hold
+ * selects nothing; an envelope can never introduce a building.
+ */
+export interface BuildingSubstrateEnvelope {
+    readonly id: string;
+    /** The PRYZM level id (`SpaceEnvelope.levelId`). */
+    readonly levelId: string;
+    /** `projectedBuildingId(group.id)`. */
+    readonly buildingId: string;
+    /** The footprint ring on the level's XZ plane, OPEN, world metres. */
+    readonly footprint: readonly { readonly x: number; readonly z: number }[];
 }
 
 /** The substrate as it reads when `hierarchyStore` cannot be reached at all. */
@@ -133,15 +180,110 @@ export const UNREADABLE_SUBSTRATE: BuildingSubstrate = {
     buildings: null,
     levels: null,
     note: 'hierarchyStore could not be read',
+    envelopes: null,
+    envelopeNote: 'no envelope geometry was supplied to this read',
 };
 
 /**
- * Snapshot `hierarchyStore`.
- *
- * @param store injectable for tests; defaults to the module singleton, which is
- *              the same instance `PartOfProjection` reads (ADR-0328).
+ * The structural view of one envelope record, as {@link readEnvelopeSubstrate}
+ * accepts it. Fed straight from a plugin store's `getState().values()`, which are
+ * typed `unknown` at every seam that can reach them — so every field is checked,
+ * never trusted. `MassingGroupMemberView` plus the ring; `plugins/space-envelope`
+ * is L6 and this is L2, so the type is never imported.
  */
-export function readBuildingSubstrate(store: HierarchyStore = hierarchyStore): BuildingSubstrate {
+interface EnvelopeRecordView {
+    readonly id?: unknown;
+    readonly levelId?: unknown;
+    readonly role?: unknown;
+    readonly group?: unknown;
+    readonly footprint?: unknown;
+}
+
+const _finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * Read the routing geometry off a set of envelope records.
+ *
+ * Only `role: 'level'` members carrying a `group` contribute — the same two
+ * filters `readMassingGroupSubstrate` applies, because the buildings those rows
+ * project are the only buildings an envelope can select. An ungrouped envelope
+ * maps to the default building, which never fans, so it has nothing to select.
+ *
+ * @param envelopes `undefined` — the caller had no envelope store to offer;
+ *                  `null` — it had one and the read failed. Both come back as
+ *                  `envelopes: null`, told apart in the note (L-581 / L-616).
+ */
+export function readEnvelopeSubstrate(
+    envelopes: Iterable<unknown> | null | undefined,
+): Pick<BuildingSubstrate, 'envelopes' | 'envelopeNote'> {
+    if (envelopes === undefined) {
+        return { envelopes: null, envelopeNote: 'no envelope geometry was supplied to this read' };
+    }
+    if (envelopes === null) {
+        return { envelopes: null, envelopeNote: 'the space envelope store could not be read' };
+    }
+    let records: unknown[];
+    try {
+        records = [...envelopes];
+    } catch (err) {
+        // A throw while READING is a failure, and a failure is not an emptiness.
+        return {
+            envelopes: null,
+            envelopeNote: `the space envelope store threw while being iterated: ${String(err)}`,
+        };
+    }
+
+    const out: BuildingSubstrateEnvelope[] = [];
+    let scanned = 0;
+    let malformed = 0;
+    for (const raw of records) {
+        scanned++;
+        if (raw === null || typeof raw !== 'object') continue;
+        const r = raw as EnvelopeRecordView;
+        if (r.role !== 'level') continue;
+        if (r.group === null || typeof r.group !== 'object') continue;
+        const groupId = (r.group as { id?: unknown }).id;
+        if (typeof groupId !== 'string' || groupId.length === 0) continue;
+        if (typeof r.id !== 'string' || typeof r.levelId !== 'string' || r.levelId.length === 0) continue;
+        if (!Array.isArray(r.footprint) || r.footprint.length < 3) { malformed++; continue; }
+        const ring: { x: number; z: number }[] = [];
+        for (const p of r.footprint as unknown[]) {
+            const v = p as { x?: unknown; z?: unknown } | null;
+            if (v === null || typeof v !== 'object' || !_finite(v.x) || !_finite(v.z)) {
+                ring.length = 0;
+                break;
+            }
+            ring.push({ x: v.x, z: v.z });
+        }
+        if (ring.length < 3) { malformed++; continue; }
+        out.push({ id: r.id, levelId: r.levelId, buildingId: projectedBuildingId(groupId), footprint: ring });
+    }
+
+    return {
+        envelopes: out,
+        envelopeNote:
+            `${scanned} envelope(s) read; ${out.length} grouped level envelope(s) carry a footprint` +
+            (malformed > 0
+                ? `; ${malformed} grouped level envelope(s) had no usable footprint and were skipped`
+                : ''),
+    };
+}
+
+/**
+ * Snapshot `hierarchyStore` — and, when the caller can offer it, the envelope
+ * geometry that routes elements on a storey several blocks share.
+ *
+ * @param store     injectable for tests; defaults to the module singleton, which is
+ *                  the same instance `PartOfProjection` reads (ADR-0328).
+ * @param envelopes the space envelope records (`store.getState().values()`), or
+ *                  `null` when the caller had a store and could not read it, or
+ *                  omitted when it had none. See {@link readEnvelopeSubstrate}.
+ */
+export function readBuildingSubstrate(
+    store: HierarchyStore = hierarchyStore,
+    envelopes?: Iterable<unknown> | null,
+): BuildingSubstrate {
+    const env = readEnvelopeSubstrate(envelopes);
     let buildings: BuildingData[];
     let levels: LevelData[];
     try {
@@ -151,12 +293,14 @@ export function readBuildingSubstrate(store: HierarchyStore = hierarchyStore): B
         // A throw is a FAILURE, and a failure is not an emptiness.
         return {
             ...UNREADABLE_SUBSTRATE,
+            ...env,
             note: `hierarchyStore threw while being read: ${String(err)}`,
         };
     }
     if (!Array.isArray(buildings) || !Array.isArray(levels)) {
         return {
             ...UNREADABLE_SUBSTRATE,
+            ...env,
             note: 'hierarchyStore returned a non-array for buildings or levels',
         };
     }
@@ -169,6 +313,7 @@ export function readBuildingSubstrate(store: HierarchyStore = hierarchyStore): B
             name: l.name,
         })),
         note: `hierarchyStore: ${buildings.length} building(s), ${levels.length} level row(s)`,
+        ...env,
     };
 }
 
@@ -194,6 +339,14 @@ export interface BuildingResolution {
      * "answer confidently and be wrong" failure C84 §9 records.
      */
     readonly candidateBuildingIds?: readonly string[];
+    /**
+     * Present only when `kind === 'carried'` BECAUSE envelope geometry selected
+     * this building among several the store says claim the element's storey
+     * (ADR-0385 §4). Names the envelope the element stands in, so a report can
+     * show its evidence. Absent when the storey had one owner and geometry was
+     * never consulted.
+     */
+    readonly envelopeId?: string;
 }
 
 const DERIVED_DEFAULT = (why: string): BuildingResolution => ({
@@ -282,6 +435,32 @@ export function resolveLevelBuilding(
     };
 }
 
+/** A point on the plan (XZ) at which an element stands, world metres. */
+export interface PlanSample {
+    readonly x: number;
+    readonly z: number;
+}
+
+/**
+ * How far OUTSIDE an envelope ring a plan sample may fall and still count as
+ * standing in it.
+ *
+ * A block's perimeter wall is authored ON its footprint edge — centreline on the
+ * ring, or offset by half a thickness either way — and `pointInPolygonXZ` is
+ * half-open, so the far two edges of a square read as outside. A quarter metre
+ * covers every wall thickness the schema defaults to and stays far below any
+ * street between two blocks. Two blocks that actually TOUCH put a shared wall
+ * inside both bands, and that resolves `unknown` — which is the honest answer:
+ * a party wall belongs to neither block alone.
+ */
+export const ENVELOPE_EDGE_TOLERANCE_M = 0.25;
+
+function _standsIn(at: PlanSample, ring: BuildingSubstrateEnvelope['footprint']): boolean {
+    if (pointInPolygonXZ(at.x, at.z, ring)) return true;
+    return distancePointToRing(at.x, at.z, ring.length, (i) => ring[i]!.x, (i) => ring[i]!.z)
+        <= ENVELOPE_EDGE_TOLERANCE_M;
+}
+
 /**
  * Which `IfcBuilding` does this element belong to?
  *
@@ -290,14 +469,107 @@ export function resolveLevelBuilding(
  * packages/schemas/src/elements/Wall.ts Slab.ts` → 0 hits). So containment is
  * resolved THROUGH the element's level, which is the edge the substrate does
  * model. `elementId` is carried only so `why` can name the subject.
+ *
+ * ⭐ ADR-0385 §4 — AND WHEN THE LEVEL FANS, THROUGH THE ENVELOPE IT STANDS IN.
+ * A master plan's blocks share the project's storey ladder, so `resolveLevelBuilding`
+ * answers `unknown` with N candidates for every element on those storeys — N correct
+ * containers, nothing inside them. This function closes that gap with a pure function
+ * of the substrate and one plan point:
+ *
+ *   1. the CANDIDATES are the buildings `hierarchyStore` records as claiming the
+ *      storey — the store is the authority and nothing here widens its answer;
+ *   2. among those candidates' grouped level envelopes ON THIS STOREY, the ones the
+ *      point stands in are the evidence;
+ *   3. exactly ONE building's envelope(s) ⇒ `carried`, naming the envelope.
+ *
+ * ⛔ Anything else is `unknown`, with the reason: no plan point supplied; envelope
+ * geometry not supplied or unreadable; the point stands in NO candidate envelope; or
+ * it stands in envelopes of SEVERAL candidates (overlapping massing, a party wall).
+ * A wrong container is worse than an honest unresolved one — that is ADR-0385's own
+ * rule, and it is why this never picks the nearest, the first, or the largest.
+ *
+ * A storey with ONE owner never consults geometry: the store answered, and a point
+ * that disagrees with the store is not evidence against the authority.
+ *
+ * @param at where the element stands on the plan, world metres. Callers derive it
+ *           from what they hold — the exporter from world-space vertices, the tree
+ *           from the store record — and pass `null` when they cannot.
  */
 export function resolveElementBuilding(
     elementId: string,
     levelId: string | null | undefined,
     substrate: BuildingSubstrate,
+    at?: PlanSample | null,
 ): BuildingResolution {
     const r = resolveLevelBuilding(levelId, substrate);
-    return { ...r, why: `element "${elementId}": ${r.why}` };
+    const named = (x: BuildingResolution): BuildingResolution =>
+        ({ ...x, why: `element "${elementId}": ${x.why}` });
+
+    // Only a FANNED storey needs geometry. Every other shape — carried, derived,
+    // unreadable, dangling — is the store's answer and stands as given.
+    const candidates = r.kind === 'unknown' ? (r.candidateBuildingIds ?? []) : [];
+    if (candidates.length < 2 || !levelId || substrate.buildings === null) return named(r);
+
+    const fanned =
+        `bimLevelId "${levelId}" is claimed by ${candidates.length} buildings (${candidates.join(', ')})`;
+    const unknown = (why: string): BuildingResolution => ({
+        kind: 'unknown',
+        buildingId: null,
+        name: null,
+        why: `element "${elementId}": ${why}`,
+        candidateBuildingIds: candidates,
+    });
+
+    if (at === undefined || at === null || !Number.isFinite(at.x) || !Number.isFinite(at.z)) {
+        return unknown(
+            `${fanned}; no plan position was supplied for the element, so envelope geometry ` +
+            `could not select among them`,
+        );
+    }
+    if (substrate.envelopes === null) {
+        return unknown(
+            `${fanned}; ${substrate.envelopeNote}, so envelope geometry could not select among them`,
+        );
+    }
+
+    const wanted = new Set(candidates);
+    const onStorey = substrate.envelopes.filter((e) => e.levelId === levelId && wanted.has(e.buildingId));
+    const hits = onStorey.filter((e) => _standsIn(at, e.footprint));
+    const hitBuildings = [...new Set(hits.map((h) => h.buildingId))];
+    const where = `plan position (${at.x.toFixed(2)}, ${at.z.toFixed(2)})`;
+
+    if (hitBuildings.length === 1) {
+        const buildingId = hitBuildings[0]!;
+        const building = substrate.buildings.find((b) => b.id === buildingId);
+        if (!building) {
+            // The level row names it, the envelope keys to it, and no BuildingData
+            // row exists — a dangling reference, reported as one.
+            return unknown(
+                `${fanned}; ${where} stands in envelope "${hits[0]!.id}" keyed to building ` +
+                `"${buildingId}", which resolves to no building (${substrate.buildings.length} read)`,
+            );
+        }
+        return {
+            kind: 'carried',
+            buildingId: building.id,
+            name: building.name,
+            ifcGuid: building.ifcGuid,
+            envelopeId: hits[0]!.id,
+            why:
+                `element "${elementId}": ${fanned}; ${where} stands in envelope "${hits[0]!.id}" ` +
+                `of building "${building.name}", whose storey hierarchyStore records`,
+        };
+    }
+    if (hitBuildings.length === 0) {
+        return unknown(
+            `${fanned}; ${where} stands in NONE of the ${onStorey.length} grouped envelope(s) those ` +
+            `buildings have on this storey (${substrate.envelopeNote}), so the element is not routed`,
+        );
+    }
+    return unknown(
+        `${fanned}; ${where} stands in envelopes of ${hitBuildings.length} of them ` +
+        `(${hitBuildings.join(', ')}) — overlapping massing — so the element is not routed`,
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
