@@ -22,7 +22,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DrawingModeBar } from '../../DrawingModeBar';
-import { setAppPhase } from '../../layout/panelDefaults';
+import { appPhase, resetAppPhaseForNewProject, setAppPhase } from '../../layout/panelDefaults';
 import {
     ENVELOPE_DRAW_BAR_MODES,
     ENVELOPE_DRAW_MODES,
@@ -169,5 +169,94 @@ describe('§ENVELOPE-MODE-BAR — the pills the founder asked for', () => {
     it('⛔ every pill has a UNIQUE accelerator — two pills on one key is a coin toss', () => {
         const keys = ENVELOPE_DRAW_BAR_MODES.map((m) => m.key.toUpperCase());
         expect(new Set(keys).size).toBe(keys.length);
+    });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ §SITE-AUTHORING-IS-NOT-BIM-AUTHORING (L-13303) — THE STRIP MUST RISE IN THE PHASE THE
+//    GESTURE ACTUALLY RUNS IN, AND THIS IS THE ARM THE SUITE ABOVE COULD NOT SEE
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// ⛔ EVERY CASE ABOVE CALLS `setAppPhase('canvas')` IN ITS `beforeEach` — its own header says so
+// and gives the reason (a suite that forgot would be silently dark). That was correct for what
+// those cases pin, and it is EXACTLY why they stayed green while the founder saw no pills at all:
+// they measured the strip in a phase the envelope draw is never in.
+//
+// ⛔ MEASURED, and it is written twice in this repository by the lane that regressed on it
+// (L-13297): `setAppPhase('canvas')` fires only when onboarding DISPOSES or a BIM view activates.
+// Throughout the whole site-authoring session — parcel select, the Site tab, the envelope card,
+// massing — the phase is STILL `'onboarding-globe'`. The envelope draw runs ONLY on the 2-D Site
+// Map and the 3-D Site. So `refuseElementAuthoring` returned `true` on 100% of this gesture's
+// surfaces, and the strip was dead by construction.
+//
+// ⭐ THESE CASES SET THE REAL PHASE AND ASSERT AGAINST IT. That is the whole point: a test written
+// in `'canvas'` cannot fail for this defect, no matter what it asserts.
+describe('§SITE-AUTHORING-IS-NOT-BIM-AUTHORING (L-13303) — the strip in the phase it lives in', () => {
+    beforeEach(() => {
+        // ⛔ THE REAL PHASE OF THE SITE-AUTHORING SESSION — NOT `'canvas'`. Do not "fix" a failure
+        // here by flipping this to `'canvas'`: that restores the blindness this block exists to
+        // remove and re-ships the founder's bug with a green suite over it.
+        resetAppPhaseForNewProject();
+        expect(appPhase(), 'the premise of this whole block').toBe('onboarding-globe');
+    });
+
+    it('⭐ the envelope strip RENDERS during onboarding-globe — the founder\'s missing pills', () => {
+        bar.show({
+            label: 'Mode:',
+            modes: ENVELOPE_DRAW_BAR_MODES,
+            initialMode: resolveEnvelopeDrawMode(),
+            onSelect: (id) => setEnvelopeDrawMode(id),
+            escHint: 'ENTER closes · ESC cancels',
+            gestureKind: 'site-authoring',
+        });
+        expect(bar.isVisible(), 'the strip was refused in the only phase it ever runs in').toBe(true);
+        const el = document.querySelector<HTMLElement>('.wdh-bar');
+        expect(el, 'no .wdh-bar in the document').not.toBeNull();
+        // The six the gesture honours, plus the one that says why it cannot apply here.
+        expect([...el!.querySelectorAll<HTMLButtonElement>('.wdh-btn')].map((b) => b.dataset.mode))
+            .toEqual(['linear', 'ortho', 'curved', 'rectangular', 'circular', 'elliptical', 'byslab']);
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // ⛔⛔ THE SCRAMBLE CONTROL (L-586) — WITHOUT THIS, "DELETE THE GATE" PASSES THE CASE ABOVE
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // The cheapest wrong fix for the founder's report is to rip `refuseElementAuthoring` out of
+    // `DrawingModeBar.show`, and it would make every assertion above green. It would also re-open
+    // L-5103 — his ORIGINAL report, a stray mode strip over the parcel map at step 3 of 4 of
+    // project setup. These two cases fail loudly on that fix, which is the only reason the case
+    // above is worth anything.
+    it('⛔ SCRAMBLE: a BIM-element strip is STILL refused in the same phase, same instant', () => {
+        bar.show({
+            label: 'Mode:',
+            modes: ENVELOPE_DRAW_BAR_MODES,
+            initialMode: 'linear',
+            onSelect: () => { /* never reached */ },
+            // ⛔ THE ONLY DIFFERENCE FROM THE PASSING CASE ABOVE IS THIS ONE FIELD. Same phase,
+            // same pills, same instant — so a green here means the gate was removed, not narrowed.
+            gestureKind: 'bim-element',
+        });
+        expect(bar.isVisible(), 'L-5103 IS RE-OPENED: the stray strip can render over the parcel map again')
+            .toBe(false);
+        expect(document.querySelector('.wdh-bar')).toBeNull();
+    });
+
+    it('⛔ SCRAMBLE: the DEFAULT (field omitted) is the refusing one — no caller opts in by accident', () => {
+        bar.show({
+            label: 'Slab:',
+            modes: ENVELOPE_DRAW_BAR_MODES,
+            initialMode: 'linear',
+            onSelect: () => { /* never reached */ },
+        });
+        expect(bar.isVisible(), 'omitting gestureKind must NOT grant the exemption').toBe(false);
+    });
+
+    it('⭐ and on the BIM canvas BOTH kinds render — the exemption widens nothing there', () => {
+        setAppPhase('canvas');
+        bar.show({ label: 'Mode:', modes: ENVELOPE_DRAW_BAR_MODES, initialMode: 'linear', onSelect: () => {} });
+        expect(bar.isVisible()).toBe(true);
+        bar.show({
+            label: 'Mode:', modes: ENVELOPE_DRAW_BAR_MODES, initialMode: 'linear',
+            onSelect: () => {}, gestureKind: 'site-authoring',
+        });
+        expect(bar.isVisible()).toBe(true);
     });
 });

@@ -88,6 +88,52 @@ import { appPhase, type AppPhase } from './panelDefaults';
  * Machine-readable reason code. Stable — it is what tests and callers branch on;
  * the prose in `reason` is for humans and may be reworded.
  */
+/**
+ * ⭐ §SITE-AUTHORING-IS-NOT-BIM-AUTHORING (L-13303, 2026-09-10) — WHICH QUESTION THE CALLER IS
+ * ASKING. Added because the gate had exactly one question and two different callers, and the
+ * second one it answered was answered WRONG on 100% of its surfaces.
+ *
+ * ⛔ THE MEASUREMENT THAT FORCED THIS, and it is not a hypothesis — it is written twice in this
+ * repository already, by the lane that regressed on it yesterday (L-13297):
+ *
+ *   > *"`setAppPhase('canvas')` fires only when the onboarding controller DISPOSES
+ *   >  (OnboardingStepController.ts:574) or a BIM view activates (GISAreaLayout.ts:1690).
+ *   >  Throughout the SITE-AUTHORING SPLIT — parcel select, the Site tab, the envelope card,
+ *   >  massing — onboarding is STILL ALIVE and the phase is STILL `'onboarding-globe'`."*
+ *
+ * So for the envelope-perimeter draw — a gesture that RUNS ONLY on the 2-D Site Map and the 3-D
+ * Site — `refuseElementAuthoring` returned `true` every single time it was ever asked. Its mode
+ * strip was therefore dead by construction on the only surfaces the gesture exists for, and the
+ * founder reported exactly that: *"the mode strip is not available on this screen"*. That is the
+ * [[committed-is-not-reachable]] shape with a gate holding the door.
+ *
+ * ⛔ THE FIX IS NOT A HOLE IN THE GATE, AND IT IS NOT AN `if` AT A CALL SITE (this module's header
+ * forbids the second). The two callers are asking genuinely different propositions:
+ *
+ *   · `'bim-element'`    — *"may a keystroke START a wall / door / slab right now?"* This is the
+ *                          founder's original report (WA on the parcel map at step 3 of 4) and it
+ *                          must keep refusing during setup. Every existing caller means this, so
+ *                          it is the DEFAULT and no call site changed meaning.
+ *   · `'site-authoring'` — *"may chrome render for a SITE gesture the user has already armed?"*
+ *                          Site authoring **is what project setup is doing**. Refusing it during
+ *                          setup is not a safety property, it is a contradiction: the phase this
+ *                          gate blocks on is the phase the gesture is native to.
+ *
+ * ⚠ THE NARROWNESS IS THE SAFETY. `'site-authoring'` does not activate anything and cannot: the
+ * envelope draw is armed by `armEnvelopeDraw()`, which independently refuses when no site surface
+ * is attached, and the strip is raised only after that arm has SUCCEEDED. A wall tool that passed
+ * this kind would be lying about which surface it draws on, and `refuseElementAuthoring`'s default
+ * means it can only do so on purpose.
+ */
+export type AuthoringGestureKind =
+    /** Creating a BIM element into the model — walls, doors, slabs. Refused during guided setup. */
+    | 'bim-element'
+    /**
+     * Authoring the SITE — the parcel perimeter, the envelope footprint. Native to the setup
+     * phase, so the phase clause below does not apply to it.
+     */
+    | 'site-authoring';
+
 export type AuthoringBlockCode =
     /** Guided project setup is still running: site not chosen, no model exists. */
     | 'project-setup';
@@ -136,7 +182,12 @@ const BLOCKED: Readonly<Record<AuthoringBlockCode, ElementAuthoringAvailability>
  */
 export function elementAuthoringAvailability(
     phase: AppPhase = appPhase(),
+    kind: AuthoringGestureKind = 'bim-element',
 ): ElementAuthoringAvailability {
+    // ⭐ §SITE-AUTHORING-IS-NOT-BIM-AUTHORING (L-13303) — FIRST, and unconditional. Site authoring
+    // is what the setup phase is FOR; blocking it on that phase refuses the gesture on 100% of the
+    // surfaces it runs on. See `AuthoringGestureKind` for the measurement behind this clause.
+    if (kind === 'site-authoring') return AVAILABLE;
     // The guided flow owns the screen: the globe, the 2D parcel map, and the
     // setup panel. No BIM canvas exists behind any of them.
     if (phase === 'onboarding-globe') return BLOCKED['project-setup'];
@@ -152,8 +203,11 @@ export function elementAuthoringAvailability(
  * and the two could drift the day a caching layer is added. One reader, in
  * {@link elementAuthoringAvailability}, asserted by the spec.
  */
-export function isElementAuthoringAvailable(phase?: AppPhase): boolean {
-    return elementAuthoringAvailability(phase).available;
+export function isElementAuthoringAvailable(
+    phase?: AppPhase,
+    kind: AuthoringGestureKind = 'bim-element',
+): boolean {
+    return elementAuthoringAvailability(phase, kind).available;
 }
 
 /**
@@ -164,8 +218,15 @@ export function isElementAuthoringAvailable(phase?: AppPhase): boolean {
  * being a silent no-op the next reporter has to guess at. Returns `true` when
  * the caller should STOP.
  */
-export function refuseElementAuthoring(source: string): boolean {
-    const verdict = elementAuthoringAvailability();
+export function refuseElementAuthoring(
+    source: string,
+    kind: AuthoringGestureKind = 'bim-element',
+): boolean {
+    // ⚠ `undefined` is FORWARDED for the phase, exactly as `isElementAuthoringAvailable` does and
+    // for the same reason: a second `appPhase()` read here would be a second live reader inside
+    // the one module that exists to have exactly one. `elementAuthoringContext.spec` asserts the
+    // count, so this is enforced rather than merely intended.
+    const verdict = elementAuthoringAvailability(undefined, kind);
     if (verdict.available) return false;
     console.info(
         `[authoring-context] ${source} refused — ${verdict.code}: ${verdict.reason}`,

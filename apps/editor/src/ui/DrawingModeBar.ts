@@ -56,7 +56,10 @@
 import type { CreationMode } from '@app/engine/views/plantools/elementCreationMatrix';
 // §AUTHORING-CONTEXT-GATE (L-5103) — see `show()` for why the bar asks the
 // predicate itself rather than trusting that nothing could have activated a tool.
-import { refuseElementAuthoring } from './layout/elementAuthoringContext';
+import {
+    refuseElementAuthoring,
+    type AuthoringGestureKind,
+} from './layout/elementAuthoringContext';
 
 export interface DrawingModeBarOptions {
     /** Bar prefix label, e.g. 'Mode:', 'Floor:', 'Slab:'. */
@@ -75,6 +78,20 @@ export interface DrawingModeBarOptions {
     onSelect: (modeId: string) => void;
     /** Footer hint. Defaults to the wall bar's wording. */
     escHint?: string;
+    /**
+     * ⭐ §SITE-AUTHORING-IS-NOT-BIM-AUTHORING (L-13303) — WHICH GESTURE THIS STRIP BELONGS TO.
+     *
+     * Defaults to `'bim-element'`, so **every existing caller keeps its exact current behaviour**
+     * — wall, curtain wall, slab, floor and ceiling are all still refused during guided setup,
+     * which is the founder's original L-5103 report and must stay closed.
+     *
+     * ⛔ Pass `'site-authoring'` ONLY from a gesture that draws on a SITE surface (the 2-D Site
+     * Map or the 3-D Site). Those surfaces are alive during `'onboarding-globe'` BY DESIGN — the
+     * phase never leaves it for the whole site-authoring session (measured, L-13297) — so the
+     * phase clause would refuse such a strip on 100% of its surfaces and never on any other.
+     * See `AuthoringGestureKind` for the full measurement.
+     */
+    gestureKind?: AuthoringGestureKind;
 }
 
 export class DrawingModeBar {
@@ -103,7 +120,7 @@ export class DrawingModeBar {
         // the next `show()` must take the old strip DOWN, not leave it stranded
         // on the parcel map with no owner.
         this.dismiss();
-        if (refuseElementAuthoring('DrawingModeBar.show')) return;
+        if (refuseElementAuthoring('DrawingModeBar.show', opts.gestureKind)) return;
 
         this.opts = opts;
 
