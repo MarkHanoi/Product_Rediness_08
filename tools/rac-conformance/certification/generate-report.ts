@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFloors, type SuiteArtefact } from './floors.js';
+import { renderGateOutcome, type LaunchFailure } from './gateLaunch.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -132,6 +133,61 @@ if (h1) {
 }
 if (h2) {
   L.push('**Undo/redo seed log (executed, verbatim):** `' + (h2.seedLog as string[]).join('` · `') + '`');
+  L.push('');
+}
+
+// ── Wave-3 gates — the last certify.ts run, rendered AS RECORDED ─────────────
+// §LAUNCH-FAILED-IS-NOT-A-VERDICT (2026-09-10). This table renders
+// `results/certify.json`'s per-gate outcomes. A gate that DID NOT LAUNCH is
+// printed as exactly that — never as a code — and a raw number outside the
+// contract (what a pre-fix runner wrote for a crash: 3221225794 =
+// 0xC0000142 STATUS_DLL_INIT_FAILED, eight times in the 2026-08-17 baseline) is
+// printed as NOT A VERDICT, so a stale artefact cannot be re-published as a
+// reading. `renderGateOutcome` is the ONE reader of that field; nothing here
+// re-derives it.
+interface CertifySummary {
+  startedAt?: string; finishedAt?: string; exitCode?: unknown;
+  gates?: Record<string, unknown>; launchFailures?: Record<string, LaunchFailure>;
+  vitestLaunch?: LaunchFailure; gatesDir?: string; resultsDir?: string;
+}
+const certifyPath = resolve(dir, 'certify.json');
+const certify: CertifySummary | null = existsSync(certifyPath)
+  ? (JSON.parse(readFileSync(certifyPath, 'utf8')) as CertifySummary)
+  : null;
+L.push('## Wave-3 gates — the last `certify.ts` run, as recorded');
+L.push('');
+if (!certify) {
+  L.push('_No `results/certify.json` on disk — `certify.ts` has not been run here, so no Wave-3 gate has a recorded outcome._');
+  L.push('');
+} else {
+  const EXIT_NAME: Record<number, string> = {
+    0: 'CLEAN', 1: 'DECLARED-LEVEL', 2: 'MISCONFIGURED (never absorbable)', 3: 'RATCHET EXCEEDED (never absorbable)',
+  };
+  const ec = certify.exitCode;
+  const ecText = typeof ec === 'number' && EXIT_NAME[ec] !== undefined
+    ? `**${ec} — ${EXIT_NAME[ec]}**`
+    : `**NOT A CONTRACT CODE — raw value ${JSON.stringify(ec)} (a pre-2026-09-10 runner let a launch failure replace the run's own exit code)**`;
+  const failures = certify.launchFailures ?? {};
+  const gateEntries = Object.entries(certify.gates ?? {});
+  const notVerdicts = gateEntries.filter(([, v]) => !(typeof v === 'number' && v >= 0 && v <= 3));
+  L.push(`- **Run:** started ${certify.startedAt ?? '?'} · finished ${certify.finishedAt ?? '?'} · exit ${ecText}`);
+  L.push(`- **Gates recorded:** ${gateEntries.length} · **did not launch / not a verdict:** ${notVerdicts.length}` +
+    (certify.launchFailures === undefined ? ' · _(this artefact predates the launch-failure field — a raw crash code, if any, is in the verdict column)_' : ''));
+  if (certify.vitestLaunch) {
+    L.push(`- ⛔ **The suite runner itself did not launch:** ${renderGateOutcome('LAUNCH_FAILED', certify.vitestLaunch)}`);
+  }
+  if (notVerdicts.length > 0) {
+    L.push(`- ⛔ **${notVerdicts.length} row(s) below carry NO VERDICT.** Those checks did not run; this file must not be read as their baseline, and the results directory must not be committed as one.`);
+  }
+  if (certify.gatesDir && !certify.gatesDir.replace(/\\/g, '/').endsWith('/certification/gates')) {
+    L.push(`- ⚠ **Gates were read from an OVERRIDDEN directory:** \`${certify.gatesDir}\` — this run measured a fixture roster, not the real gates.`);
+  }
+  L.push('');
+  L.push('| Gate | Recorded outcome |');
+  L.push('|---|---|');
+  for (const [g, v] of gateEntries) {
+    L.push(`| \`${g}\` | ${cell(renderGateOutcome(v, failures[g] ?? null), 400)} |`);
+  }
   L.push('');
 }
 
