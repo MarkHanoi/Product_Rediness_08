@@ -80,7 +80,18 @@ describe('§PERF-DW-LAZY-BUILD — workbench DOM is built on first open, not at 
         dw.setMode('full');
         expect(document.querySelectorAll('#dw-workbench').length).toBe(1);
         dw.setMode('hidden');
-    });
+    // ⭐ EXPLICIT TIMEOUT (2026-09-10, lane CI-SIX-RED). This arm builds the WHOLE
+    // workbench surface (20+ panels) and was the only `it` here left on vitest's 10 s
+    // default, while its own `beforeAll` already carries 300_000. Run alone it passes
+    // in ~2 s; run inside the full root suite it intermittently reported
+    // "Test timed out in 10000ms" — a CONTENTION artefact reported as a product
+    // failure, which is worse than a slow test because it sends the next reader after
+    // a defect that is not there.
+    // ⛔ This weakens NO assertion: every expectation above is STRUCTURAL (the node
+    // is absent before first open, present after, panels mounted, no duplicate). The
+    // constructor cost is `console.log`ged, never asserted — so there is no timing
+    // claim here for a longer budget to soften. A real hang still fails, at 300 s.
+    }, 300_000);
 
     it('pre-open bucket switches and sheet events are safe and land after build', () => {
         document.getElementById('dw-workbench')?.remove();
