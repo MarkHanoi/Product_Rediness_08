@@ -123,15 +123,50 @@ export const STOREY_NAME_SRC = String.raw`(?:ground|basement|attic|penthouse|mez
  * the user misspelled a room — the §CHAT-AXIS-AWARE-REFUSAL rule (L-10942)
  * applied to an axis that does not exist yet rather than to one that does.
  *
- * ⭐ ONE LIST, TWO CALLERS, MEMBERSHIP UNCHANGED. `APT_PLACE_BUILDING_RE` in
- * ZeroTokenResolver.ts carried exactly these four alternatives already; it is
- * now built from this constant instead of repeating them, so the apartment
- * grammar and the refusal copy cannot drift apart. The membership is therefore
- * held EXACTLY as it was — widening it (to `house`, say) would silently change
- * which sentences that grammar declines, and that is a separate, measured
- * decision, not a side effect of sharing a string.
+ * ⭐ ONE LIST, TWO CALLERS. `APT_PLACE_BUILDING_RE` in ZeroTokenResolver.ts
+ * carried these alternatives already; it is built from this constant instead of
+ * repeating them, so the apartment grammar and the refusal copy cannot drift
+ * apart.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ⛔ WIDENED 2026-09-10 (lane REFUTED-FIX) — L-13302 SHIPPED WITHOUT THE ONE
+ * NOUN THE FOUNDER ACTUALLY USED, and a verifier measured it through the real
+ * `absentAxisFor`: with `(?:buildings?|blocks?|towers?|complex)`, **"house 2",
+ * "the houses" and "house" DID NOT FIRE**. The sentence that opened L-13302 is,
+ * verbatim: *"it should create windows in all walls on all the envelopes of ALL
+ * HOUSES on the parcel."* The teaching example the fix shipped with was "in
+ * block b" — a phrase he never typed — so the axis-aware refusal was
+ * unreachable by the very sentence that motivated it. The paragraph this one
+ * replaces said widening "to `house`, say" would be "a separate, measured
+ * decision". This is that decision, and it is measured.
+ *
+ * ⭐ THE RULE FOR MEMBERSHIP, so the next addition is not a matter of taste: a
+ * noun goes in only if this package ALREADY treats it as a whole building it
+ * can generate. `houses?` and `villas?` pass — `ZeroTokenResolver.ts` maps
+ * /\bhouse\b|\bvilla\b/ to the `'house'` typology of `generate-building`, and
+ * `BuildFromEnvelope.ts` stands down on both. That is adoption, not invention
+ * (the same move `STOREY_NAME_SRC` above records).
+ *
+ * ⛔ AND THE ONES THAT STAY OUT, each for a measured reason:
+ *   · `bungalow` — in `BuildFromEnvelope`'s stand-down guard but in NO typology
+ *     mapping, so it fails the rule the two inclusions pass. Padding.
+ *   · `unit(s)` — COLLIDES with the dwelling axis, and the collision is in the
+ *     very grammar that reads this list: `APT_SCOPE_NOT_A_PLACE_RE` names
+ *     `units?` as a phrase that is NOT a place ("the unit" = the shell being
+ *     filled). A noun resolving to two axes is worse than one resolving to none.
+ *   · `plot` — LAND, not a building; PRYZM has a real parcel/site axis, so
+ *     "reads as a building, and PRYZM cannot scope to one yet" would be a
+ *     confident wrong sentence about an axis that DOES exist.
+ *   · `phase` — a delivery grouping that spans buildings.
+ *
+ * ⚠ THE SECOND CALLER MOVES WITH IT, DELIBERATELY. "create a 3 bedroom
+ * apartment in house 2" now DECLINES the apartment grammar, exactly as
+ * "…in block b" already did, and hands the sentence back for a building-scoped
+ * reading. That is the intended consequence and it is driven through the real
+ * `parseApartmentLayoutIntent` in `__tests__/chatHasNoBuildingAxis.test.ts`, not
+ * pinned as a regex string.
  */
-export const BUILDING_PLACE_NOUN_SRC = String.raw`(?:buildings?|blocks?|towers?|complex)`;
+export const BUILDING_PLACE_NOUN_SRC = String.raw`(?:buildings?|blocks?|towers?|complex|houses?|villas?)`;
 
 // ⛔ `String.raw`, not a bare template — in a template literal `` is the
 // BACKSPACE character, not a word boundary. Caught by measurement while

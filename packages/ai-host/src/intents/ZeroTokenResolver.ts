@@ -5865,11 +5865,19 @@ const APT_SCOPE_NOT_A_PLACE_RE =
 // Building words inside a claimed "place" mean the sentence is about a NEW
 // building envelope — never claimed here (it belongs to generate-building).
 // ⭐ BUILT FROM THE SHARED VOCABULARY (§CHAT-HAS-NO-BUILDING-AXIS, L-13302).
-// These four alternatives were spelled out here AND needed again by the
-// refusal copy in QualifierAxes.ts. Membership is byte-identical to what this
-// line carried before — the change is that there is now ONE list, so the
-// grammar that DECLINES on a building word and the refusal that NAMES the
-// missing building axis can never disagree about what a building word is.
+// These alternatives were spelled out here AND needed again by the refusal copy
+// in QualifierAxes.ts. There is now ONE list, so the grammar that DECLINES on a
+// building word and the refusal that NAMES the missing building axis can never
+// disagree about what a building word is.
+// ⚠ THE LIST IS NO LONGER THE ORIGINAL FOUR — this comment said "byte-identical
+// to what this line carried before" and that stopped being true on 2026-09-10,
+// when §HOUSE-IS-A-BUILDING-NOUN added `houses?|villas?` (the founder's own noun
+// was missing). The consequence lands HERE: "create a 3 bedroom apartment in
+// house 2" now declines this grammar exactly as "…in block b" already did. That
+// is intended, and it is driven through this function by
+// packages/ai-host/__tests__/chatHasNoBuildingAxis.test.ts rather than pinned as
+// a regex source. Read `BUILDING_PLACE_NOUN_SRC`'s own header for the
+// membership rule and the four nouns deliberately kept OUT.
 const APT_PLACE_BUILDING_RE = new RegExp(String.raw`\b${BUILDING_PLACE_NOUN_SRC}\b`);
 
 /**

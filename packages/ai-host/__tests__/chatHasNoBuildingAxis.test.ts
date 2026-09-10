@@ -41,6 +41,7 @@ import {
 } from '../src/intents/QualifierAxes.js';
 import { BUILDING_PLACE_NOUN_SRC, namesABuildingPlace } from '../src/intents/SpatialScopeTail.js';
 import { describeRoomRow } from '../src/intents/roomNumberMatch.js';
+import { parseApartmentLayoutIntent } from '../src/intents/ZeroTokenResolver.js';
 import type { ResolverContext } from '../src/intents/ZeroTokenResolver.js';
 
 const LEVELS = [{ id: 'L0', name: 'Level 0', elevation: 0 }];
@@ -160,24 +161,138 @@ describe('⛔ REGRESSION GUARD — the axis REDIRECTS are untouched', () => {
     });
 });
 
-describe('ONE building-noun list, two callers', () => {
-    it('the shared source rebuilds the apartment grammar regex BYTE-IDENTICALLY', () => {
-        // ⭐ THE POINT OF THE CONSOLIDATION, pinned. `APT_PLACE_BUILDING_RE` in
-        // ZeroTokenResolver.ts is now built from `BUILDING_PLACE_NOUN_SRC`
-        // instead of repeating the four alternatives. If a later edit widens the
-        // shared list (to "house", say) this arm goes red, which is correct:
-        // that changes which sentences the apartment grammar DECLINES, and it is
-        // a measured decision, never a side effect of sharing a string.
-        const rebuilt = new RegExp(String.raw`\b${BUILDING_PLACE_NOUN_SRC}\b`);
-        const asItWas = /\b(?:buildings?|blocks?|towers?|complex)\b/;
-        expect(rebuilt.source).toBe(asItWas.source);
-        expect(rebuilt.flags).toBe(asItWas.flags);
+// ═════════════════════════════════════════════════════════════════════════════
+// §HOUSE-IS-A-BUILDING-NOUN (L-13302 part 2, lane REFUTED-FIX 2026-09-10)
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// ⛔ THE FIX ABOVE MISSED THE FOUNDER'S OWN WORD, and a verifier measured it
+// through the real `absentAxisFor` / `unmatchedQualifierTail`:
+//
+//     BUILDING_PLACE_NOUN_SRC === (?:buildings?|blocks?|towers?|complex)
+//     ⇒ "house 2", "the houses" and "house" DO NOT FIRE.
+//
+// The sentence that opened L-13302 is, verbatim: *"it should create windows in
+// all walls on all the envelopes of ALL HOUSES on the parcel."* The teaching
+// example the fix shipped with was "in block b" — a phrase the founder never
+// typed — while the noun he actually used fell straight through to
+// "I can't find a room 'house 2'". So the axis-aware refusal existed and was
+// unreachable by the one sentence that motivated it.
+//
+// ── THE MEMBERSHIP, AND WHY EACH DECISION IS THE ONE IT IS ──────────────────
+//
+// INCLUDED (`houses?`, `villas?`) — both are SHIPPED building-typology nouns in
+// this package, not words chosen here: `ZeroTokenResolver.ts:5675` maps
+// /\bhouse\b|\bvilla\b/ to the `'house'` typology of `generate-building`, and
+// `BuildFromEnvelope.ts:244` stands down on the same two. A noun the product
+// already treats as "a whole building it can generate" is exactly a noun a user
+// will reach for to name one building among several on a parcel.
+//
+// EXCLUDED, each for a measured reason rather than taste:
+//   · `bungalow` — appears ONLY in `BuildFromEnvelope`'s stand-down guard and in
+//     NO typology mapping, so it fails the rule the two inclusions pass. Adding
+//     it would be padding the list to look thorough.
+//   · `unit(s)` — ⛔ COLLIDES, and the collision is in this same file's grammar:
+//     `APT_SCOPE_NOT_A_PLACE_RE` lists `units?` among the phrases that are NOT a
+//     place ("the unit" = the shell being filled), and the whole apartment
+//     vocabulary uses "unit" for a DWELLING. A noun that resolves to two axes is
+//     worse than one that resolves to none.
+//   · `plot` — LAND, not a building. PRYZM has a real parcel/site axis
+//     (@pryzm/site-parcel-data); answering "reads as a building, and PRYZM
+//     cannot scope to one building yet" for a plot would be a confident wrong
+//     sentence about an axis that does exist.
+//   · `phase` — a DELIVERY grouping that spans buildings, not a building.
+//   · `block` — already in the list since L-13302.
+//
+// ⭐ THE CONSEQUENCE IS MEASURED, NOT ASSUMED. The list has two callers, and the
+// L-13302 header warned that widening it "would silently change which sentences
+// the apartment grammar declines". So the arm below drives the REAL
+// `parseApartmentLayoutIntent` rather than pinning a regex source, and the
+// decline is asserted as the intended behaviour it is: "an apartment in house 2"
+// is a building-scoped ask, exactly like "an apartment in block b", and both
+// belong to an axis that does not exist yet.
+
+describe("⭐ §HOUSE-IS-A-BUILDING-NOUN — the founder's own word fires the axis", () => {
+    it('"house", "houses" and "house 2" land on the BUILDING axis', () => {
+        for (const t of ['house', 'houses', 'house 2', 'the houses', 'all houses']) {
+            expect(absentAxisFor(t)?.id, `"${t}"`).toBe('building');
+        }
     });
 
-    it('the predicate and the regex agree on every token', () => {
-        const asItWas = /\b(?:buildings?|blocks?|towers?|complex)\b/;
-        for (const t of ['block b', 'building', 'towers', 'complex', 'blocked', 'the kitchen', 'house 2']) {
-            expect(namesABuildingPlace(t), `"${t}"`).toBe(asItWas.test(t));
+    it('"villa" lands there too — it is the same shipped typology noun as "house"', () => {
+        for (const t of ['villa', 'villas', 'villa 3', 'the villas']) {
+            expect(absentAxisFor(t)?.id, `"${t}"`).toBe('building');
         }
+    });
+
+    it("the founder's verbatim phrase reads as a building place", () => {
+        // "…create windows in all walls on all the envelopes of all houses on
+        // the parcel." — the noun phrase the scope tail carries out of it.
+        expect(namesABuildingPlace('all houses on the parcel')).toBe(true);
+        expect(namesABuildingPlace('all the envelopes of all houses')).toBe(true);
+    });
+
+    it('⭐ the sentence the founder reads names the building axis and an escape hatch', () => {
+        const said = bridgeRoomRefusal('house 2', 'window');
+        expect(said).toContain('I can\'t find a room "house 2"');
+        expect(said).toContain('reads as a building');
+        expect(said).toContain('cannot scope a request to one building on a parcel yet');
+        expect(said).toContain('select that block\'s windows and say "the selected windows"');
+    });
+
+    it('⛔ the EXCLUDED nouns stay off the axis, each for its own reason', () => {
+        for (const t of [
+            'unit 2', 'the units',   // dwelling vocabulary — APT_SCOPE_NOT_A_PLACE_RE owns it
+            'plot 4', 'the plots',   // land, and there is a real parcel axis
+            'phase 2',               // a delivery grouping, not a building
+            'bungalow 1',            // no typology mapping — inclusion would be padding
+        ]) {
+            expect(absentAxisFor(t), `"${t}"`).toBeNull();
+        }
+    });
+
+    it('⛔ still respects the word boundary — a greenhouse is not a house', () => {
+        for (const t of ['greenhouse', 'housed', 'housing', 'housekeeping', 'villager']) {
+            expect(absentAxisFor(t), `"${t}"`).toBeNull();
+        }
+    });
+});
+
+describe('ONE building-noun list, two callers', () => {
+    it('⭐ the MEMBERSHIP is pinned, so a widening is always a deliberate edit', () => {
+        // Not a byte-identity pin against the ORIGINAL four any more — that arm
+        // existed to make this widening deliberate, and it did its job. What it
+        // is replaced by is the same guard against the same drift: the list is
+        // stated here, so growing it silently is impossible, and every member
+        // has a reason recorded in this file's header.
+        expect(BUILDING_PLACE_NOUN_SRC).toBe(
+            String.raw`(?:buildings?|blocks?|towers?|complex|houses?|villas?)`,
+        );
+    });
+
+    it('the predicate reads exactly the shared source, and nothing else', () => {
+        const fromSource = new RegExp(String.raw`\b${BUILDING_PLACE_NOUN_SRC}\b`, 'i');
+        for (const t of [
+            'block b', 'building', 'towers', 'complex', 'house 2', 'the villas',
+            'blocked', 'greenhouse', 'the kitchen', 'unit 2', 'plot 4',
+        ]) {
+            expect(namesABuildingPlace(t), `"${t}"`).toBe(fromSource.test(t));
+        }
+    });
+
+    it('⭐ THE SECOND CALLER, DRIVEN FOR REAL — the apartment grammar declines a building place', () => {
+        // `APT_PLACE_BUILDING_RE` is built from the shared source, so widening it
+        // widens what this grammar hands back to `generate-building`. Measured
+        // through the real parser rather than pinned as a regex string, because
+        // a regex pin proves the constant equals itself — the exact defect the
+        // sibling cadastral spec was refuted for on 2026-09-10.
+        expect(parseApartmentLayoutIntent('create a 3 bedroom apartment in block b')).toBeNull();
+        expect(parseApartmentLayoutIntent('create a 3 bedroom apartment in house 2')).toBeNull();
+        expect(parseApartmentLayoutIntent('create a 3 bedroom apartment in villa 3')).toBeNull();
+        // ⛔ AND THE OTHER HALF: an ordinary room place is STILL claimed. A
+        // widening that quietly stopped claiming real sentences would be a
+        // regression wearing this fix's name.
+        const kept = parseApartmentLayoutIntent('create a 3 bedroom apartment in room 00-001');
+        expect(kept).not.toBeNull();
+        expect(kept!.intent).toBe('generate-apartment-layout');
     });
 });
