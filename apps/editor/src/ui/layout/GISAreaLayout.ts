@@ -54,6 +54,8 @@ import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
 // BEFORE this engine boot began. `null` means "construct it cold", which is the untouched path.
 import { consumeEagerGlobeStart, consumePrewarmedGlobe } from '../../engine/eagerGlobeStart';
 import { markStartupPhase } from '../../engine/startupBudget';
+// §STARTUP-MOVE-THE-GATE (L-13277) — the ONE authority for "the user can click the globe".
+import { markGlobeSurfaceLive } from '../../engine/globeSurfaceGate';
 // L-445 — `getLastBuildableEnvelope` is the FULL envelope incl. the derivation trace (facts
 // card only; legitimately null after a reload, and shown as such rather than fabricated).
 // `resolveRenderableBuildableEnvelope` is the GEOMETRY read for renderers — it falls back to
@@ -2662,6 +2664,24 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
     // `cesiumViewport.mount()` (or failed it — see the `.catch` above); pre-resolved before any
     // activation, and never re-armed by later re-activations (the viewport stays ready).
     window.pryzmGetSiteEntryCameraHostReady = () => _cameraHostReady;
+
+    // §STARTUP-MOVE-THE-GATE (lane PERF-OPEN, L-13277) — ⭐ THE GLOBE SURFACE IS NOW LIVE, AND
+    // THIS IS THE ONLY PLACE THAT MAY SAY SO.
+    //
+    // The three globals immediately above (`pryzmToggleGIS`, `pryzmGetSiteEntryCameraHost`,
+    // `pryzmGetSiteEntryCameraHostReady`) are EXACTLY what `renderLocationStep()`'s
+    // `GlobeHeroSearch` reaches for. Until this line they did not exist, so the onboarding
+    // location step could not have worked however early it was allowed to open — which is why
+    // the old gate keyed on `pryzm-project-loaded` and why moving it required a signal at this
+    // precise point rather than an earlier guess.
+    //
+    // ⛔ MUST STAY AFTER ALL THREE ASSIGNMENTS. Setting the latch one line earlier would hand
+    // the user a location card whose search box silently does nothing — a control that looks
+    // live and is not (§CONTEXT-DATA-HONESTY).
+    //
+    // Measured: this point is `t+3338 ms` on a cold new-project open, against the old gate's
+    // `t+3790 ms` — ~480 ms in which the globe was clickable and the product refused to show it.
+    markGlobeSurfaceLive();
 
     // O.2 (zoom-to-address defect) — let the onboarding location step seed the SAME
     // `lastGeocodeFrame` the GIS-rail search box populates via onFlyTo. The

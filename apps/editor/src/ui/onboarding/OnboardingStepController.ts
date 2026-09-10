@@ -68,6 +68,10 @@
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { createSiteFromRect } from '../site/createSiteFromRect.js';
+// §STARTUP-MOVE-THE-GATE (L-13277) — the commit's own gate. The location step opens on the
+// GLOBE being clickable; authoring a site still requires the engine, and `createSite()`
+// awaits this before dispatching. See `engineLauncher`-side `globeSurfaceGate.ts`.
+import { whenEngineReadyForSite } from '../../engine/globeSurfaceGate.js';
 import { resolveSiteContext, ensureSite, dispatchSiteLocation, dispatchClearParcelBoundary, resolveBuildableFootprint, getLastBuildableEnvelope } from '../site/siteDispatch.js';
 // §L-401 slice 2 — the pure storey height-cap decision (C58 envelope → legal storey count).
 import { capStoreysToEnvelope } from '@pryzm/site-parcel-data';
@@ -1728,13 +1732,13 @@ export class OnboardingStepController {
      * so the Skip path lands them in the editor with a default plot + the
      * "Generate with AI?" question (rather than a silent auto-generate).
      */
-    private useDefaultRectThenConfirm(): void {
+    private async useDefaultRectThenConfirm(): Promise<void> {
         // PRD §22 — disarm the early-split boundary listener FIRST. `createSiteFromRect` emits
         // `site.parcel-boundary-set` SYNCHRONOUSLY, which would otherwise trip that listener into
         // a redundant 'drawn'-labelled confirm a tick before this path's own 'default-plot' one.
         try { this.drawWaitCleanup?.(); } catch { /* ignore */ }
         this.drawWaitCleanup = null;
-        const siteOk = this.createSite({
+        const siteOk = await this.createSite({
             ...(this.picked ? { lat: this.picked.lat, lon: this.picked.lon, address: this.picked.address } : {}),
             width: DEFAULT_PARCEL_WIDTH_M,
             depth: DEFAULT_PARCEL_DEPTH_M,
@@ -3937,8 +3941,31 @@ export class OnboardingStepController {
     // ── shared site + generate plumbing ────────────────────────────────────────
 
     /** Call `createSiteFromRect` with whatever location/size we have. Returns its
-     *  boolean result. Wraps in try so it never throws into the flow. */
-    private createSite(opts: { lat?: number; lon?: number; address?: string; width: number; depth: number }): boolean {
+     *  boolean result. Wraps in try so it never throws into the flow.
+     *
+     *  §STARTUP-MOVE-THE-GATE (lane PERF-OPEN, L-13277) — ⭐ THE RE-CONVERGENCE POINT, and the
+     *  reason opening the location step early is safe rather than a race.
+     *
+     *  The location step no longer waits for `pryzm-project-loaded`; it opens the moment the
+     *  globe surface is live (measured t+3338 ms vs t+3790 ms). That means this method — the
+     *  ONE funnel through which every onboarding path authors a site, all three callers — can
+     *  now, in principle, be reached before the engine boot and project hydrate have finished.
+     *  `createSiteFromRect` dispatches bus commands against stores that `registerAllStores`
+     *  publishes at t+2530, so running it early would be authoring into a half-built model.
+     *
+     *  In practice the window is ~450 ms and the user would have to type an address, geocode it
+     *  and choose a parcel inside it — but "in practice impossible" is not a proof, and a silent
+     *  ordering assumption is exactly the class of defect this lane was asked not to introduce.
+     *  So it is an explicit await. On every real run it costs NOTHING: by the time a human has
+     *  reached a commit the boot finished seconds ago and this is an already-settled promise.
+     *
+     *  ⛔ THIS IS WHY THE METHOD IS ASYNC. All three callers already invoke their own wrappers
+     *  as `void this.x()` (fire-and-forget), so awaiting here changes no call-site contract.
+     *  ⛔ Any future onboarding path that authors before `enter-canvas` awaits the same gate. */
+    private async createSite(opts: { lat?: number; lon?: number; address?: string; width: number; depth: number }): Promise<boolean> {
+        // ⚠ Never a timeout and never a poll: this resolves when `pryzm-project-loaded` fires,
+        // which is the same fact the OLD gate used for everything. One authority, one answer.
+        await whenEngineReadyForSite();
         try {
             return createSiteFromRect(this.runtime, {
                 ...(opts.address ? { address: opts.address } : {}),
@@ -3961,10 +3988,10 @@ export class OnboardingStepController {
      * default plot (so there's a visible boundary to generate from) then surfaces
      * the generate-confirm step so the user still chooses. Guarded by `disposed`.
      */
-    private fallbackDefaultRectToConfirm(reason: string): void {
+    private async fallbackDefaultRectToConfirm(reason: string): Promise<void> {
         if (this.disposed) return;
         console.log(`[onboarding-step] default plot → confirm (${reason}).`);
-        const siteOk = this.createSite({
+        const siteOk = await this.createSite({
             ...(this.picked ? { lat: this.picked.lat, lon: this.picked.lon, address: this.picked.address } : {}),
             width: DEFAULT_PARCEL_WIDTH_M,
             depth: DEFAULT_PARCEL_DEPTH_M,
@@ -3984,7 +4011,7 @@ export class OnboardingStepController {
         if (this.disposed) return;
         console.log(`[onboarding-step] fallback default rectangle (${reason}).`);
         this.renderGeneratingStep();
-        const siteOk = this.createSite({
+        const siteOk = await this.createSite({
             ...(this.picked ? { lat: this.picked.lat, lon: this.picked.lon, address: this.picked.address } : {}),
             width: DEFAULT_PARCEL_WIDTH_M,
             depth: DEFAULT_PARCEL_DEPTH_M,

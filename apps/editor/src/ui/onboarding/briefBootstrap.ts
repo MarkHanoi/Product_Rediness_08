@@ -70,6 +70,9 @@
 import type { PryzmRuntime } from '@pryzm/runtime-composer';
 import { startOnboardingStepFlow } from './OnboardingStepController.js';
 import { markStartupPhase } from '../../engine/startupBudget.js';
+// §STARTUP-MOVE-THE-GATE (L-13277) — two DIFFERENT questions, one authority each:
+// "can the user click the globe?" (the location step) vs "can we author a site?" (the commit).
+import { whenGlobeSurfaceLive, markEngineReadyForSite } from '../../engine/globeSurfaceGate.js';
 import { setActiveBrief } from '../apartment-layout/activeBrief.js';
 import { resolveGenerateRoute } from './typologyChoiceModel.js';
 
@@ -234,6 +237,60 @@ async function handleBriefReady(
         : DEFAULT_PROJECT_NAME;
 
     let fired = false;
+
+    // §STARTUP-MOVE-THE-GATE (lane PERF-OPEN, L-13277) — ⭐ THE LOCATION STEP NO LONGER WAITS
+    // FOR THE ENGINE.
+    //
+    // `startOnboardingStepFlow` used to be called from inside the `pryzm-project-loaded`
+    // handler below, which is why the founder waited 3.8 s for a card with a text box over a
+    // globe that had been ready since ~550 ms. The step needs a globe it can click and a place
+    // to type a cadastral reference; it does not need wall builders, slab stores, a
+    // WorkspaceController or a hydrated snapshot. See `globeSurfaceGate.ts` for the full
+    // measurement and for why this is TWO QUESTIONS rather than two gates.
+    //
+    // The project id is NOT a reason to wait here: `buildPersistence.openProject` calls
+    // `projectContext.set(...)` in its STEP 1, before it even requests the engine boot
+    // (measured `open:persistence-openProject t+518 ms` vs the globe surface at `t+3338 ms`),
+    // so `runtime.audit.projectId` is long since populated by the time this resolves. The
+    // guard below is kept as a genuine guard, not as a gate.
+    let stepFlowStarted = false;
+    const startStepFlowOnce = (via: string): void => {
+        if (stepFlowStarted) return;
+        stepFlowStarted = true;
+        if (!runtime.audit?.projectId) {
+            console.warn(
+                `[onboarding-bootstrap] §STARTUP-MOVE-THE-GATE — ${via}: runtime.audit.projectId ` +
+                'is empty, so the step flow cannot start. This should be unreachable — ' +
+                'openProject sets the project context in step 1, well before the globe surface ' +
+                'comes up. Bailing rather than starting a flow with no project.',
+            );
+            return;
+        }
+        try {
+            startOnboardingStepFlow({
+                runtime,
+                ...(address ? { seedAddress: address } : {}),
+                // O.7.1 — thread the captured typology so the generate-confirm step
+                // copy/label is typology-aware (apartment now; future Packs add
+                // their noun).
+                typologyId: brief.typologyId,
+                // O.12.c — thread the STRUCTURED brief metadata so the final
+                // generate consumes the user's bedroom/bathroom/option choices.
+                briefMetadata,
+            });
+        } catch (err) {
+            console.error('[onboarding-bootstrap] failed to start onboarding step flow (swallowed):', err);
+        }
+    };
+
+    // ⛔ ONE await, no poll, no timeout, no second listener racing the one below. If the globe
+    // surface never comes up (an engine boot that dies before `mountGISArea`), this never
+    // resolves — deliberately: a location card over no globe is a worse answer than none, and
+    // the 30 s net further down still surfaces a retriable toast so the user is told.
+    void whenGlobeSurfaceLive().then(() => {
+        startStepFlowOnce('globe-surface-live');
+    });
+
     const onLoaded = runtime.events.on('pryzm-project-loaded', (p) => {
         if (fired) return;
         fired = true;
@@ -253,34 +310,27 @@ async function handleBriefReady(
         // owns his wait; a near-zero gap means the boot does, and ADR-0369 §7 Stage 3 is
         // the whole answer. ⛔ Do not deduce which without reading this pair.
         markStartupPhase('open:project-loaded');
+        // §STARTUP-MOVE-THE-GATE (L-13277) — ⭐ THE RE-CONVERGENCE, AND IT IS THE LOAD-BEARING
+        // HALF OF THIS CHANGE. Decoupling the location step from the boot is only safe because
+        // the path that genuinely NEEDS the engine now awaits this fact explicitly:
+        // `OnboardingStepController.callCreateSiteFromRect()` awaits `whenEngineReadyForSite()`
+        // before `createSiteFromRect(...)` dispatches its first bus command. A user who picks a
+        // parcel 400 ms after the globe appears therefore waits AT THE COMMIT — where waiting is
+        // correct and invisible — instead of reaching a half-booted editor.
+        // ⛔ Any new consumer of the engine on the onboarding path awaits there too.
+        markEngineReadyForSite();
         console.log('[onboarding-bootstrap] pryzm-project-loaded — project ready', {
             projectId: p.projectId,
             empty: p.empty,
         });
-        // O.2 — hand off to the guided step controller (location → draw-or-skip →
-        // generate). It owns site-create + the GIS draw wait + the generate call;
-        // this module's job ends at "project is open". Guarded — never throws here.
-        try {
-            if (!runtime.audit?.projectId) {
-                console.warn('[onboarding-bootstrap] project loaded but runtime.audit.projectId is empty — cannot start step flow; bailing.');
-                return;
-            }
-            startOnboardingStepFlow({
-                runtime,
-                ...(address ? { seedAddress: address } : {}),
-                // O.7.1 — thread the captured typology so the generate-confirm step
-                // copy/label is typology-aware (apartment now; future Packs add
-                // their noun). Always 'apartment' here today (the typology gate
-                // above bails on anything else), but read from the brief so the
-                // switch point is real, not hardcoded.
-                typologyId: brief.typologyId,
-                // O.12.c — thread the STRUCTURED brief metadata so the final
-                // generate consumes the user's bedroom/bathroom/option choices.
-                briefMetadata,
-            });
-        } catch (err) {
-            console.error('[onboarding-bootstrap] failed to start onboarding step flow (swallowed):', err);
-        }
+        // O.2 — hand off to the guided step controller (location → draw-or-skip → generate).
+        // ⚠ This is now a FALLBACK, not the gate. On every normal run the globe surface comes
+        // up first (measured t+3338 ms vs t+3790 ms) and `startStepFlowOnce` has already run, so
+        // this call is a no-op via its latch. It is kept because "project loaded" is the ONE
+        // remaining path on which the step flow must still start if the globe surface signal
+        // were somehow missed — losing onboarding entirely is a far worse failure than starting
+        // it late, and the latch makes double-start impossible.
+        startStepFlowOnce('project-loaded (fallback)');
     });
 
     // Safety net: if the project never reports loaded, dispose the listener so we
