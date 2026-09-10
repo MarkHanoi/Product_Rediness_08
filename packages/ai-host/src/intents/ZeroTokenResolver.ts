@@ -5878,7 +5878,18 @@ const APT_SCOPE_NOT_A_PLACE_RE =
 // packages/ai-host/__tests__/chatHasNoBuildingAxis.test.ts rather than pinned as
 // a regex source. Read `BUILDING_PLACE_NOUN_SRC`'s own header for the
 // membership rule and the four nouns deliberately kept OUT.
-const APT_PLACE_BUILDING_RE = new RegExp(String.raw`\b${BUILDING_PLACE_NOUN_SRC}\b`);
+// ⭐ §BUILDING-NOUNS-ARE-CASE-BLIND (L-13302 part 3). The `i` flag is NOT cosmetic and it was
+// NOT here: the sibling `BUILDING_PLACE_RE` carries `/i` and this one did not, so "in Block B"
+// and "in House 2" — a capital, the way a person actually writes a proper name — did NOT
+// decline this grammar while "in block b" did. ONE list, TWO callers, and two different
+// answers to "is this a building?" depending on the shift key. That is the dominant defect
+// wearing a regex flag.
+//
+// ⚠ IT WIDENS WHAT THIS GRAMMAR DECLINES, AND THAT IS THE POINT, not a side effect. Declining
+// is the honest branch: a sentence that names a building must not be silently resolved as an
+// apartment placement — that is L-13302's whole subject. Case-sensitivity left the axis-aware
+// refusal unreachable by exactly the phrasing most likely to be typed.
+const APT_PLACE_BUILDING_RE = new RegExp(String.raw`\b${BUILDING_PLACE_NOUN_SRC}\b`, 'i');
 
 /**
  * L-911 — the programme the EDITOR falls back to when the sentence names no

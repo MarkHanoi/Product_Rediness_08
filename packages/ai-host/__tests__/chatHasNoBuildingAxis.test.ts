@@ -296,3 +296,41 @@ describe('ONE building-noun list, two callers', () => {
         expect(kept!.intent).toBe('generate-apartment-layout');
     });
 });
+
+
+// ══════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §BUILDING-NOUNS-ARE-CASE-BLIND (L-13302 part 3)
+// ══════════════════════════════════════════════════════════════════════════════════════
+//
+// ONE noun list, TWO callers, and they disagreed on the shift key. `BUILDING_PLACE_RE`
+// (SpatialScopeTail) carried `/i`; `APT_PLACE_BUILDING_RE` (ZeroTokenResolver) did not.
+// So "in block b" declined the apartment grammar — pinned directly above — and
+// "in Block B" did NOT. A proper name is normally written capitalised, so the arms above
+// covered the spelling least likely to be typed.
+//
+// ⛔⛔ THE FIRST DRAFT OF THIS BLOCK WAS VACUOUS, AND ONLY THE SCRAMBLE CAUGHT IT.
+// It asserted `namesABuildingPlace()` and `absentAxisFor()` — both of which read the
+// SIBLING regex that already had `/i`. With the flag under test removed, all 28 arms
+// stayed GREEN. A test named after a property while measuring a different code path is
+// the exact defect this lane exists to close, so it is recorded here rather than quietly
+// replaced.
+//
+// ⭐ THE BINDING ARM DRIVES THE REAL CALLER. `APT_PLACE_BUILDING_RE` has exactly one
+// consumer: the guard inside `parseApartmentLayoutIntent` that declines the apartment
+// grammar when the tail names a building. The only honest probe is a real sentence
+// through the real parser.
+describe('§BUILDING-NOUNS-ARE-CASE-BLIND — a capitalised building name declines the apartment grammar', () => {
+    for (const phrase of ['Block B', 'House 2', 'BLOCK B', 'Villa 3', 'Tower A', 'HOUSE 2']) {
+        it(`"…apartment in ${phrase}" is DECLINED (returns null)`, () => {
+            expect(parseApartmentLayoutIntent(`create a 3 bedroom apartment in ${phrase}`)).toBeNull();
+        });
+    }
+
+    // ⛔ NON-VACUITY CONTROL. Without this, a parser returning null for EVERY sentence
+    // would pass every arm above. A room tail must still be CLAIMED by this grammar,
+    // capitalised or not — the guard must not have swallowed everything.
+    it('a ROOM tail is still claimed, in either case', () => {
+        expect(parseApartmentLayoutIntent('create a 3 bedroom apartment in room 00-001')).not.toBeNull();
+        expect(parseApartmentLayoutIntent('create a 3 bedroom apartment in Room 00-001')).not.toBeNull();
+    });
+});
