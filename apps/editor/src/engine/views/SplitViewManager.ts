@@ -27,6 +27,7 @@ import * as THREE from '@pryzm/renderer-three/three';
 // §L-432 — the shared site-context reader (parcel ring + envelope setback ring + θ), also
 // published to the L1 snapping package. One source, so the pane and the snaps cannot disagree.
 import { readSiteContextRings } from '../../ui/site/siteSnapContext';
+import { readWalkPlanMarker } from './walkPlanMarker';
 import * as OBC from '@thatopen/components';
 import type { ISplitViewManager } from '@pryzm/views';
 import { unifiedFrameLoop } from '@pryzm/core-app-model';
@@ -875,6 +876,11 @@ export class SplitViewManager implements ISplitViewManager {
                 // separate reads could drift, drawing the setback line in one place while the
                 // snap fires in another.
                 siteContextProvider: readSiteContextRings,
+                // §WALK-POSITION-ON-PLAN — ONE shared reader, injected into BOTH
+                // plan panes (see walkPlanMarker.ts). It owns the "split view only"
+                // gate the founder asked for, so this pane simply draws whatever it
+                // is handed and nothing decides the rule twice.
+                walkPoseProvider: readWalkPlanMarker,
                 // VIEW-SYSTEM-AUDIT-2026 F13 — the VG signature is `(modelId, category,
                 // viewId?)`. An earlier copy of this closure passed `this._planViewId` as
                 // the FIRST positional argument (modelId) and silently produced default

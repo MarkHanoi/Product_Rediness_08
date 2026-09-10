@@ -19,6 +19,7 @@ import { viewDefinitionStore } from '@pryzm/core-app-model';
 // (§L-432). SplitViewManager already imports this exact symbol; the main pane did not,
 // which is why the parcel boundary drew in the split pane only. See _buildContext().
 import { readSiteContextRings } from '../../ui/site/siteSnapContext';
+import { readWalkPlanMarker } from './walkPlanMarker';
 import {
     DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM,
     MAXIMUM_PLAN_VIEW_CANVAS_FRUSTUM,
@@ -738,6 +739,12 @@ export class PlanViewManager implements IPlanViewManager {
             // pane that draws the setback line and the snap that fires on it cannot drift
             // apart. `readSiteContextRings` IS that reader; this pane was missing from it.
             siteContextProvider: readSiteContextRings,
+            // §WALK-POSITION-ON-PLAN — ONE shared reader, injected into BOTH plan
+            // panes (see walkPlanMarker.ts). This pane is the PRIMARY one: in split
+            // view it is on screen next to the secondary pane, so whichever of the
+            // two is showing the plan must be able to draw the walker. Wiring only
+            // the split pane would reproduce §L-1176 exactly.
+            walkPoseProvider: readWalkPlanMarker,
             // §FIX-VISIBILITY-INTENT-AUTHORITY (L-776) — ONE resolver, shared with
             // SplitViewManager. It reports a VG contribution ONLY where VG genuinely
             // OVERRIDES; a built-in template seed no longer outranks the bound visibility

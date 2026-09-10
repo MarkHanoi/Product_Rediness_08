@@ -2,6 +2,8 @@ import * as THREE from '@pryzm/renderer-three/three';
 import { viewTechnicalDrawingCache } from './ViewTechnicalDrawingCache';
 import { planViewAnnotationRenderer } from './PlanViewAnnotationRenderer';
 import { annotationStore } from '../annotations/AnnotationStore.js';
+import { PREVIEW_CSS } from '../preview/PreviewStyle.js';
+import type { WalkPose } from '../navigation/WalkPoseBeacon.js';
 import { PocheFillBuilder, pochePlaneForFrame, type PochePolygon, type PochePlane } from './PocheFillBuilder';
 import { RoomColourSystem } from '@pryzm/room-topology';
 // A-1: DrawingSelectionIndex — primary UUID resolution path for hitTest
@@ -216,6 +218,18 @@ export interface PlanViewCanvasOptions {
     styleResolver?: (category: string, layerTag: string) => PlanViewCanvasStyle | null;
     /** §L-431 — provider for the parcel + envelope site-context rings (see PlanSiteContext). */
     siteContextProvider?: () => PlanSiteContext | null;
+    /**
+     * §WALK-POSITION-ON-PLAN — provider for the walking user's pose, or `null`
+     * when nobody is walking / the marker does not apply to this layout.
+     *
+     * Injected rather than read, for the same reason `siteContextProvider` is:
+     * this is the pure Canvas2D renderer and it must not reach up into the app
+     * layer to ask whether split view is on. The app supplies ONE shared reader
+     * to BOTH panes — §L-1176 is the standing lesson that wiring a per-view
+     * capability into one pane while the layout has two produces a capability
+     * that "works" everywhere except where the user is looking.
+     */
+    walkPoseProvider?: () => WalkPose | null;
 }
 
 export interface PlanViewCanvasRenderOptions {
@@ -228,6 +242,8 @@ export class PlanViewCanvas {
     private readonly _styleResolver: ((category: string, layerTag: string) => PlanViewCanvasStyle | null) | null;
     /** §L-431 — injected site-context provider (parcel + envelope rings). See PlanSiteContext. */
     private readonly _siteContextProvider: (() => PlanSiteContext | null) | null;
+    /** §WALK-POSITION-ON-PLAN — injected walk-pose reader. See PlanViewCanvasOptions. */
+    private readonly _walkPoseProvider: (() => WalkPose | null) | null;
     private _frustumH = DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM;
     private _camTarget = new THREE.Vector3();
     /**
@@ -302,6 +318,7 @@ export class PlanViewCanvas {
         this._ctx = ctx;
         this._styleResolver = options.styleResolver ?? null;
         this._siteContextProvider = options.siteContextProvider ?? null;
+        this._walkPoseProvider = options.walkPoseProvider ?? null;
         this._gridVisible = options.gridVisible ?? true;
     }
 
@@ -462,6 +479,11 @@ export class PlanViewCanvas {
                 ? 'Add walls to see the floor plan'
                 : 'Generating view…';
             ctx.fillText(placeholderText, w / 2, h / 2);
+            // §WALK-POSITION-ON-PLAN — ALSO on the no-linework path. A plan with no
+            // walls cached yet still has a camera and still has a walker in it; the
+            // marker answering "where am I" must not depend on whether the drawing
+            // cache happens to be warm. Same method, so there is one symbol, not two.
+            if (isPlanLike) this._renderWalkPosition(ctx);
             return;
         }
 
@@ -746,6 +768,127 @@ export class PlanViewCanvas {
         this._renderHostedDragHandles(ctx);
 
         this._drawSnapIndicator(ctx);
+
+        // §WALK-POSITION-ON-PLAN — last, so the walker is never hidden under
+        // linework.  Plan-like views only: on a section/elevation `worldToScreen`
+        // maps (x, y), so an XZ pose projected there would be a confident dot in
+        // a meaningless place.
+        if (isPlanLike) this._renderWalkPosition(ctx);
+    }
+
+    /**
+     * §WALK-POSITION-ON-PLAN — the purple walker, with a heading.
+     *
+     * ── NO NEW FRAME LOOP ────────────────────────────────────────────────────
+     * This is a pass inside the render the pane already performs at 30 fps off
+     * the shared frame bus.  P3 pins the only `requestAnimationFrame` in the repo
+     * to `frame-scheduler/src/RafAdapter.ts`; a live marker needs no second one,
+     * no `setInterval`, and no resize/scroll listener — the existing repaint is
+     * already the right cadence and already handles pan, zoom and resize because
+     * it re-projects through `worldToScreen()` on every frame.
+     *
+     * ── THE HEADING IS MEASURED, NOT DERIVED ─────────────────────────────────
+     * The on-screen direction is obtained by projecting the pose AND a point one
+     * metre in front of it, then taking the angle between the two projections.
+     * That is transform-agnostic: it stays correct under any pan, zoom or axis
+     * convention `worldToScreen` may adopt, and it means this renderer never has
+     * to replicate the walk controller's Euler convention. A copied convention is
+     * a second implementation of one rule, and those drift.
+     *
+     * ── OFF-LEVEL IS DRAWN, NOT HIDDEN ───────────────────────────────────────
+     * When the walker is on a storey this plan is not showing, the marker is
+     * drawn HOLLOW and dashed instead of solid. Hiding it would answer "where am
+     * I?" with silence; drawing it solid would state he is on this floor, which
+     * is false. Hollow says the true thing: this is his position in plan, on
+     * another storey. An UNRESOLVED level id (either side `null`) takes the same
+     * hollow treatment — an unknown must never be drawn as the confident case.
+     */
+    private _renderWalkPosition(ctx: CanvasRenderingContext2D): void {
+        const pose = this._readWalkPose();
+        if (!pose) return;
+        if (!Number.isFinite(pose.x) || !Number.isFinite(pose.z)) return;
+
+        const a = this.worldToScreen(pose.x, pose.z);
+        if (!Number.isFinite(a.sx) || !Number.isFinite(a.sy)) return;
+
+        // Cull once it is well outside the canvas — the glyph is ~30 px, so a
+        // 64 px margin still draws a partially visible walker.
+        const w = this._cssW || this._canvas.clientWidth;
+        const h = this._cssH || this._canvas.clientHeight;
+        if (a.sx < -64 || a.sy < -64 || a.sx > w + 64 || a.sy > h + 64) return;
+
+        const onLevel = pose.levelId !== null
+            && this._levelId !== null
+            && pose.levelId === this._levelId;
+
+        // Screen angle of the view direction, measured through the same
+        // projection that placed the dot.
+        let heading: number | null = null;
+        if (Number.isFinite(pose.dirX) && Number.isFinite(pose.dirZ)
+            && (pose.dirX !== 0 || pose.dirZ !== 0)) {
+            const b  = this.worldToScreen(pose.x + pose.dirX, pose.z + pose.dirZ);
+            const dx = b.sx - a.sx;
+            const dy = b.sy - a.sy;
+            if (Math.hypot(dx, dy) > 1e-6) heading = Math.atan2(dy, dx);
+        }
+
+        const R_DOT  = 5.5;
+        const R_CONE = 26;
+        const HALF   = (26 * Math.PI) / 180;
+
+        ctx.save();
+        ctx.setLineDash([]);
+
+        // View cone — the "which way am I facing" half of the symbol.
+        if (heading !== null) {
+            ctx.beginPath();
+            ctx.moveTo(a.sx, a.sy);
+            ctx.arc(a.sx, a.sy, R_CONE, heading - HALF, heading + HALF);
+            ctx.closePath();
+            if (onLevel) {
+                ctx.fillStyle = PREVIEW_CSS.PRIMARY_FILL;
+                ctx.fill();
+            } else {
+                ctx.setLineDash([3, 3]);
+                ctx.strokeStyle = PREVIEW_CSS.PRIMARY;
+                ctx.lineWidth   = 1;
+                ctx.globalAlpha = 0.7;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+                ctx.setLineDash([]);
+            }
+        }
+
+        // The point itself. A white ring under it keeps it legible on top of
+        // dense black linework as well as on the white ground.
+        ctx.beginPath();
+        ctx.arc(a.sx, a.sy, R_DOT + 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(a.sx, a.sy, R_DOT, 0, Math.PI * 2);
+        if (onLevel) {
+            ctx.fillStyle = PREVIEW_CSS.PRIMARY;
+            ctx.fill();
+        } else {
+            ctx.setLineDash([2.5, 2.5]);
+            ctx.strokeStyle = PREVIEW_CSS.PRIMARY;
+            ctx.lineWidth   = 1.75;
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        ctx.restore();
+    }
+
+    /** Reads the injected walk pose, never letting a provider fault kill the paint. */
+    private _readWalkPose(): WalkPose | null {
+        try {
+            return this._walkPoseProvider?.() ?? null;
+        } catch {
+            return null;
+        }
     }
 
     setSnapIndicator(sx: number, sy: number): void {
