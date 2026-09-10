@@ -26,6 +26,9 @@ import {
     disarmEnvelopeDraw,
     getEnvelopeDrawStatus,
     isEnvelopeDrawIntent,
+    envelopeDrawBarModesFor,
+    envelopeDrawEscHintFor,
+    ENVELOPE_DRAW_BAR_MODES,
     registerEnvelopeDrawSurface,
     resolveEnvelopeDrawIntent,
     setEnvelopeDrawMode,
@@ -213,6 +216,38 @@ describe('§ARRAY-ALONG-PATH D6 — the closed modes are refused BY NAME, never 
         click(0, 0);
         click(20, 30);
         expect(getDrawnEnvelopeFootprint()?.ring.length).toBeGreaterThanOrEqual(4);
+    });
+});
+
+describe('§ARRAY-ALONG-PATH D6 — the strip follows the stroke', () => {
+    it('greys the three CLOSED shapes for a spine, present and with a reason', () => {
+        const bar = envelopeDrawBarModesFor('array-path');
+        const closed = bar.filter((m) => ['rectangular', 'circular', 'elliptical'].includes(m.id));
+        expect(closed, 'all three are still RENDERED — omitting them would read as a smaller tool')
+            .toHaveLength(3);
+        for (const m of closed) {
+            expect(m.unavailable, `${m.id} must say WHY it cannot be used here`).toBeTruthy();
+            expect(m.unavailable).toContain('Linear, Orthogonal or Curved');
+        }
+        // …and the three PATH modes stay live, which is the founder's "all the wall modes".
+        for (const id of ['linear', 'ortho', 'curved']) {
+            expect(bar.find((m) => m.id === id)?.unavailable,
+                `${id} must remain selectable on a spine`).toBeUndefined();
+        }
+    });
+
+    it('leaves the PERIMETER strip exactly as it was — the control leg', () => {
+        expect(envelopeDrawBarModesFor('perimeter')).toBe(ENVELOPE_DRAW_BAR_MODES);
+    });
+
+    it('⛔ derives the spine strip from the perimeter one, so a new pill cannot go missing', () => {
+        expect(envelopeDrawBarModesFor('array-path').map((m) => m.id))
+            .toEqual(ENVELOPE_DRAW_BAR_MODES.map((m) => m.id));
+    });
+
+    it('says how each stroke finishes — they do not finish the same way', () => {
+        expect(envelopeDrawEscHintFor('perimeter')).toContain('closes');
+        expect(envelopeDrawEscHintFor('array-path')).toContain('finishes the line');
     });
 });
 

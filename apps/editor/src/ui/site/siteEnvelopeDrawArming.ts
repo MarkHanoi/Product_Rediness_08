@@ -257,6 +257,40 @@ export function resolveEnvelopeDrawIntent(): EnvelopeDrawIntent {
 /** A spine needs two distinct vertices; a perimeter needs three. The one place the two differ. */
 const MIN_PATH_VERTICES = 2;
 
+/**
+ * ⭐ §ARRAY-ALONG-PATH — THE STRIP THE **SPINE** OFFERS, DERIVED FROM THE PERIMETER'S, NEVER RETYPED.
+ *
+ * Rectangle, circle and ellipse draw a CLOSED shape; the spine is an open run, and `onPoint`
+ * refuses them by name. A strip that rendered them LIVE during a spine stroke would be three dead
+ * clicks that look alive — the exact defect `ENVELOPE_DRAW_BAR_MODES`'s own "By Slab" row was
+ * written to avoid, with the same remedy: **present, disabled, and it says why.** Omitting them
+ * instead would make the spine read as a smaller, different tool than the perimeter he just used.
+ *
+ * ⛔ MAPPED OVER THE ONE LIST, so a seventh pill added there cannot be missing here (C84 EI-9).
+ */
+const SPINE_LOOP_UNAVAILABLE =
+    'Not for the spine — rectangle, circle and ellipse draw a CLOSED shape, and the spine is an '
+    + 'open line the blocks are placed along. Use Linear, Orthogonal or Curved; the perimeter draw '
+    + 'still offers all six.';
+
+export const ENVELOPE_SPINE_BAR_MODES: readonly CreationMode[] = Object.freeze(
+    ENVELOPE_DRAW_BAR_MODES.map((m) => (
+        isBoundaryLoopMode(m.id) ? Object.freeze({ ...m, unavailable: SPINE_LOOP_UNAVAILABLE }) : m
+    )),
+);
+
+/** The strip for a given stroke. ⛔ ONE producer, so the two intents cannot drift apart. */
+export function envelopeDrawBarModesFor(intent: EnvelopeDrawIntent): readonly CreationMode[] {
+    return intent === 'array-path' ? ENVELOPE_SPINE_BAR_MODES : ENVELOPE_DRAW_BAR_MODES;
+}
+
+/** What the strip's Esc/Enter hint must say for a given stroke — they finish differently. */
+export function envelopeDrawEscHintFor(intent: EnvelopeDrawIntent): string {
+    return intent === 'array-path'
+        ? 'ENTER finishes the line · ESC cancels'
+        : 'ENTER closes · ESC cancels';
+}
+
 // ── THE REGISTRY ────────────────────────────────────────────────────────────────────────────────
 
 /** Every surface currently mounted, in registration order. */

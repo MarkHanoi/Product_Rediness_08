@@ -79,8 +79,12 @@ import {
     setEnvelopeDrawMode,
     subscribeEnvelopeDrawMode,
     resolveEnvelopeDrawMode,
-    ENVELOPE_DRAW_BAR_MODES,
     ENVELOPE_DRAW_NO_SURFACE_REASON,
+    // §ARRAY-ALONG-PATH (ADR-0386 D6) — the strip and the hint now depend on WHICH stroke is
+    // running. ⛔ `ENVELOPE_DRAW_BAR_MODES` is no longer read directly here: one producer, asked.
+    envelopeDrawBarModesFor,
+    envelopeDrawEscHintFor,
+    resolveEnvelopeDrawIntent,
 } from './siteEnvelopeDrawArming';
 // §ENVELOPE-MODE-BAR (L-13152) — the ONE persistent in-viewport mode strip, reused. ⛔ Not a copy:
 // this is the shared successor to the four hand-maintained HUDs, already reused by pool, balcony and
@@ -437,13 +441,18 @@ export function openSiteEnvelopeTool(
         const paintModeBar = (): void => {
             const armed = getEnvelopeDrawStatus().armed;
             if (!armed) { modeBar.dismiss(); modeBarRefused = false; return; }
+            // ⭐ §ARRAY-ALONG-PATH (ADR-0386 D6) — WHICH STROKE IS RUNNING DECIDES WHICH STRIP.
+            // This gesture now serves two intents from one driver, and the spine refuses the three
+            // CLOSED shapes by name. Asking the arming module (rather than latching a list here)
+            // is what stops the strip offering three pills the gesture then declines.
+            const intent = resolveEnvelopeDrawIntent();
             if (modeBar.isVisible()) { modeBar.setMode(resolveEnvelopeDrawMode()); return; }
             modeBar.show({
                 // ⛔ THE WALL'S OWN WORD, NOT A SECOND ONE — the same note `ToolsAreaLayout` carries
                 // at its own two call sites. `.wdh-mode-lbl` uppercases it, which is why the
                 // founder's screenshot reads "MODE:".
                 label: 'Mode:',
-                modes: ENVELOPE_DRAW_BAR_MODES,
+                modes: envelopeDrawBarModesFor(intent),
                 initialMode: resolveEnvelopeDrawMode(),
                 // ⛔ THE STORE, AND ONLY THE STORE (§05-BIM-UI-ARCHITECTURE §7.1). The gesture reads
                 // `resolveEnvelopeDrawMode()` fresh on every click, so this lands on the NEXT corner
@@ -452,7 +461,7 @@ export function openSiteEnvelopeTool(
                 // ⚠ The wall bar's default is *"ESC to finish"*, which is WRONG here and dangerously
                 // so: on this gesture Esc CANCELS and Enter finishes. A shared component with a
                 // per-tool hint is exactly why `escHint` exists.
-                escHint: 'ENTER closes · ESC cancels',
+                escHint: envelopeDrawEscHintFor(intent),
                 // ⭐⭐ §SITE-AUTHORING-IS-NOT-BIM-AUTHORING (L-13303) — THE FIX FOR THE ADMISSION
                 // BELOW. Founder: *"i want exactly what I have when I create a slab — the same —
                 // as the shape of the perimeter is similar."* He had the keyboard fallback and no
