@@ -247,3 +247,84 @@ collisions, so it cannot do a real merge. **Use Actions.**
 ⚠ But note: Actions **CI** is red across six jobs, which blocks `deploy-fly.yml` via the CI gate.
 It does **not** block `context-bake.yml` or `context-merge-publish.yml` — those are separate
 workflows with no CI gate. The publish path is open even while the deploy path is not.
+
+---
+
+## ⭐⭐ EXECUTED 2026-09-10 (lane DELAWARE-DETAIL) — the other five layers, and what the instruments got wrong
+
+The 2026-09-09 lane published **trees** and **buildings** and ran out of turn. The founder tested the
+site next morning: *"I don't see roads, I don't see green areas."* His console named the cause layer
+by layer, from the SAME 81 baked tiles — `roads: 0 way(s)` · `rail: 0 track(s)` · `parks: 0 green
+area(s)` · `landuse: 0 area(s)` · `water: 0 area(s)`, against `buildings: 777 footprint(s)`.
+**The reader was fine. Five of seven archives contained no Delaware.**
+
+### ⭐ THE BYTE-LEVEL "BEFORE", at the founder's OWN demo tile z16 19098/25097
+
+| layer | staged in `tiles-staging/delaware/` | live archive |
+|---|---|---|
+| roads | **880 B** | **absent** |
+| water | **87 B** | **absent** |
+| parks | **185 B** | **absent** |
+| landuse | 96 B (at Wilmington) | **absent** |
+
+This is what made the diagnosis certain rather than probable: **the bytes were already on R2 and the
+live archives carried none of them.** `tiles-staging/` is an accumulator, nothing prunes it, so the
+fix was never a re-bake — it was five merge+publish dispatches against bytes staged by bake run
+`34397872497` the day before.
+
+### The dispatches — Step 3 of this plan, unmodified
+
+| layer | run | staged | manifest BEFORE | manifest AFTER | `verify-published-region` |
+|---|---|---|---|---|---|
+| **rail** | `34444718242` ✅ | 1.39 GiB | `regions[49]`, no delaware | **`[47]` · delaware ✅** | ✔ CARRIED — 1066 B == 1066 B at Newark DE |
+| **parks** | `34446143886` ✅ | 12.68 GiB | `regions[49]`, no delaware | **`[47]` · delaware ✅** | ✔ CARRIED — **3 of 3**, incl. the demo tile 185 B == 185 B |
+| **landuse** | `34455438448` 🔄 | 11.99 GiB | **no `regions` key** | in flight | |
+| **water** | *not dispatched* | 12.73 GiB | **no `regions` key** | — | |
+| **roads** | *not dispatched* | 28.22 GiB | **no `regions` key** | — | |
+
+Also re-verified at data-bearing points, because the earlier claim rested on uninformative samples:
+**buildings** 430 B == 430 B · **trees** 182 B == 182 B (Wilmington) and 76 B == 76 B (Dover).
+
+### ⛔ THREE CORRECTIONS FROM EXECUTING IT — each one cost real time
+
+1. **THEY CANNOT BE DISPATCHED IN PARALLEL, AND THE REASON IS NOT DISK.** Both context workflows
+   share `concurrency: { group: context-bake, cancel-in-progress: false }`, and GitHub allows
+   **exactly one PENDING run per group** — a third arrival **cancels the one already queued**.
+   Firing all five would have left run 1 running, run 5 pending and **runs 2–4 silently cancelled,
+   with no error anyone would notice.** This plan's Step 3 says "one dispatch PER LAYER" for a DISK
+   reason and is right for a second, unrelated reason it does not state.
+2. **BUDGET BY MERGE TIME, NOT ONLY BY DISK — AND IT IS NOT LINEAR IN BYTES.** rail (1.39 GiB)
+   completed end-to-end in **11 min**. parks (12.68 GiB, 9.1× the input) took **110 min**, of which
+   ~100 was `tile-join` alone. The cost tracks FEATURES and TILE COUNT, not gigabytes. On that
+   curve **roads at 28.22 GiB is a multi-hour run** and must be started with hours of headroom.
+3. **`verify-published-region.mjs` NEEDS DATA-BEARING `--at` POINTS FOR A SPARSE LAYER.** Run bare
+   on `rail`, all five default bbox samples came back `absent/absent` → **exit 2, "NO VERDICT —
+   every sampled tile was absent in the staged archive too."** That is the tool working exactly as
+   designed, and it is the shape a hurried reader books as a green. Rail needed the **Northeast
+   Corridor** (Newark DE `39.6837,-75.7497`); trees needed **Wilmington / Dover**. For dense layers
+   the demo point itself is informative. ⛔ **A default-sampled run of a sparse layer is not
+   evidence** — it was read as one twice today, in both directions.
+
+### ⭐⭐ AND THE VERIFIER ITSELF WAS BLIND ON THE WRONG AXIS — §ABSENCE-IS-A-FINDING (L-13271)
+
+Run across five layers while four of them were unpublished, the tool printed
+**`✔ CARRIED — 1 informative sample(s), 0 lost.` and exited 0** — on 35 samples of which **14 were
+`not-published` and 6 `claim-unknown`**. That green line is why the founder was told the layers were
+live when they were not.
+
+Nothing in it was arithmetically wrong. `classify` is right, all 35 rows are right, and the question
+it asks — *"did the merge LOSE anything?"* — was answered correctly, **because a layer that was never
+published loses nothing.** The defect is that its `if (informative.length === 0)` guard aggregated
+**every row of the whole run**, so a PER-RUN aggregate answered a PER-LAYER question and one layer's
+evidence discharged every other layer's burden. Population, not arithmetic
+(memory `gate-blind-on-the-wrong-axis`).
+
+⛔ And it is the **L-581 / L-616 collapse committed by the instrument**: `agree-empty` (nothing baked,
+so nothing can be missing) and `not-published` (**baked, staged, and NOT on the map**) are different
+facts, exactly one of which is fine, and **they shared an exit code**. This tool's own header warns
+about that defect in `merge-tiles.mjs`'s no-loss gate, then reproduced it one level up in its own
+verdict block.
+
+Fixed in `dc6464b2`: `layerVerdict()` + `exitCodeFor()`, verdict computed **per layer**, six named
+states, **exit 4 = staged bytes with nothing live**, and the roll-up printed in the verdict rather
+than buried in the detail. Exit 0 now requires **every** requested layer to have carried.
