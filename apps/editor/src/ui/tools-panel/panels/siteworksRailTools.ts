@@ -1,171 +1,151 @@
 // siteworksRailTools — the three siteworks entries on the Master planning rail.
-// C116 · ADR-0384 D7 / D8 · C82 · C16 CA-2 · P6.
+// C116 · C116 §11 · ADR-0384 D1 / D7 / D8 · C82 · C16 CA-2 · P6.
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 // ⛔ C82 IS THE ACCEPTANCE BAR: 267 OF 280 TOOLBAR PAIRS WERE MEASURED SILENTLY DEAD
 // ═══════════════════════════════════════════════════════════════════════════════
 //
-// So these entries do not "activate a mode" that nothing implements. Each one
-// DISPATCHES `siteworks.batch.create` through the composed runtime's bus and puts a
-// real, selectable, undoable, persisted surface into `runtime.stores.siteworks`.
-// `siteworksRailToolsReachStore.test.ts` presses each of them and reads the record
-// back OUT of the store — an entry that rendered and did nothing would fail there.
+// So these entries do not "activate a mode" that nothing implements. Each one ARMS the
+// real `SiteworksPlanToolHandler` on every attached plan surface, and a click there
+// draws a real, selectable, undoable, persisted surface into `runtime.stores.siteworks`.
+// When there is NO plan surface to arm, the entry says so out loud and names the route
+// back — never a click that quietly does nothing.
 //
-// ⚠ WHAT THESE BUTTONS DO **NOT** DO, STATED PLAINLY RATHER THAN IMPLIED: they do not
-// yet let you DRAW the centreline. The founder asked for *"linear design — like a
-// wall"*, and that is interactive polyline authoring, which this commit does not
-// ship. Pressing Road places a surface at the plan origin on the active level with
-// the CITED default width, and everything after that — width, thickness, role,
-// delete, undo — is live.
+// ═══════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ 2026-09-10 — THESE BUTTONS NOW DRAW. THEY USED TO PLACE AT THE PLAN ORIGIN.
+// ═══════════════════════════════════════════════════════════════════════════════
 //
-// ⛔ AND THE REASON IT IS NOT SHIPPED HERE IS A MEASUREMENT, NOT A SHRUG.
-// `apps/editor/src/engine/views/plantools/BoundaryLinePlanToolHandler.ts` is 549
-// lines and ALREADY draws an ortho/curved/looping polyline with snapping. Writing a
-// `SiteworksPlanToolHandler` beside it would be a SECOND polyline-stroke
-// implementation — [[same-rule-two-implementations]], this repository's most-repeated
-// defect, and the guarding test would stay green on whichever copy it happened to
-// measure. The correct move is to EXTRACT the stroke from that handler and have both
-// call it, which is a refactor of another lane's live tool and belongs in its own
-// commit. Recorded as C116 §11.
+// The founder:
+//   *"the new category tab is created — but it doesn't work — none of the elements on
+//    selection works, the element doesn't create anything on neither PRYZM 2D view or
+//    PRYZM 3D view."*
 //
-// ⭐ UPDATE 2026-09-10 (lane ARRAY-ALONG-PATH, ADR-0386 D6) — A SECOND, RENDERER-FREE
-// STROKE DRIVER NOW EXISTS AND IS MULTI-CONSUMER, BUT IT IS **NOT** THE SEAM THIS
-// NOTE IS WAITING FOR. `apps/editor/src/ui/site/siteEnvelopeDrawArming.ts` strokes
-// ortho / curved / looping polylines with the same `@pryzm/geometry-slab` rules and
-// now serves TWO finish targets from ONE driver (`armEnvelopeDraw('perimeter' |
-// 'array-path')`) — so the "one stroke, N consumers" pattern is proven and worth
-// copying. ⛔ But it binds through `EnvelopeDrawSurface`, a port whose own header
-// records that *"no Cesium or MapLibre adapter could ever satisfy"* `PlanToolHandler`'s
-// canvas-typed draw context — and the inverse holds too: a PLAN-VIEW tool cannot
-// consume that port either. Siteworks lives on the plan view, so C116 §11 still names
-// the RIGHT extraction (`BoundaryLinePlanToolHandler`'s stroke) and it is still open.
-// The lesson to carry across is the shape: extract the FINISH TARGET, not the machine.
+// He was right, and the previous revision of this file had already predicted him. It
+// said, in as many words: *"they do not yet let you DRAW the centreline … Pressing Road
+// places a surface at the plan origin on the active level"* — and a 40 m road laid at
+// world (0,0) on a plan the architect has scrolled a kilometre away from is, from where
+// he is sitting, indistinguishable from creating nothing at all. The honest label for
+// what shipped is not "a partial feature"; it is a control whose visible effect was
+// zero.
+//
+// ⛔ THE PLACE-AT-ORIGIN PATH IS GONE RATHER THAN KEPT AS A FALLBACK. A button that
+// draws when a plan pane is open and silently drops a surface at the origin when one is
+// not is the silent-fallback shape this repository has paid for repeatedly
+// ([[envelope-reject-silent-fallback]]): the failing branch is invisible precisely when
+// the user most needs to be told. One gesture, one outcome, and a REFUSAL with a route
+// when the gesture cannot run.
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+// ⭐ WHERE THE DRAWING ACTUALLY LIVES, AND WHY THIS FILE HOLDS NO GESTURE
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// The previous revision recorded the reason it could not ship the gesture, and it was a
+// measurement rather than a shrug: `BoundaryLinePlanToolHandler` is 549 lines and
+// ALREADY strokes an ortho / curved / looping polyline, so a second implementation
+// beside it would be [[same-rule-two-implementations]] with a guarding test green on
+// whichever copy it happened to measure. Recorded as C116 §11. That extraction has now
+// landed — `PlanPolylineStroke` — and `SiteworksPlanToolHandler` is its SECOND caller,
+// re-implementing none of it.
+//
+// ⚠ AND IT IS NOT THE `armEnvelopeDraw` DRIVER, which the note added by the
+// ARRAY-ALONG-PATH lane already established: that one binds through
+// `EnvelopeDrawSurface` (Cesium / MapLibre) and cannot serve a `PlanToolDrawContext`,
+// and the inverse holds too. Two surfaces, two drivers, one set of
+// `@pryzm/geometry-slab` rules underneath both.
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+// ⭐ ONE KIND, THREE ROLES — THREE BUTTONS, ONE TOOL (ADR-0384 D1)
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// The three entries do not arm three tools. They set the ROLE — the second authoring
+// axis, held in `activeSiteworksAuthoring` exactly as the wall's system type is held in
+// `activeWallSystemType` — and then arm the ONE `siteworks` tool. Minting three tool
+// ids would be the `railing`/`handrail` split (L-4601) committed deliberately, and it
+// would put three rows in `ELEMENT_CREATION_MATRIX` for one element kind.
+//
+// ⛔ AND THE FORM IS NOT SET HERE EITHER. `linear` vs `areal` is read off the GESTURE
+// the architect makes — an open finish is a centreline, a closed finish is a boundary —
+// see `SiteworksPlanToolHandler`. A stored form can disagree with the shape just drawn.
 
-import { createId } from '@pryzm/schemas';
-import {
-    SITEWORKS_DEFAULT_WIDTH_M,
-    SITEWORKS_DEFAULT_THICKNESS_M,
-    type SiteworksRole,
-} from '@pryzm/schemas';
+import { SITEWORKS_ROLES, SITEWORKS_DEFAULT_WIDTH_M, type SiteworksRole } from '@pryzm/schemas';
 import { registerMasterPlanningTool } from './masterPlanningRailRegistry.js';
+import { setActiveSiteworksRole } from '@app/engine/views/plantools/activeSiteworksAuthoring';
+import { activatePlanOnlyToolOrExplain } from '@app/ui/create/activatePlanOnlyTool';
 
-type Bus = { executeCommand: (type: string, payload: unknown) => Promise<unknown> };
-type RuntimeLike = { bus?: Bus } | undefined;
+/** The plan-tool key. ⛔ ONE id for the family — `PLAN_TOOL_KEYS` and the matrix agree. */
+export const SITEWORKS_TOOL_ID = 'siteworks';
 
 /**
- * ⚠ AN UNRESOLVED LEVEL YIELDS `''`, WHICH IS THE SCHEMA'S OWN DEFAULT — never a
- * fabricated id. §CONTEXT-DATA-HONESTY (L-581/L-616): "we could not tell which storey
- * is active" and "the ground storey" must not share a value, and inventing `'L0'`
- * here would seat a road on a level that may not exist.
+ * The user-facing name per role.
+ *
+ * ⚠ Each of these MUST have a row in `creationToolShortcuts.ts` — the rail stamps every
+ * tool's accelerator from that map and a completeness test fails on a missing one. All
+ * three are already there (Alt+Shift+J / U / X).
  */
-function activeLevelId(): string {
-    const ctx = (window as unknown as { projectContext?: { activeLevelId?: unknown } })
-        .projectContext;
-    const id = ctx?.activeLevelId;
-    return typeof id === 'string' ? id : '';
-}
+export const SITEWORKS_RAIL_LABEL: Readonly<Record<SiteworksRole, string>> = Object.freeze({
+    road: 'Road',
+    parking: 'Parking Area',
+    pedestrian: 'Pedestrian Area',
+});
 
-function notify(message: string): void {
-    const rt = (window as unknown as {
-        runtime?: { toasts?: { show?: (m: string, k?: string, d?: number) => unknown } };
-    }).runtime;
-    try {
-        if (typeof rt?.toasts?.show === 'function') { rt.toasts.show(message, 'error', 7000); return; }
-    } catch { /* a toast that throws must never take the palette click with it */ }
-    console.warn('[siteworks]', message);
-}
+/** The rail glyph per role. ⛔ Every one of these must be a key in `_ICON_MAP`. */
+export const SITEWORKS_RAIL_ICON: Readonly<Record<SiteworksRole, string>> = Object.freeze({
+    road: 'material-symbols:add-road-outline',
+    parking: 'material-symbols:local-parking-outline',
+    pedestrian: 'material-symbols:directions-walk',
+});
 
-/** The default LINEAR surface for a role: a 40 m run at the cited width. */
-function linearSpec(role: SiteworksRole) {
-    return {
-        siteworksId: createId('siteworks'),
-        levelId: activeLevelId(),
-        role,
-        form: 'linear' as const,
-        centreline: [{ x: 0, y: 0, z: 0 }, { x: 40, y: 0, z: 0 }],
-        widthM: SITEWORKS_DEFAULT_WIDTH_M[role].valueM,
-        boundary: [],
-        holes: [],
-        thickness: SITEWORKS_DEFAULT_THICKNESS_M.valueM,
-    };
-}
-
-/** The default AREAL surface for a role: a 20 × 12 m rectangle. */
-function arealSpec(role: SiteworksRole) {
-    return {
-        siteworksId: createId('siteworks'),
-        levelId: activeLevelId(),
-        role,
-        form: 'areal' as const,
-        centreline: [],
-        boundary: [
-            { x: 0, y: 0, z: 0 }, { x: 20, y: 0, z: 0 },
-            { x: 20, y: 0, z: 12 }, { x: 0, y: 0, z: 12 },
-        ],
-        holes: [],
-        thickness: SITEWORKS_DEFAULT_THICKNESS_M.valueM,
-    };
+/**
+ * Set the role and ARM the draw tool on every attached plan surface.
+ *
+ * ⭐ THE ROLE IS WRITTEN BEFORE THE ARM, and the order is load-bearing: the session's
+ * "click in the PLAN pane" sentence, the mode strip and the tool's own hint all read
+ * `resolveActiveSiteworksRole()`, so arming first would show the architect the previous
+ * role's name and default width for one frame.
+ *
+ * ⛔ P6 — NOTHING IS DISPATCHED HERE AND NO ID IS MINTED HERE. The gesture dispatches
+ * `siteworks.batch.create` when it finishes, and mints the id at that moment (C16 CA-2:
+ * `execute()` runs again on redo, so an id minted at the palette click would be reused
+ * by every surface drawn in that session).
+ *
+ * @returns true when at least one plan surface accepted the tool.
+ */
+export function armSiteworks(role: SiteworksRole): boolean {
+    setActiveSiteworksRole(role);
+    return activatePlanOnlyToolOrExplain(SITEWORKS_TOOL_ID, SITEWORKS_RAIL_LABEL[role]);
 }
 
 /**
- * ⭐ P6 — THE UI DISPATCHES, IT NEVER WRITES THE STORE. And the id is minted HERE, at
- * the tool entry, not inside the handler: `execute()` runs AGAIN on redo (C16 CA-2),
- * so an id minted in the handler would differ the second time and orphan every
- * reference that named the first.
+ * The sentence the rail shows on hover, naming the CITED default width.
+ *
+ * ⭐ READ FROM THE SCHEMA, NEVER RETYPED. `SITEWORKS_DEFAULT_WIDTH_M` carries the
+ * citation with the number (road 7.00 m Norma 3.1-IC · pedestrian 1.80 m VIV/561/2010 ·
+ * parking 5.00 m marked `convention`), and a retyped citation is one that can drift
+ * away from the ordinance it names.
  */
-export async function placeSiteworks(
-    runtime: RuntimeLike,
-    spec: Record<string, unknown>,
-    label: string,
-): Promise<boolean> {
-    const bus = runtime?.bus
-        ?? (window as unknown as { runtime?: { bus?: Bus } }).runtime?.bus;
-    if (!bus?.executeCommand) {
-        // ⛔ LOUD, NEVER SILENT. A palette click that quietly does nothing is exactly
-        // the C82 failure this file exists to avoid.
-        notify(`${label} could not be created: the command bus is not available yet.`);
-        return false;
-    }
-    try {
-        await bus.executeCommand('siteworks.batch.create', { surfaces: [spec] });
-        return true;
-    } catch (e) {
-        notify(`${label} could not be created: ${String((e as Error)?.message ?? e)}`);
-        return false;
-    }
+export function siteworksRailTooltip(role: SiteworksRole): string {
+    const d = SITEWORKS_DEFAULT_WIDTH_M[role];
+    return `${SITEWORKS_RAIL_LABEL[role]} — draw in the plan pane · ${d.valueM.toFixed(2)} m default`;
 }
 
 /**
  * Register the three siteworks entries into the shared Master planning registry.
  *
- * ⭐ CALLED WITH THE RUNTIME, so the rail does not have to know how a siteworks
- * surface is made — the category stays a registry and this file stays the only place
- * that knows the family's verb, its defaults and its forms.
+ * ⭐ GENERATED FROM `SITEWORKS_ROLES`, the L0 union — not three hand-written blocks. A
+ * fourth role added to the schema appears here the day it lands, and the two maps above
+ * fail to compile until it has a name and a glyph, which is the point.
+ *
+ * ⚠ THE `getRuntime` THUNK IS GONE. It existed so the entries could reach the bus, and
+ * they no longer touch it: arming is not a mutation. Keeping an unused parameter is how
+ * a wire comes to look live while carrying nothing.
  */
-export function registerSiteworksRailTools(getRuntime: () => RuntimeLike): void {
-    registerMasterPlanningTool({
-        key: 'siteworks.road',
-        label: 'Road',
-        icon: 'material-symbols:add-road-outline',
-        action: () => { void placeSiteworks(getRuntime(), linearSpec('road'), 'Road'); },
-    });
-    registerMasterPlanningTool({
-        key: 'siteworks.parking',
-        label: 'Parking Area',
-        icon: 'material-symbols:local-parking-outline',
-        action: () => { void placeSiteworks(getRuntime(), arealSpec('parking'), 'Parking Area'); },
-    });
-    registerMasterPlanningTool({
-        key: 'siteworks.pedestrian',
-        label: 'Pedestrian Area',
-        icon: 'material-symbols:directions-walk',
-        action: () => {
-            // ⭐ AREAL, not linear, and the choice is the founder's words rather than a
-            // coin toss: *"pedestrian areas — working similar to Roads / slabs"*. An
-            // AREA is the slab half. A footway drawn as a line is equally legal
-            // (`form` is ORTHOGONAL to `role` — six combinations, all valid) and is
-            // reached by changing the form, not by a fourth button.
-            void placeSiteworks(getRuntime(), arealSpec('pedestrian'), 'Pedestrian Area');
-        },
-    });
+export function registerSiteworksRailTools(): void {
+    for (const role of SITEWORKS_ROLES) {
+        registerMasterPlanningTool({
+            key: `siteworks.${role}`,
+            label: SITEWORKS_RAIL_LABEL[role],
+            icon: SITEWORKS_RAIL_ICON[role],
+            action: () => { armSiteworks(role); },
+        });
+    }
 }

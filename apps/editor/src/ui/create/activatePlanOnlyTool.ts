@@ -71,6 +71,12 @@ import {
   setActiveBoundaryLineDrawMode,
   resolveActiveBoundaryLineDrawMode,
 } from '@app/engine/views/plantools/activeBoundaryLineDrawMode';
+// C116 §11 / ADR-0384 — the siteworks GESTURE store. The ROLE half lives in the same
+// module and is written by the rail entry, not by the mode strip; see PLAN_ONLY_MODE_STORES.
+import {
+  setActiveSiteworksDrawMode,
+  resolveActiveSiteworksDrawMode,
+} from '@app/engine/views/plantools/activeSiteworksAuthoring';
 import {
   captureArmedSelection,
   clearArmedSelection,
@@ -411,6 +417,26 @@ const PLAN_ONLY_MODE_STORES: Readonly<
     write: setActiveBoundaryLineDrawMode,
     read: resolveActiveBoundaryLineDrawMode,
     label: 'Boundary:',
+  },
+  // ⭐ C116 §11 / ADR-0384 — THE SITEWORKS STRIP, LANDED WITH THE TOOL RATHER THAN
+  // AFTER IT. The boundary line's row above is the record of what happens otherwise:
+  // it shipped six declared modes, a handler with a live arm for all six, and NO row
+  // here — so no strip was mounted and five of the six were unreachable from any
+  // screen for a day. That was the THIRD recurrence in this family (pool, balcony,
+  // boundary line). This row is written in the same commit as
+  // `SiteworksPlanToolHandler` so there is never a window in which it is the fourth.
+  //
+  // ⛔ NO NEW VOCABULARY. `creationModes('siteworks')` is still the one declaration;
+  // this only names the store the bar writes into.
+  //
+  // ⚠ THE STRIP CARRIES THE GESTURE, NOT THE ROLE. Road / parking / pedestrian is the
+  // SECOND axis (`shapes` in the matrix row) and is set by the rail entry that armed
+  // the tool, exactly as the wall's system type is. Folding it into this one-axis bar
+  // is the §STAIR-TWO-AXES defect.
+  siteworks: {
+    write: setActiveSiteworksDrawMode,
+    read: resolveActiveSiteworksDrawMode,
+    label: 'Siteworks:',
   },
 };
 

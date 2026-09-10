@@ -183,7 +183,28 @@ describe('§FEAT-DUAL-VIEW-CREATION-MATRIX — the creation matrix is real, not 
             // cannot show. The row's gap names the exit: 4E mounts → add the
             // ToolManager key + 3-D tool → both views. The list GREW, recorded here
             // with its reason rather than absorbed.
-            expect(gaps).toEqual(['balcony', 'bathroom-pod', 'boundary-line', 'component', 'pool']);
+            //
+            // ⭐ UPDATED 2026-09-10 (§FEAT-SITEWORKS-DRAW, C116 §11 · ADR-0384):
+            // `siteworks` JOINS this ledger, plan-only, and — like `balcony`,
+            // `boundary-line` and `bathroom-pod` — it is plan-only DELIBERATELY rather
+            // than pending. A road, a parking lot and a footway are GROUND: they are
+            // authored as a footprint on a level's XZ plane, which is the plan surface
+            // by definition, and the founder's own ask was *"linear design — like a
+            // wall"*, the plan gesture. A 3-D arm would have to invent a ground plane
+            // for every click, which is the guess `bathroom-pod`'s entry above refuses
+            // for the same class of reason.
+            //
+            // ⚠ AND IT IS DIFFERENT FROM THE OTHER FOUR IN THE HALF THAT MATTERS TO A
+            // USER: this row is plan-only, but it is NOT invisible. `pool` and
+            // `boundary-line` are on this list AND have no render path at all (no
+            // CommandEventBridge case, no mesh builder), so they create records nobody
+            // can see. `siteworks` ships `SiteworksMeshBuilder` +
+            // `attachSiteworksRender` driven by `store.subscribeDirty` (842a5cf0), so a
+            // surface drawn in plan APPEARS IN 3-D — it simply cannot be AUTHORED
+            // there. Those are two different claims and this ledger only makes the
+            // second one. The list GREW; the growth is recorded with its reason rather
+            // than absorbed by widening the assertion.
+            expect(gaps).toEqual(['balcony', 'bathroom-pod', 'boundary-line', 'component', 'pool', 'siteworks']);
         });
 
         it('reports the LATENT mode-desync risks (the shape of the founder\'s AUTO bug)', () => {

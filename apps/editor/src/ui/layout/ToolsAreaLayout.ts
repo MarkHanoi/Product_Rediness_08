@@ -47,6 +47,15 @@ import { creationModes } from '@app/engine/views/plantools/elementCreationMatrix
 // point both live create-palette surfaces already call for the lift. See the
 // `runtime.tools.register('lift', …)` line below for the collision this closes.
 import { activatePlanOnlyToolOrExplain } from '@app/ui/create/activatePlanOnlyTool';
+// C116 §11 / ADR-0384 — the siteworks ROLE store (the second axis) and the human
+// names the refusal sentences use. ⛔ The labels are NOT retyped from the schema's
+// role ids: they are the user-facing names, and the ids they key off are
+// `SITEWORKS_ROLES`, the L0 authority.
+import {
+    setActiveSiteworksRole,
+    resolveActiveSiteworksRole,
+} from '@app/engine/views/plantools/activeSiteworksAuthoring';
+import type { SiteworksRole } from '@pryzm/schemas';
 import {
     setActiveSlabDrawMode,
     resolveActiveSlabDrawMode,
@@ -84,6 +93,18 @@ import type { CeilingPickerMode } from '../CeilingModePicker';
 import type { UIProps } from '../Layout';
 import type { BimService } from '@app/engine/BimService';
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+
+/**
+ * The user-facing names for the three siteworks roles — used in the plan-only
+ * refusal / "click in the PLAN pane" sentences. ⛔ Keyed off `SiteworksRole`, the L0
+ * union, so a fourth role cannot be added without this map failing to compile.
+ */
+const SITEWORKS_TOOL_LABEL: Readonly<Record<SiteworksRole, string>> = Object.freeze({
+    road: 'Road',
+    parking: 'Parking area',
+    pedestrian: 'Pedestrian area',
+});
+
 
 export interface PickerInstances {
     wallModePicker: WallModePicker;
@@ -406,6 +427,29 @@ export function mountToolsArea(
         // does not own, and the massing lift's real callers reach the COMMAND directly.
         // Recorded as L-7841 instead of silently rotting.
         runtime.tools.register('lift',          ()   => { activatePlanOnlyToolOrExplain('lift', 'Lift'); });
+        // ⭐ C116 §11 · ADR-0384 — SITEWORKS, THE THIRD PLAN-ONLY FAMILY TO TAKE AN
+        // ACTIVATOR RATHER THAN AN EXEMPTION, AND THE REASON IS THE GATE'S OWN.
+        //
+        // `check-tool-activator-coverage.ts` ARM A is a SHRINK-ONLY ratchet at a
+        // baseline of 0, and it is ALREADY RED at 5 (balcony, bathroom-pod,
+        // boundary-line, component, pool — measured 2026-09-10, RC=1). A `siteworks`
+        // row in ELEMENT_CREATION_MATRIX with no activator would make it 6, which is a
+        // REGRESSION on a ratchet, and neither raising the baseline nor writing an
+        // ACTIVATOR_EXEMPT entry is an available fix (§RATCHET-EXCEEDED-IS-NEVER-DEBT).
+        //
+        // ⛔ AND AN ACTIVATOR HERE IS THE HONEST ANSWER, NOT A GATE-SHAPED ONE.
+        // `runtime.tools.activate('siteworks')` is the id the chat resolves and the id
+        // ELEMENT_CREATION_MATRIX declares; binding it to the real plan-only arm means
+        // that call ARMS THE REAL TOOL instead of recording an active-tool id and doing
+        // nothing — which is the founder's "Create Stair" defect this gate exists for.
+        // The mode argument carries the ROLE, so `activate('siteworks', 'parking')`
+        // means what a reader would expect; an unrecognised value is ignored by the
+        // store and leaves the previous valid role in place.
+        runtime.tools.register('siteworks',     (m?) => {
+            if (m !== undefined && m !== null) setActiveSiteworksRole(m);
+            const role = resolveActiveSiteworksRole();
+            activatePlanOnlyToolOrExplain('siteworks', SITEWORKS_TOOL_LABEL[role]);
+        });
         // ⭐ NO HAND-COUNTED TOTAL IN THIS LINE, DELIBERATELY. It used to read
         // "21 tool activators registered" — a literal that had already rotted
         // (the real figure was 20) and, worse, a COUNT: the exact form of

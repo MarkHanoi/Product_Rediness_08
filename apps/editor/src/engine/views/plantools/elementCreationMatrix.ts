@@ -547,6 +547,79 @@ export const ELEMENT_CREATION_MATRIX: readonly ElementCreationCapability[] = [
            + 'green while the mode was unreachable on screen.',
     },
     {
+        // C116 §11 · ADR-0384 · §FEAT-SITEWORKS-DRAW (founder, 2026-09-10).
+        //
+        //   "the new category tab is created — but it doesn't work — none of the
+        //    elements on selection works, the element doesn't create anything on
+        //    neither PRYZM 2D view or PRYZM 3D view."
+        //
+        // ⭐ ONE `tool:` ROW FOR THREE RAIL BUTTONS, AND THAT IS ADR-0384 D1, NOT A
+        // SHORTCUT. Siteworks is ONE element kind with THREE roles (road · parking ·
+        // pedestrian). The role is a PROPERTY of the surface, carried by
+        // `activeSiteworksAuthoring`, exactly as the wall's system type is carried by
+        // `activeWallSystemType` — not three families and not three `tool:` ids.
+        // Minting `siteworks-road` / `siteworks-parking` / `siteworks-pedestrian`
+        // here would be the `railing`/`handrail` split (L-4601) committed on purpose.
+        //
+        // ⛔ AND THE ROLE IS NOT A `mode`. `modes` is the axis of HOW THE ARCHITECT
+        // SKETCHES; role is WHAT RESULTS. Merging them is precisely the §STAIR-TWO-AXES
+        // defect this file's `shapes` field was minted to undo — four SHAPES were
+        // declared in the slot that means MODE, and a bar built from that table would
+        // have shipped buttons meaning two different things. The role therefore rides
+        // in `shapes`, the second axis, rendered as its OWN picker.
+        tool: 'siteworks', label: 'Siteworks',
+        views: ['plan'],
+        modes: [
+            // The SAME three constants every boundary-drawing tool spreads, so the
+            // founder's *"linear design — like a wall"* is true by construction.
+            ...WALL_DRAW_MODES,
+            // ...and the closed shapes, for a parking lot. Ids are `BoundaryLoopMode`
+            // from @pryzm/geometry-slab — the module that turns each gesture into real
+            // vertices — so this strip cannot offer a shape the generator does not
+            // implement. Same ids, same generator, same keys as the slab / floor /
+            // ceiling / pool / boundary-line rows; no eighth private shape picker.
+            { id: 'rectangular', key: 'Q', label: 'Rectangular', description: 'Closed paved area from two opposite corners' },
+            { id: 'circular',    key: 'I', label: 'Circular',    description: 'Closed paved area from centre and rim' },
+            { id: 'elliptical',  key: 'E', label: 'Elliptical',  description: 'Closed paved area from centre and bounding corner' },
+        ],
+        // ⭐ THE SECOND AXIS — the ROLE. Orthogonal to the gesture: a road drawn in
+        // Orthogonal mode is still a road, exactly as an L-shaped stair drawn in
+        // Orthogonal mode is still an L-shaped stair. Ids are `SITEWORKS_ROLES` from
+        // @pryzm/schemas, the L0 authority — a fourth spelling here is how
+        // `railing`/`handrail` happened.
+        shapes: [
+            { id: 'road',       key: 'R', label: 'Road',       description: 'Vehicular carriageway — 7.00 m default (Norma 3.1-IC)' },
+            { id: 'parking',    key: 'P', label: 'Parking',    description: 'Parking surface — 5.00 m default (convention)' },
+            { id: 'pedestrian', key: 'W', label: 'Pedestrian', description: 'Footway — 1.80 m default (VIV/561/2010)' },
+        ],
+        // No AUTO. Where the ground between the buildings runs is the architect's
+        // DECISION, and deriving it from the massing would answer the question the
+        // tool exists to ask. "Not applicable" and "not implemented" are different
+        // answers (this file's own rule) and this is the former.
+        autoIn: [],
+        modeSource: 'shared',   // activeSiteworksAuthoring.ts
+        gap: 'PLAN ONLY, AND THE ROW SAYS SO RATHER THAN CLAIMING BOTH. '
+           + 'TOOL_MANAGER_TOOL_KEYS has no `siteworks` key: the family is authored '
+           + 'as a footprint on a level, which is a plan gesture, and declaring 3-D '
+           + 'here to look complete is the C84 EI-3 defect and the shape of the '
+           + 'founder “Create Stair” report — a control that reported activation and '
+           + 'activated nothing. '
+           + '⭐ THE THREE GAPS THE BOUNDARY-LINE AND POOL ROWS ABOVE CARRY ARE **NOT** '
+           + 'OPEN HERE, and that is the difference worth stating rather than '
+           + 'assuming. (1) A RENDER PATH EXISTS: `SiteworksMeshBuilder` + '
+           + '`attachSiteworksRender`, mounted in initTools, driven by '
+           + '`store.subscribeDirty` rather than by a CommandEventBridge case — so the '
+           + '“no case in the bridge, therefore no mesh” mechanism that makes a pool '
+           + 'and a boundary line invisible does not apply (842a5cf0). (2) '
+           + 'PERSISTENCE EXISTS — the family is in the snapshot coverage register. '
+           + '(3) THE MODE STRIP IS MOUNTED: `siteworks` has a row in '
+           + 'PLAN_ONLY_MODE_STORES, which is the table whose absence left five of the '
+           + 'boundary line’s six modes unreachable from any screen (L-9302). '
+           + '⚠ WHAT IS STILL UNVERIFIED: nothing here has been seen in a browser. '
+           + 'The wire is asserted from the rail entry down to the bus and from the '
+           + 'pointer up to the handler; C114 §14d/§14e still applies.',
+    },
+    {
         tool: 'curtain-wall', label: 'Curtain wall',
         views: ['plan', '3d'],
         modes: [

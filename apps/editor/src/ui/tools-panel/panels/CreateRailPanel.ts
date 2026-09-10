@@ -166,15 +166,17 @@ export class CreateRailPanel {
         this.runtime = runtime;
 
         // ADR-0384 D7 / C116 — put THIS family's three entries into the shared
-        // Master planning registry. `getRuntime` is a THUNK, not the value: the
-        // runtime is threaded in at construction and can be null during early boot,
-        // and a captured null would make every button silently dead forever, which
-        // is the exact C82 shape the registry exists to prevent.
+        // Master planning registry.
+        //
+        // ⚠ THE `getRuntime` THUNK IS GONE (C116 §11, 2026-09-10). It existed because
+        // the three entries used to DISPATCH `siteworks.batch.create` and needed a bus
+        // that may not exist at construction. They now ARM the plan-view draw tool
+        // instead — the founder's *"linear design — like a wall"* — and arming is not a
+        // mutation, so there is nothing for them to reach. An unused thunk kept "just
+        // in case" is how a wire comes to look live while carrying nothing.
         if (!CreateRailPanel._masterPlanningToolsRegistered) {
             CreateRailPanel._masterPlanningToolsRegistered = true;
-            registerSiteworksRailTools(
-                () => (CreateRailPanel._activeInstance?.runtime ?? window.runtime) as never,
-            );
+            registerSiteworksRailTools();
             // ⭐ ADR-0383 — the BUILDINGS half of "Master planning", into the SAME
             // registry and under the SAME once-guard. `masterPlanningRailRegistry.ts`
             // measured this row as MISSING and named it as the orchestrator's call;

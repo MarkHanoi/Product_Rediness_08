@@ -52,6 +52,10 @@ import { LiftPlanToolHandler }         from './LiftPlanToolHandler';
 // deciding what stands on them. ⛔ NOT the cadastral `Parcel.boundary` (C19 §1.4 —
 // legal, surveyed, ONE-SHOT IMMUTABLE) and NOT `RoomBoundingLine`.
 import { BoundaryLinePlanToolHandler } from './BoundaryLinePlanToolHandler';
+// C116 §11 / ADR-0384 — the SITEWORKS draw gesture. It re-implements no stroke:
+// it drives the SAME `PlanPolylineStroke` the boundary line above drives, with a
+// different finish target. See that file's header for why a second copy was refused.
+import { SiteworksPlanToolHandler } from './SiteworksPlanToolHandler';
 import { StairPlanToolHandler }        from './StairPlanToolHandler';
 import { StairPathPlanToolHandler }    from './StairPathPlanToolHandler';
 import { BeamPlanToolHandler }         from './BeamPlanToolHandler';
@@ -110,7 +114,7 @@ const _registryTracer = trace.getTracer('@pryzm/editor.plan-tool-registry', '0.1
 /** The canonical, ordered list of every plan-view tool key. */
 export const PLAN_TOOL_KEYS = [
     'wall', 'room', 'column', 'linear-dim', 'door', 'window', 'slab', 'pool',
-    'balcony', 'lift', 'boundary-line', 'stair',
+    'balcony', 'lift', 'boundary-line', 'siteworks', 'stair',
     'stair-path', 'beam', 'roof', 'curtain-wall', 'ceiling', 'floor', 'railing',
     'furniture', 'component', 'lighting', 'plumbing', 'bathroom-pod', 'opening', 'grid', 'section-mark',
     'elevation-mark', 'move', 'rotate', 'align', 'copy-place', 'text-note', 'element-tag',
@@ -164,6 +168,13 @@ export function createPlanToolHandlers(): Record<string, PlanToolHandler> {
                 // the lift's palette row had already committed once by landing on
                 // `CreatePanelLayout` and not on `CreateRailPanel`.
                 'boundary-line':      new BoundaryLinePlanToolHandler(),
+                // C116 §11 · ADR-0384 — ROADS, PARKING AND PEDESTRIAN SURFACES. It sits
+                // beside the boundary line because it drives the SAME stroke: the two
+                // handlers differ only in their FINISH TARGET, which is the whole
+                // point of `PlanPolylineStroke`. Registering it in this shared factory
+                // is what gives BOTH plan surfaces the tool at once (L-73 parity)
+                // rather than only the main overlay.
+                'siteworks':          new SiteworksPlanToolHandler(),
                 'stair':              new StairPlanToolHandler(),
                 'stair-path':         new StairPathPlanToolHandler(),
                 'beam':               new BeamPlanToolHandler(),
