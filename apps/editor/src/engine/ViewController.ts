@@ -28,7 +28,7 @@ import { computeFitPose, boundsFramedByCamera, shouldPersistDepartingCamera } fr
 // then fell through to DEFAULT FRAMING, which reads scene bounds nothing guarded.
 import { isGlobeScaleBounds, isGlobeScalePosition, MAX_BIM_NEAR_M } from '@pryzm/core-app-model';
 // §CAM-FRAME-SITE-WHEN-NO-MODEL (L-748) — framing precedence model → SITE → constant.
-import { boundsFromSiteRing } from '@pryzm/core-app-model';
+import { boundsFromSiteRing, GLOBE_SCALE_LIMIT_M } from '@pryzm/core-app-model';
 
 /**
  * §CAM-NEAR-NEVER-CUTS (L-747) — the BIM baseline far plane, restored alongside `near`
@@ -997,6 +997,13 @@ export class ViewController implements IViewController {
             // does, and it is checked INDEPENDENTLY of the position — a camera can sit at
             // a perfectly sane BIM position behind a 14 m near plane.
             this._repairCameraDepthRange();
+            // *** §FAR-PLANE-MUST-CLEAR-THE-LAND (L-13306) — AND THEN WIDEN IT IF THE SITE NEEDS
+            // IT. The repair above brings a POISONED range back to the BIM baseline; this asks
+            // the opposite question — is the baseline big enough for the ground this project
+            // actually stands on? On the founder's 331 ha parcel it is not, by a factor of two.
+            // Ordered AFTER the repair on purpose: the repair may itself have just set
+            // far = 2000, and this is what stops that from being the last word.
+            this._ensureFarPlaneClearsTheSite('3d-activation');
 
             const pos = new THREE.Vector3();
             const tgt = new THREE.Vector3();
@@ -1058,6 +1065,12 @@ export class ViewController implements IViewController {
         if (!Number.isFinite(cam.far) || cam.far > CAMERA_BIM_BASELINE_FAR_M) {
             cam.far = CAMERA_BIM_BASELINE_FAR_M;
         }
+        // §FAR-PLANE-MUST-CLEAR-THE-LAND (L-13306) — the line above is a CEILING and it must
+        // stay one: a 14 000 km far plane from an ECEF pose has no usable precision and is the
+        // L-747 defect. But 2 000 m is not automatically enough either, so the ceiling is
+        // immediately re-floored against the land. Without this, repairing a poisoned camera on a
+        // 331 ha parcel silently amputates the far half of the site.
+        this._ensureFarPlaneClearsTheSite('near-plane-repair');
         cam.updateProjectionMatrix();
         console.error(
             `[ViewController] §CAM-NEAR-NEVER-CUTS (L-747) — the camera near plane was ${wasNear}m, ` +
@@ -1066,6 +1079,104 @@ export class ViewController implements IViewController {
             'depth range left by globe-scale scene bounds (L-744); the source is guarded, this ' +
             'repairs a camera that was already poisoned.',
         );
+    }
+
+    /**
+     * ⭐⭐ §FAR-PLANE-MUST-CLEAR-THE-LAND (L-13306, founder 2026-09-10) — THE FAR PLANE IS SIZED
+     * FROM THE MODEL, AND THE ENVELOPE IS NOT IN THE MODEL.
+     *
+     * FOUNDER, on a 3,314,327 m² (331 ha) Delaware parcel:
+     *   *"if i approach more than this distance the envelope starts to disappear — which is of
+     *    course really wrong. The same happens on PRYZM 3D view — since the plot is too big the
+     *    graphics don't react as I would expect."*
+     *
+     * ⛔ MEASURED, AND IT IS ARITHMETIC RATHER THAN A THEORY:
+     *
+     *   · `computeFitPose` sets `far = max(BASELINE_FAR_M, (distance + radius) * 1.5)`.
+     *   · Its bounds come from `_getFramingBounds()`, which is model → site → constant, and the
+     *     site rung is consulted ONLY when the model is EMPTY. That precedence is CORRECT for
+     *     FRAMING — you frame what someone authored, not the whole county.
+     *   · `computeBimFitBounds` additionally requires a BIM `elementType`, and the envelope
+     *     volume carries `userData.isBuildableEnvelopeVolume` and no element type, so it is
+     *     structurally excluded from those bounds as well.
+     *
+     * So the moment the project has ONE wall, the pose is computed for a ~20 m building:
+     * radius ≈ 10 m, distance ≈ 23 m, **far = max(2000, 49.5) = 2000 m** — while the envelope
+     * solid spans **1 820 m to 3 500 m**. Everything past 2 km is outside the frustum, and which
+     * parts those are changes as the camera moves. That is the envelope "starting to disappear".
+     *
+     * ⭐ WHY THIS IS A SEPARATE ACCESSOR AND NOT A CHANGE TO `_getFramingBounds`. That method's
+     * own header states the rule it is protecting: *"'what the model occupies' and 'where the
+     * site is' are different questions, and merging them would silently widen every other
+     * consumer of model bounds (fit-to-selection, level framing, export scoping)."* It is right.
+     * FRAMING and DEPTH are also different questions: you frame the building, but you must be
+     * able to SEE the land behind it. This widens only the depth range and moves no camera.
+     *
+     * ⛔ IT ONLY EVER WIDENS. `far` is raised to a floor and never lowered, so a scene that
+     * already had a wider range keeps it, and a project with no committed parcel is untouched —
+     * the ordinary city-scale case is bit-identical. The near plane is not touched at all here:
+     * `adaptiveNearPlane` owns it and already floors it at `far / MAX_DEPTH_RATIO`, so the ratio
+     * stays bounded as `far` grows.
+     *
+     * ⚠ NAMED RESIDUE, so this is not mistaken for "depth is now correct". The live WebGPU
+     * renderer does NOT enable a logarithmic depth buffer (`WebGPURendererAdapter` passes no such
+     * flag, and three r183's WebGPURenderer has none), while only the WebGL adapter sets
+     * `logarithmicDepthBuffer: true`. At far ≈ 12 km with a 24-bit fixed-point buffer the depth
+     * quantum at the back of a 3.5 km site is metres, not millimetres. Widening the far plane
+     * makes the envelope VISIBLE; it does not make the far edge of a 331 ha site precise. That is
+     * a renderer-backend question and it is deliberately not answered here.
+     */
+    private _ensureFarPlaneClearsTheSite(reason: string): void {
+        try {
+            const cam = this._camera?.three as THREE.PerspectiveCamera | undefined;
+            if (!cam?.isPerspectiveCamera) return;
+
+            // ⛔ THE UNION, not the "model else site" precedence the FRAMING question uses. The
+            // camera can see both, so the depth range has to clear both.
+            const bounds = this._getSceneBoundsForCamera().clone();
+            const ring = window.runtime?.siteModelStore?.getParcelBoundary()?.polygon;
+            const site = boundsFromSiteRing(ring);
+            if (site) bounds.union(site);
+            if (bounds.isEmpty()) return;
+
+            const centre = bounds.getCenter(new THREE.Vector3());
+            const radius = bounds.getSize(new THREE.Vector3()).length() / 2;
+            if (!Number.isFinite(radius) || radius <= 0) return;
+
+            // ⛔ DERIVED FROM WHERE THE CAMERA IS, NOT FROM THE SCENE ALONE. A far plane sized off
+            // scene extent is wrong the moment the camera stands outside the scene; the distance
+            // to the far side of the bounding sphere is the quantity that actually has to fit.
+            const eye = cam.getWorldPosition(new THREE.Vector3());
+            const needed = (eye.distanceTo(centre) + radius) * 1.5;
+            if (!Number.isFinite(needed)) return;
+
+            // ⛔ THE GLOBE-SCALE GUARD SURVIVES (L-744 / L-747). A far plane this large only ever
+            // comes from ECEF contamination, and restoring it here would re-open the exact defect
+            // `_repairCameraDepthRange` exists to close.
+            if (needed > GLOBE_SCALE_LIMIT_M) {
+                console.warn(
+                    `[ViewController] §FAR-PLANE-MUST-CLEAR-THE-LAND refused a far plane of `
+                    + `${needed.toFixed(0)}m (${reason}) — that is globe/ECEF scale, not a large `
+                    + `plot. The depth range is unchanged; something globe-scale is in the bounds.`,
+                );
+                return;
+            }
+            if (needed <= cam.far) return;   // already wide enough — this only ever widens
+
+            const wasFar = cam.far;
+            cam.far = needed;
+            cam.updateProjectionMatrix();
+            console.log(
+                `[ViewController] §FAR-PLANE-MUST-CLEAR-THE-LAND (L-13306) — far ${wasFar.toFixed(0)}m `
+                + `-> ${needed.toFixed(0)}m (${reason}). The site spans ${(radius * 2).toFixed(0)}m and the `
+                + `camera stands ${eye.distanceTo(centre).toFixed(0)}m from its centre; at the previous `
+                + `far plane the outer part of the buildable envelope was outside the frustum, which is `
+                + `the founder's "the envelope starts to disappear".`,
+            );
+        } catch (err) {
+            // A depth widening must never be the thing that stops a view activating.
+            console.warn('[ViewController] §FAR-PLANE-MUST-CLEAR-THE-LAND failed (non-blocking):', err);
+        }
     }
 
     /**

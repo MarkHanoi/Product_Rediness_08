@@ -22,6 +22,16 @@ export class CesiumThreeBridge {
   private threeCamera: THREE.PerspectiveCamera;
   private threeScene: THREE.Scene;
   private postRenderCallback?: () => void;
+  /**
+   * §BRIDGE-GIVES-THE-CAMERA-BACK (L-13307) — the BIM camera's own fov/near/far, captured on the
+   * FIRST frame this bridge drives it and restored on `deactivate()`.
+   *
+   * ⛔ `null` means "not currently driving", and the null-check in `syncCameras` is what keeps
+   * this a one-shot capture: that method runs on Cesium's `postRender`, so a capture without the
+   * guard would overwrite the remembered BIM range with Cesium's own on the second frame and
+   * restore the leak it exists to undo.
+   */
+  private bimDepthRange: { fov: number; near: number; far: number } | null = null;
   private gisRoot: THREE.Group;
 
   // Floating origin anchor (ECEF)
@@ -167,6 +177,17 @@ export class CesiumThreeBridge {
         );
       }
 
+      // ⛔ §BRIDGE-GIVES-THE-CAMERA-BACK (L-13307) — REMEMBER THE BIM DEPTH RANGE BEFORE THE
+      // FIRST OVERWRITE, so `deactivate()` has something true to restore. This runs on Cesium's
+      // `postRender`, i.e. EVERY FRAME, against the SHARED OBC camera that PRYZM 3D also uses —
+      // so the capture must happen once, on the first frame, and never again.
+      if (this.bimDepthRange === null) {
+        this.bimDepthRange = {
+          fov: this.threeCamera.fov,
+          near: this.threeCamera.near,
+          far: this.threeCamera.far,
+        };
+      }
       this.threeCamera.near = perspectiveFrustum.near;
       this.threeCamera.far = perspectiveFrustum.far;
 
@@ -193,6 +214,40 @@ export class CesiumThreeBridge {
     this._cesiumTransformUnsub?.(); this._cesiumTransformUnsub = undefined; // F.events.15
 
     this.threeCamera.matrixAutoUpdate = true;
+
+    // ⭐⭐ §BRIDGE-GIVES-THE-CAMERA-BACK (L-13307, founder 2026-09-10) — GIVE THE DEPTH RANGE
+    // BACK TOO, not just `matrixAutoUpdate`.
+    //
+    // ⛔ THE LEAK, MEASURED. `syncCameras` above runs on Cesium's `postRender` — every frame —
+    // and writes Cesium's frustum onto `this.threeCamera`, which IS the shared OBC camera the
+    // PRYZM 3D view renders through (this bridge is constructed with `props.world`). Cesium ships
+    // stock defaults that PRYZM never overrides: **near = 1.0 m, far = 5e8 m**. `deactivate()`
+    // restored `matrixAutoUpdate` and nothing else, so after one visit to the 3-D Site the BIM
+    // camera carried a near plane 10× coarser than its own (0.1) and a far plane 250 000× its
+    // baseline — a depth ratio of 5e8 on a buffer with no logarithmic depth on the live WebGPU
+    // backend. Everything the user then walked up to in PRYZM 3D was fighting for depth bits.
+    //
+    // ⚠ IT IS RESTORED, NOT RE-DERIVED. Writing `near = 0.1, far = 2000` here would be a THIRD
+    // opinion about the BIM depth range, alongside `computeFitPose` and
+    // `_ensureFarPlaneClearsTheSite` — and on a 331 ha parcel the constant would be the wrong one,
+    // which is L-13306. What was taken is what is given back.
+    //
+    // ⭐ WHY NOT LEAN ON `ViewController._repairCameraDepthRange`. It early-returns whenever
+    // `near <= 0.1`, and the leaked near is exactly 1.0, so it DOES fire — and then slams `far`
+    // to the 2 000 m baseline, amputating a large site. Restoring at the source means the repair
+    // never sees a poisoned camera in the first place, which is where the fix belongs.
+    if (this.bimDepthRange !== null) {
+      this.threeCamera.fov = this.bimDepthRange.fov;
+      this.threeCamera.near = this.bimDepthRange.near;
+      this.threeCamera.far = this.bimDepthRange.far;
+      this.threeCamera.updateProjectionMatrix();
+      console.log(
+        `[CesiumThreeBridge] §BRIDGE-GIVES-THE-CAMERA-BACK restored the BIM depth range ` +
+        `(fov ${this.bimDepthRange.fov}, near ${this.bimDepthRange.near}, far ${this.bimDepthRange.far}) ` +
+        `after driving it from Cesium's frustum.`
+      );
+      this.bimDepthRange = null;
+    }
   }
 
   public dispose() {
@@ -214,6 +269,16 @@ export class CesiumThreeBridge {
     this._cesiumTransformUnsub?.(); this._cesiumTransformUnsub = undefined; // F.events.15
 
     this.threeCamera.matrixAutoUpdate = true;
+    // §BRIDGE-GIVES-THE-CAMERA-BACK (L-13307) — `dispose()` is a SECOND exit from this bridge and
+    // it does not route through `deactivate()`. A camera released on this path would keep
+    // Cesium's near=1.0 / far=5e8 exactly as it did before, so the restore lives on BOTH exits.
+    if (this.bimDepthRange !== null) {
+      this.threeCamera.fov = this.bimDepthRange.fov;
+      this.threeCamera.near = this.bimDepthRange.near;
+      this.threeCamera.far = this.bimDepthRange.far;
+      this.threeCamera.updateProjectionMatrix();
+      this.bimDepthRange = null;
+    }
     this.threeScene.matrixAutoUpdate = true; 
     this.threeScene.matrix.identity();
     this.threeScene.updateMatrixWorld(true);
