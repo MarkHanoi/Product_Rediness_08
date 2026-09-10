@@ -920,6 +920,11 @@ export type {
 export {
     DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM,
     MINIMUM_PLAN_VIEW_CANVAS_FRUSTUM,
+    // §PLAN-CAN-FRAME-WHAT-IT-CAN-PAN-TO (L-13305) — exported for the SAME reason
+    // `PLAN_CAMTARGET_MAX_ABS_M` below is: BOTH wheel handlers clamp before pushing through
+    // `setFrustum`, which clamps again. Three hand-typed `200`s is how a 331 ha parcel became
+    // unframeable at every zoom level the user has.
+    MAXIMUM_PLAN_VIEW_CANVAS_FRUSTUM,
     // §PLAN-CAMTARGET-SANITY (L-481/L-604) — exported so the PRODUCER
     // (SplitViewManager._fitCamTargetToScene) refuses against the SAME bound the consumer
     // enforces. A second hand-typed limit would drift, and the drift would be invisible.

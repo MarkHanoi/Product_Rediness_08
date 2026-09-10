@@ -21,6 +21,7 @@ import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { readSiteContextRings } from '../../ui/site/siteSnapContext';
 import {
     DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM,
+    MAXIMUM_PLAN_VIEW_CANVAS_FRUSTUM,
     PlanViewCanvas,
 } from '@pryzm/core-app-model';
 import { PlanViewInteraction } from './PlanViewInteraction';
@@ -69,6 +70,12 @@ export class PlanViewManager implements IPlanViewManager {
     private _isPanning = false;
     private readonly _panStart = new THREE.Vector2();
     private _frustumH = DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM;
+    /**
+     * §PLAN-CAN-FRAME-WHAT-IT-CAN-PAN-TO (L-13305) — has the site fit been ATTEMPTED this
+     * activation? ⚠ ATTEMPTED, not succeeded: a project with no committed parcel must not
+     * re-read the site store on every frame forever.
+     */
+    private _hasFitSite = false;
     private readonly _camTarget = new THREE.Vector3();
     private readonly _boundWheel = this._onWheel.bind(this);
     private readonly _boundMouseDown = this._onMouseDown.bind(this);
@@ -160,6 +167,9 @@ export class PlanViewManager implements IPlanViewManager {
         this._viewDef = viewDef;
         this._lastRender = 0;
         this._hasFitDrawing = false;
+        // §PLAN-CAN-FRAME-WHAT-IT-CAN-PAN-TO (L-13305) — re-ask on every entry. A parcel may
+        // have been committed since the last time this view was open.
+        this._hasFitSite = false;
         this._frustumH = DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM;
         this._camTarget.set(0, 0, 0);
 
@@ -813,6 +823,42 @@ export class PlanViewManager implements IPlanViewManager {
                 this._camTarget.copy(this._planCanvas.getCamTarget());
                 this._hasFitDrawing = true;
             }
+        } else if (!drawing && !this._hasFitSite) {
+            // ⭐⭐ §PLAN-CAN-FRAME-WHAT-IT-CAN-PAN-TO (L-13305, founder 2026-09-10) — WITH NO BIM
+            // LINEWORK, FRAME THE LAND. Founder, on a 331 ha parcel: *"on plan view i don't even
+            // see the perimeter of the plot — is it because it is too big? please even so I shall
+            // be able to see it."*
+            //
+            // ⛔ THE ARM THAT DID NOT EXIST. Above is `fitToDrawing`, which needs a projected
+            // drawing; there was NO other rung. A user who has committed a parcel but drawn no
+            // walls got `_camTarget (0,0,0)` and `_frustumH 30` — a 103 m × 60 m window on a
+            // 1 820 m plot — and the ring `_renderSiteContext` faithfully paints every frame was
+            // simply outside it. Correct geometry, unreachable frame.
+            //
+            // ⛔ IT DOES NOT COMPETE WITH `fitToDrawing`: this branch is the `else` of "a drawing
+            // exists", so the moment there is linework to frame, the BIM fit owns the camera again
+            // and this never runs. It also honours the SAME §AUTOFRAME-NO-HIJACK-WHILE-DRAWING
+            // suppression, because "drawing must never move the camera" is not conditional on
+            // WHICH fit would have moved it.
+            //
+            // ⭐ The flag is set even when the fit REFUSES (no ring committed yet). A retry on
+            // every frame would re-read the site store at ~30 fps forever on a project that simply
+            // has no parcel; `activate()` clears it, so entering the view again re-asks once.
+            if (shouldSuppressAutoFrameWhileDrawing()) {
+                this._hasFitSite = true;
+            } else if (this._planCanvas.fitToSite(w, h)) {
+                this._frustumH = this._planCanvas.getFrustumH();
+                this._camTarget.copy(this._planCanvas.getCamTarget());
+                this._hasFitSite = true;
+                console.log(
+                    `[PlanViewManager] §PLAN-CAN-FRAME-WHAT-IT-CAN-PAN-TO framed the committed parcel `
+                    + `— frustumH ${this._frustumH.toFixed(1)} m half-height at `
+                    + `(${this._camTarget.x.toFixed(1)}, ${this._camTarget.z.toFixed(1)}). No BIM `
+                    + `linework exists yet, so the LAND is what this view has to show.`,
+                );
+            } else {
+                this._hasFitSite = true;
+            }
         }
 
         this._syncCanvasState();
@@ -1251,7 +1297,10 @@ export class PlanViewManager implements IPlanViewManager {
         if (!this._active) return;
         e.preventDefault();
         const zoomFactor = e.deltaY > 0 ? 1.12 : 0.89;
-        this._frustumH = Math.max(2, Math.min(200, this._frustumH * zoomFactor));
+        // §PLAN-CAN-FRAME-WHAT-IT-CAN-PAN-TO (L-13305) — the SHARED ceiling, not a third copy of
+        // `200`. `PlanViewCanvas.setFrustum` clamps to the same constant, so a literal here that
+        // disagreed with it would be silently swallowed and look like a broken wheel.
+        this._frustumH = Math.max(2, Math.min(MAXIMUM_PLAN_VIEW_CANVAS_FRUSTUM, this._frustumH * zoomFactor));
         this._syncCanvasState();
         this._lastRender = 0;
         // Keep the FrameScheduler render loop alive during wheel zoom.

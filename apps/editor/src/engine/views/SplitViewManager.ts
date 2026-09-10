@@ -57,6 +57,7 @@ import { sheetStore } from '@pryzm/core-app-model';
 // Intent assignment now flows through the unified V/G header panel (OverridePanel).
 import {
     DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM,
+    MAXIMUM_PLAN_VIEW_CANVAS_FRUSTUM,
     MINIMUM_PLAN_VIEW_CANVAS_FRUSTUM,
     // §PLAN-CAMTARGET-REFUSE-AT-PRODUCER (L-604) — the SAME bound PlanViewCanvas.setFrustum
     // enforces. Imported, never re-typed, so producer and consumer cannot drift apart.
@@ -1623,7 +1624,10 @@ export class SplitViewManager implements ISplitViewManager {
     private _onWheel(e: WheelEvent): void {
         e.preventDefault();
         const zoomFactor = e.deltaY > 0 ? 1.12 : 0.89;
-        this._frustumH = Math.max(2, Math.min(200, this._frustumH * zoomFactor));
+        // §PLAN-CAN-FRAME-WHAT-IT-CAN-PAN-TO (L-13305) — the SHARED ceiling, not a third copy of
+        // `200`. `PlanViewCanvas.setFrustum` clamps to the same constant, so a literal here that
+        // disagreed with it would be silently swallowed and look like a broken wheel.
+        this._frustumH = Math.max(2, Math.min(MAXIMUM_PLAN_VIEW_CANVAS_FRUSTUM, this._frustumH * zoomFactor));
         this._syncPlanCanvasState();
         // No camera to sync — _render() reads _frustumH directly.
         this._lastRender = 0;

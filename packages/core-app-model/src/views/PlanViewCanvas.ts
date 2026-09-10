@@ -109,6 +109,41 @@ import { planElementDragController, drawHostedArrows } from './PlanElementDragCo
 export const DEFAULT_PLAN_VIEW_CANVAS_FRUSTUM = 30;
 export const MINIMUM_PLAN_VIEW_CANVAS_FRUSTUM = 3;
 
+/**
+ * ⭐⭐ §PLAN-CAN-FRAME-WHAT-IT-CAN-PAN-TO (L-13305, founder 2026-09-10) — THE ZOOM-OUT CEILING.
+ *
+ * FOUNDER, on a 3,314,327 m² (331 ha) Delaware parcel:
+ *   *"on plan view i don't even see the perimeter of the plot — is it because it is too big?
+ *    please even so I shall be able to see it."*
+ *
+ * ⭐ THE ANSWER TO HIS QUESTION IS LITERALLY YES, AND THE RING WAS NEVER THE PROBLEM.
+ * `_renderSiteContext` paints `site.parcelRing` every single frame, before the `if (!drawing)`
+ * early-return, in both render paths, on both panes. It was drawn correctly and off-canvas.
+ *
+ * ⛔ THE CEILING WAS 200 m OF FRUSTUM HALF-HEIGHT. On a typical 1200×700 pane that is a maximum
+ * visible world of ~686 m × 400 m. His plot is ~1 820 m square (√3 314 327), and ~3 500 m across
+ * on its long axis: **3× to 9× wider than the widest frame this canvas could produce.** No amount
+ * of scrolling could bring it in. The perimeter was unreachable at every zoom level the user has.
+ *
+ * ⭐ DERIVED FROM {@link PLAN_CAMTARGET_MAX_ABS_M}, NOT PICKED. The pan sanity bound already
+ * decides how far this view may legitimately travel, and it is documented as *"comfortably
+ * contains any real site, campus or masterplan"*. A view that may PAN to ±20 km but may only
+ * FRAME 200 m is two bounds disagreeing about the same question. Tying them means the canvas can
+ * always frame what it can reach, and there is ONE number to move if that ever changes.
+ *
+ * ⛔ NORMAL PLOTS ARE NOT DEGRADED — THIS IS A CEILING, NOT A DEFAULT. `DEFAULT_…_FRUSTUM` is
+ * still 30 m on activation, `fitToDrawing` still caps its own result at 80 m, and the wheel still
+ * steps at 1.12×. Nothing zooms out further than it did unless the user asks. Nor does it uncap a
+ * loop: `_drawGrid` returns early at `gPx < 8` and both of its loops are bounded by CANVAS PIXELS
+ * (`w / gPx`), never by world extent, so a 20 km frame draws no grid and costs nothing.
+ *
+ * ⚠ IT MUST BE THE SAME NUMBER IN ALL THREE PLACES, WHICH IS WHY IT IS EXPORTED. `setFrustum`
+ * clamps, and BOTH wheel handlers (`PlanViewManager._onWheel`, `SplitViewManager._onWheel`) clamp
+ * before pushing through it. Raising any one of the three alone is silently swallowed by the
+ * other two — that is exactly how three hand-copied `Math.min(200, …)` literals came to exist.
+ */
+export const MAXIMUM_PLAN_VIEW_CANVAS_FRUSTUM = PLAN_CAMTARGET_MAX_ABS_M;
+
 // §FIX-PLAN-CANVAS-HAIRLINE-FLOOR (L-288) — `MAX_PLAN_VIEW_CANVAS_DPR = 4` LIVED HERE. It is now
 // `MAX_BACKING_SCALE` in `drawing/CanvasRenderScale.ts`, beside the floor it bounds and beside
 // the pen table it is derived against. It is the SAME NUMBER and the same policy: this canvas has
@@ -911,7 +946,7 @@ export class PlanViewCanvas {
      * nothing; a wall committed 300 km away costs the project.
      */
     setFrustum(frustumH: number, camTarget: THREE.Vector3): void {
-        this._frustumH = Math.max(2, Math.min(200, frustumH));
+        this._frustumH = Math.max(2, Math.min(MAXIMUM_PLAN_VIEW_CANVAS_FRUSTUM, frustumH));
 
         const finite =
             Number.isFinite(camTarget.x) && Number.isFinite(camTarget.y) && Number.isFinite(camTarget.z);
@@ -1654,6 +1689,74 @@ export class PlanViewCanvas {
         // (for sections, vertical is world Y; for plans, it is world Z).
         this._camTarget.set((bounds.minH + bounds.maxH) / 2, this._camTarget.y, (bounds.minV + bounds.maxV) / 2);
         this._frustumH = Math.max(MINIMUM_PLAN_VIEW_CANVAS_FRUSTUM, Math.min(80, Math.max(fitByHeight, fitByWidth)));
+    }
+
+    /**
+     * ⭐⭐ §PLAN-CAN-FRAME-WHAT-IT-CAN-PAN-TO (L-13305) — FRAME THE COMMITTED PARCEL RING.
+     *
+     * The second half of the founder's *"i don't even see the perimeter of the plot"*. Raising the
+     * ceiling made his 3.5 km ring REACHABLE; without this it is still ~36 wheel notches away from
+     * the 30 m the pane opens at, which is "possible" rather than "visible".
+     *
+     * ⛔ IT READS THE RING THIS CANVAS ALREADY DRAWS. `_siteContextProvider` is the same handle
+     * `_renderSiteContext` paints from, so the frame and the geometry cannot disagree about where
+     * the parcel is — a fit computed from a second source is the [[same-rule-two-implementations]]
+     * shape, and here it would put the camera confidently next to the ring instead of on it.
+     *
+     * ⛔ IT IS NOT `fitToDrawing` WITH A DIFFERENT INPUT, AND MUST NOT BE FOLDED INTO IT.
+     * `fitToDrawing` answers *"frame the BIM linework"* and its 80 m cap is correct for that
+     * question. This answers *"frame the LAND"*. Collapsing them would mean one wall on a 331 ha
+     * parcel either yanks the camera out to the whole site or crops the site to the wall.
+     *
+     * ⚠ DEGENERATE RINGS ARE REFUSED, NOT CLAMPED. A ring with < 3 points, or one whose bounds are
+     * not finite, returns `false` and leaves the camera exactly where it was — the same rule
+     * `setFrustum` already applies to an implausible target, and for the same reason: an absent
+     * frame costs nothing, a camera teleported to NaN costs the session.
+     *
+     * @returns `true` when the camera was moved. `false` means there was no ring to frame.
+     */
+    fitToSite(canvasW: number, canvasH: number): boolean {
+        const ring = this._siteContextProvider?.()?.parcelRing ?? null;
+        if (!ring || ring.length < 3) return false;
+
+        let minH = Infinity, maxH = -Infinity, minV = Infinity, maxV = -Infinity;
+        for (const p of ring) {
+            if (!Number.isFinite(p.x) || !Number.isFinite(p.z)) continue;
+            if (p.x < minH) minH = p.x;
+            if (p.x > maxH) maxH = p.x;
+            if (p.z < minV) minV = p.z;
+            if (p.z > maxV) maxV = p.z;
+        }
+        if (!Number.isFinite(minH) || !Number.isFinite(maxH)
+            || !Number.isFinite(minV) || !Number.isFinite(maxV)) return false;
+
+        const width = Math.max(maxH - minH, 0.01);
+        const height = Math.max(maxV - minV, 0.01);
+        const aspect = canvasW / Math.max(canvasH, 1);
+        const padding = 1.14;   // the SAME margin `fitToDrawing` uses — one look, two subjects
+        const fit = Math.max((height * padding) / 2, (width * padding) / (2 * Math.max(aspect, 0.01)));
+
+        const cx = (minH + maxH) / 2;
+        const cz = (minV + maxV) / 2;
+        // ⛔ HONOUR THE PAN SANITY BOUND. `setFrustum` REFUSES a target outside ±20 km rather than
+        // clamping it, so a ring whose centre is outside that would leave the frustum widened and
+        // the target unchanged — a frame that is half-applied. Refuse the whole fit instead.
+        if (Math.abs(cx) > PLAN_CAMTARGET_MAX_ABS_M || Math.abs(cz) > PLAN_CAMTARGET_MAX_ABS_M) {
+            console.warn(
+                `[PlanViewCanvas] §PLAN-CAN-FRAME-WHAT-IT-CAN-PAN-TO refused a site fit: the parcel `
+                + `centre (${cx.toFixed(1)}, ${cz.toFixed(1)}) is outside the ±${PLAN_CAMTARGET_MAX_ABS_M} m `
+                + `plausible-site bound. The camera is unchanged. This is a coordinate-space fault, `
+                + `not a large plot.`,
+            );
+            return false;
+        }
+
+        this._camTarget.set(cx, this._camTarget.y, cz);
+        this._frustumH = Math.max(
+            MINIMUM_PLAN_VIEW_CANVAS_FRUSTUM,
+            Math.min(MAXIMUM_PLAN_VIEW_CANVAS_FRUSTUM, fit),
+        );
+        return true;
     }
 
     private _resolveCropCanvasBounds(viewDef: ViewDefinition): { minH: number; maxH: number; minV: number; maxV: number } | null {
