@@ -45,6 +45,32 @@ export const MASSING_AUTHOR_BTN_TESTID = 'envelope-massing-author-btn';
 /** The pre-click refusal line on a GENERATED option's card. Value: `chosen` | `unknown`. */
 export const MASSING_AUTHORED_BLOCK_ATTR = 'data-massing-authored-block';
 
+/**
+ * ⭐⭐ §THE-TOOL-LIVES-IN-THE-PANEL (L-13308, founder 2026-09-10) — WHERE THE ENVELOPE TOOL MOUNTS.
+ *
+ * FOUNDER, defect 2 of 5: *"Also this information should be part of the main panel — check image
+ * 4."* Image 4 is THIS card: the right-hand SITE panel at Massing options, *"Create it myself /
+ * Draw my own massing on the view"*.
+ *
+ * ⛔ THE BUTTON WAS ALREADY THE ONE AUTHORING ROUTE, AND THAT PART WAS RIGHT. What was wrong is
+ * WHERE the route landed: `window.pryzmOpenSiteEnvelopeTool` mounted the panel absolutely
+ * positioned over `#container`, so pressing a control in the Site panel produced a SECOND floating
+ * window somewhere else on screen, holding state that belongs to the card that opened it. The user
+ * then has two surfaces to track and no indication that they are one thing.
+ *
+ * ⭐ THE FIX IS A HOST, NOT A REWRITE. `openSiteEnvelopeTool(parent)` has always taken its parent
+ * and has always RE-TARGETED rather than re-mounted (§MAP-IS-A-SINGLETON-TOO, L-12992) — moving
+ * the ONE panel is `appendChild`. This slot is simply a better parent: an empty div that lives
+ * INSIDE the card, directly under the button that opens it. Nothing about the command path,
+ * the plan builder or the store changes; there is still exactly one panel in the document.
+ *
+ * ⚠ IT IS RENDERED ON EVERY ARM, EMPTY. A slot that only appeared once the tool was open would
+ * make the mount point conditional on the thing being mounted, and `pryzmOpenSiteEnvelopeTool`
+ * would have nowhere to look on a cold arrival — it would silently fall back to floating, which
+ * is the defect. An empty div costs nothing and is always findable.
+ */
+export const MASSING_AUTHOR_SLOT_TESTID = 'envelope-massing-author-slot';
+
 function escHtml(value: unknown): string {
     return String(value)
         .replace(/&/g, '&amp;')
@@ -143,6 +169,9 @@ export function buildAuthoredMassingOptionHtml(state: AuthoredMassingState | nul
             + `<div style="margin-top:3px;font-size:9.5px;line-height:1.45;color:#6b6480;">${escHtml(body)}</div>`
             + `<button type="button" data-testid="${MASSING_AUTHOR_BTN_TESTID}" style="${BTN_STYLE}">`
             + `${escHtml(button)}</button>`
+            // §THE-TOOL-LIVES-IN-THE-PANEL (L-13308) — the envelope tool mounts HERE, in the card,
+            // instead of floating over the viewport. Empty on every arm; see the testid's doc.
+            + `<div data-testid="${MASSING_AUTHOR_SLOT_TESTID}" style="min-width:0;max-width:100%;"></div>`
             + `</div>`;
     } finally {
         span.end();

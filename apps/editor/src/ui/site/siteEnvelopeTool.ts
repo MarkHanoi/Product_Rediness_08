@@ -133,6 +133,26 @@ export const SITE_ENVELOPE_ROSTER_FOLD_TESTID = 'site-envelope-roster-fold';
 
 const VIOLET = '#6600FF';
 
+/**
+ * ⭐⭐ §THE-TOOL-LIVES-IN-THE-PANEL (L-13308, founder 2026-09-10) — HOW THIS PANEL PRESENTS.
+ *
+ * FOUNDER, defect 2 of 5: *"Also this information should be part of the main panel — check image
+ * 4."* Image 4 is the right-hand SITE panel at Massing options.
+ *
+ * ⛔ TWO PRESENTATIONS, ONE PANEL — never two panels. The singleton, the command path, the
+ * subscriptions and the roster are identical on both; what differs is whether the root floats over
+ * a viewport or flows inside a card that already has its own frame, scroll and close affordance.
+ * Drawing a floating card INSIDE another card gives the user a box in a box with two ✕ buttons,
+ * which is why this is a mode rather than "just append it somewhere else".
+ */
+export interface SiteEnvelopeToolPresentation {
+    /**
+     * TRUE ⇒ the host is a PANEL SLOT: flow in place, full width, no shadow, no ✕.
+     * FALSE / omitted ⇒ the historical floating card over a positioned viewport host.
+     */
+    readonly inline?: boolean;
+}
+
 export interface SiteEnvelopeToolHandle {
     readonly element: HTMLElement;
     /** Is this panel currently mounted and visible? A READING, not a remembered command. */
@@ -166,6 +186,8 @@ let live: {
      * tree forever. `closeSiteEnvelopeTool` disposes it.
      */
     roster: MasterPlanSectionHandle | null;
+    /** §THE-TOOL-LIVES-IN-THE-PANEL (L-13308) — repaint the root + close button for a host. */
+    applyPresentation: (p: SiteEnvelopeToolPresentation) => void;
 } | null = null;
 
 /** Whether the tool panel is open right now. Surfaces paint their button's pressed state from it. */
@@ -210,7 +232,10 @@ export function closeSiteEnvelopeTool(): void {
  *
  * @param parent a POSITIONED host (`position: relative|absolute`) — the panel is absolutely placed.
  */
-export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandle {
+export function openSiteEnvelopeTool(
+    parent: HTMLElement,
+    presentation: SiteEnvelopeToolPresentation = {},
+): SiteEnvelopeToolHandle {
     const span = _tracer.startSpan('pryzm.site.openSiteEnvelopeTool');
     try {
         if (live && live.root.isConnected) {
@@ -218,6 +243,10 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
                 parent.appendChild(live.root);
                 console.log('[site] §ENVELOPE-TOOL-ON-THE-SITE-VIEWS panel re-targeted (ONE panel, no second mount).');
             }
+            // §THE-TOOL-LIVES-IN-THE-PANEL (L-13308) — a re-target can cross presentations (the
+            // Site panel's card, then the 2-D map's own strip). The chrome has to follow the host,
+            // or the panel arrives floating inside a card, or flat over a viewport with no frame.
+            live.applyPresentation(presentation);
             live.authoring.repaint();
             live.paintDraw();
             // §ANOTHER-ENVELOPE-IS-THE-SAME-ROSTER — a re-target is a re-read. The roster may have
@@ -233,47 +262,90 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
 
         const root = document.createElement('div');
         root.setAttribute('data-testid', SITE_ENVELOPE_PANEL_TESTID);
-        root.style.cssText = [
-            // ⭐⭐ §ENVELOPE-CARD-FOLDS (L-13249) — FOUNDER, three times: *"we need to make is 20%
-            // of the space with drop down menus that the usser opens on deman and the card
-            // expands - it is too large"*.
-            //
-            // ⚠ "20%" IS READ AS 20% OF THE PANE THIS PANEL FLOATS OVER, not of the whole window,
-            // and the difference is not pedantry: this card is absolutely positioned inside the
-            // RIGHT (3-D) pane of a split, so on his 2 037 px screen a window-relative 20% would
-            // be ~407 px — WIDER than the 340 px he called too large. `20%` of the pane, clamped,
-            // is the reading under which his sentence and his screenshot agree.
-            //
-            // ⛔ THE CLAMPS ARE NOT DECORATION. `min(…)` alone would let a wide monitor make it
-            // huge again and a narrow pane crush it to unreadable; `max(240px, …)` keeps the
-            // storey rows and the create control legible, and 340 px stays the ceiling so this can
-            // only ever shrink from what shipped. The 32 px subtraction is the existing gutter.
-            'position:absolute', 'top:64px', 'right:16px',
-            'width:clamp(240px, 20%, 340px)', 'max-width:calc(100% - 32px)',
-            'max-height:calc(100% - 96px)', 'overflow:auto', 'z-index:40',
-            'background:#ffffff', `border:1px solid ${VIOLET}`, 'border-radius:10px',
-            'box-shadow:0 6px 22px rgba(60,52,40,0.22)', 'padding:12px 13px 13px',
-            'font:12px/1.45 system-ui, sans-serif', 'color:#2c2740', 'pointer-events:auto',
-        ].join(';');
+        // Declared here so `applyPresentation` below can hide it; wired further down.
+        const closeBtn = document.createElement('button');
+
+        // ═════════════════════════════════════════════════════════════════════════════════════
+        // ⭐⭐ §THE-TOOL-LIVES-IN-THE-PANEL (L-13308) — TWO PRESENTATIONS OF THE ONE PANEL
+        // ═════════════════════════════════════════════════════════════════════════════════════
+        // FOUNDER, defect 2 of 5: *"Also this information should be part of the main panel — check
+        // image 4."* Image 4 is the SITE panel at Massing options. Pressing "Draw my own massing
+        // on the view" there produced a floating card over the viewport, holding state that
+        // belongs to the card he pressed — two surfaces to track, and nothing saying they are one
+        // thing.
+        //
+        // ⛔ THIS IS A MODE, NOT A SECOND PANEL. The singleton, the command path, the roster and
+        // every subscription are identical on both arms. Only the CHROME differs, and it has to:
+        // an absolutely-positioned card with its own shadow and its own ✕, drawn INSIDE another
+        // card that already has a frame and a close control, is a box in a box with two ways to
+        // dismiss it. `data-presentation` says which arm rendered, so a surface and a test agree.
+        const applyPresentation = (pres: SiteEnvelopeToolPresentation): void => {
+            const inline = pres.inline === true;
+            root.setAttribute('data-presentation', inline ? 'inline' : 'floating');
+            root.style.cssText = inline
+                ? [
+                    // ⭐ FLOWS IN PLACE. No `position`, no `top/right`, no `z-index`, no shadow —
+                    // the host card supplies all four, and repeating them here is what produced
+                    // the second window. No `max-height`/`overflow` either: the Site panel is
+                    // already the scroll container, and a nested scroller traps the wheel.
+                    'display:block', 'width:100%', 'box-sizing:border-box', 'margin-top:6px',
+                    `border:1px solid ${VIOLET}`, 'border-radius:8px', 'background:#ffffff',
+                    'padding:9px 10px 10px', 'font:12px/1.45 system-ui, sans-serif',
+                    'color:#2c2740', 'min-width:0', 'max-width:100%',
+                ].join(';')
+                : [
+                    // ⭐⭐ §ENVELOPE-CARD-FOLDS (L-13249) — FOUNDER, three times: *"we need to make
+                    // is 20% of the space with drop down menus that the usser opens on deman and
+                    // the card expands - it is too large"*.
+                    //
+                    // ⚠ "20%" IS READ AS 20% OF THE PANE THIS PANEL FLOATS OVER, not of the whole
+                    // window, and the difference is not pedantry: this card is absolutely
+                    // positioned inside the RIGHT (3-D) pane of a split, so on his 2 037 px screen
+                    // a window-relative 20% would be ~407 px — WIDER than the 340 px he called too
+                    // large. `20%` of the pane, clamped, is the reading under which his sentence
+                    // and his screenshot agree.
+                    //
+                    // ⛔ THE CLAMPS ARE NOT DECORATION. `min(…)` alone would let a wide monitor
+                    // make it huge again and a narrow pane crush it to unreadable; `max(240px, …)`
+                    // keeps the storey rows and the create control legible, and 340 px stays the
+                    // ceiling so this can only ever shrink from what shipped. The 32 px
+                    // subtraction is the existing gutter.
+                    'position:absolute', 'top:64px', 'right:16px',
+                    'width:clamp(240px, 20%, 340px)', 'max-width:calc(100% - 32px)',
+                    'max-height:calc(100% - 96px)', 'overflow:auto', 'z-index:40',
+                    'background:#ffffff', `border:1px solid ${VIOLET}`, 'border-radius:10px',
+                    'box-shadow:0 6px 22px rgba(60,52,40,0.22)', 'padding:12px 13px 13px',
+                    'font:12px/1.45 system-ui, sans-serif', 'color:#2c2740', 'pointer-events:auto',
+                ].join(';');
+            // ⛔ THE ✕ IS HIDDEN INLINE, NOT REMOVED. Two close controls on one card is the box-in
+            // -a-box tell, and the card's own disclosure already collapses this. It must stay in
+            // the DOM because a later re-target back to the floating arm needs it, and because
+            // `SITE_ENVELOPE_CLOSE_TESTID` is a contract other surfaces bind to.
+            closeBtn.hidden = inline;
+        };
 
         const head = document.createElement('div');
         head.style.cssText = 'display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;';
         const title = document.createElement('div');
         title.style.cssText = `flex:1;font-weight:700;font-size:12.5px;color:${VIOLET};`;
         title.textContent = 'Envelope tool';
-        const close = document.createElement('button');
-        close.type = 'button';
-        close.setAttribute('data-testid', SITE_ENVELOPE_CLOSE_TESTID);
-        close.setAttribute('aria-label', 'Close the envelope tool');
-        close.textContent = '×';
-        close.style.cssText = [
+        closeBtn.type = 'button';
+        closeBtn.setAttribute('data-testid', SITE_ENVELOPE_CLOSE_TESTID);
+        closeBtn.setAttribute('aria-label', 'Close the envelope tool');
+        closeBtn.textContent = '×';
+        closeBtn.style.cssText = [
             'appearance:none', 'border:none', 'background:transparent', 'cursor:pointer',
             `color:${VIOLET}`, 'font:600 17px/1 system-ui, sans-serif', 'padding:0 2px',
         ].join(';');
-        close.addEventListener('click', () => closeSiteEnvelopeTool());
+        closeBtn.addEventListener('click', () => closeSiteEnvelopeTool());
         head.appendChild(title);
-        head.appendChild(close);
+        head.appendChild(closeBtn);
         root.appendChild(head);
+        // §THE-TOOL-LIVES-IN-THE-PANEL (L-13308) — paint the chrome now that the ✕ exists. ⛔ It
+        // cannot run at root creation: `applyPresentation` reads `closeBtn`, and a painter that
+        // ran before its subject existed is the §L-13002 shape (a reader running before the write
+        // it depends on).
+        applyPresentation(presentation);
 
         // ⭐ THE HONEST LEDE. It says which half of the founder's ask this is, so "create works and
         // drag does not yet" is something he READS rather than discovers. C58 §1.19 clause 3 also
@@ -591,7 +663,7 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
         try { unsubs.push(subscribeEnvelopeDrawMode(() => paintModeBar())); }
         catch (e) { console.warn('[site] §ENVELOPE-MODE-BAR mode subscribe threw (non-fatal):', e); }
         paintDraw();
-        live = { root, authoring, unsubs, paintDraw, modeBar, roster };
+        live = { root, authoring, unsubs, paintDraw, modeBar, roster, applyPresentation };
         span.setAttribute('pryzm.siteEnvelopeTool.opened', true);
         console.log(
             '[site] §ENVELOPE-TOOL-ON-THE-SITE-VIEWS panel opened over a site view — ONE command '
@@ -604,9 +676,12 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
 }
 
 /** Open if closed, close if open. What a tool BUTTON binds to. Returns the state now in force. */
-export function toggleSiteEnvelopeTool(parent: HTMLElement): boolean {
+export function toggleSiteEnvelopeTool(
+    parent: HTMLElement,
+    presentation: SiteEnvelopeToolPresentation = {},
+): boolean {
     if (isSiteEnvelopeToolOpen()) { closeSiteEnvelopeTool(); return false; }
-    openSiteEnvelopeTool(parent);
+    openSiteEnvelopeTool(parent, presentation);
     return true;
 }
 

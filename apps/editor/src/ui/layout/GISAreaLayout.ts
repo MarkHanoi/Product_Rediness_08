@@ -502,7 +502,13 @@ import {
     resolveAuthoredMassingState,
     type MassingOptionSet,
 } from '../site/massingOptionModel';
-import { wireAuthoredMassingOption } from '../site/massingAuthoredOptionSection';
+import {
+    wireAuthoredMassingOption,
+    // §THE-TOOL-LIVES-IN-THE-PANEL (L-13308) — the in-card mount point the envelope tool
+    // prefers over the viewport. Imported rather than hand-typed so the producer of the slot
+    // and the consumer that looks for it cannot drift into two spellings of one id.
+    MASSING_AUTHOR_SLOT_TESTID,
+} from '../site/massingAuthoredOptionSection';
 // §RESI-ORCH-STAGE-WIRE (STR §21) — *"the right panel exposes the controls relevant to the current
 // stage."* The DECISION (which section leads, which is gated, and why) is pure and lives next
 // door; this file renders it and wires the jump. ⛔ Nothing is HIDDEN by the stage — see
@@ -7413,6 +7419,26 @@ export function mountGISArea(props: UIProps, runtime: PryzmRuntime | null): GISC
      * with no solved envelope is told what is missing and what would supply it.
      */
     window.pryzmOpenSiteEnvelopeTool = () => {
+        // ⭐⭐ §THE-TOOL-LIVES-IN-THE-PANEL (L-13308, founder 2026-09-10) — PREFER THE SITE PANEL.
+        // *"Also this information should be part of the main panel — check image 4."* Image 4 is
+        // the Massing options card, whose own button is one of the callers of this hook. Landing a
+        // floating window over the viewport in answer to a click inside that card is what produced
+        // the second surface he is asking us to remove.
+        //
+        // ⛔ THE FLOATING ARM BELOW SURVIVES AND IS NOT A FALLBACK-BY-ACCIDENT. This hook is also
+        // reached from `gisActionRegistry` (`site.create-envelope`) and the 2-D map's own strip,
+        // where there is no card on screen and the viewport IS the only host. One route, two
+        // homes, chosen by which one exists — never two panels.
+        const slot = document.querySelector<HTMLElement>(
+            `[data-testid="${MASSING_AUTHOR_SLOT_TESTID}"]`,
+        );
+        if (slot?.isConnected) {
+            // ⛔ `inline` is what stops the card drawing its own shadow, ✕ and scroller inside a
+            // card that already has all three. The panel is a SINGLETON that re-targets, so this
+            // MOVES the one panel out of the viewport and into the card if it was already open.
+            toggleSiteEnvelopeTool(slot, { inline: true });
+            return;
+        }
         const host = document.getElementById('container') ?? document.body;
         // The panel is absolutely positioned; a static host would place it against the page rather
         // than against the view. Set here rather than assumed — `#container` is shared chrome.

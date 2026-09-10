@@ -379,3 +379,130 @@ describe('§ENVELOPE-DRAW C4 — the Draw button and the drawn-perimeter route',
         expect(panel.getAttribute(AUTHORING_DRAWN_SUBSCRIBED_ATTR)).toBe('yes');
     });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ §THE-TOOL-LIVES-IN-THE-PANEL (L-13308) — IT MOUNTS IN THE SITE PANEL, NOT OVER THE VIEWPORT
+// ═════════════════════════════════════════════════════════════════════════════════════════════
+// FOUNDER, defect 2 of 5, 2026-09-10: *"Also this information should be part of the main panel —
+// check image 4."* Image 4 is the right-hand SITE panel at Massing options ("Create it myself /
+// Draw my own massing on the view"), whose button is one of the callers of the open route.
+// Answering a click INSIDE that card with a floating window somewhere else on screen is the
+// second surface he is asking us to remove.
+//
+// ⛔ WHAT THESE CASES PIN IS THAT IT IS STILL **ONE PANEL**, presented two ways. A lane that
+// "fixed" this by rendering a copy inside the card would satisfy the founder's sentence and
+// re-open the defect the suite above exists for.
+describe('§THE-TOOL-LIVES-IN-THE-PANEL (L-13308) — one panel, two presentations', () => {
+    it('⭐ INLINE: no absolute positioning, no shadow, no z-index — it flows inside the card', () => {
+        const card = host();
+        openSiteEnvelopeTool(card, { inline: true });
+        const root = card.querySelector<HTMLElement>(`[data-testid="${SITE_ENVELOPE_PANEL_TESTID}"]`);
+        expect(root, 'the panel did not mount into the card at all').not.toBeNull();
+        expect(root!.getAttribute('data-presentation')).toBe('inline');
+        // ⛔ EACH OF THESE IS A SEPARATE WAY TO GET "a box inside a box". The host card already
+        // supplies its own frame, scroll and elevation; repeating any one of them here is what
+        // reads as a second window.
+        expect(root!.style.position, 'still absolutely positioned inside a panel').not.toBe('absolute');
+        expect(root!.style.boxShadow, 'a floating shadow inside a card is a box in a box').toBe('');
+        expect(root!.style.zIndex).toBe('');
+        // ⛔ AND NO NESTED SCROLLER. The Site panel is already the scroll container; a second one
+        // traps the wheel halfway down the card.
+        expect(root!.style.overflow).not.toBe('auto');
+    });
+
+    it('⭐ INLINE: the ✕ is HIDDEN but still in the DOM — one close control, no broken contract', () => {
+        const card = host();
+        openSiteEnvelopeTool(card, { inline: true });
+        const x = card.querySelector<HTMLElement>(`[data-testid="${SITE_ENVELOPE_CLOSE_TESTID}"]`);
+        // ⛔ PRESENT: other surfaces bind to this testid, and a re-target back to the floating arm
+        // needs it. HIDDEN: two ✕ on one card is the box-in-a-box tell.
+        expect(x, 'removing the ✕ breaks every surface bound to SITE_ENVELOPE_CLOSE_TESTID').not.toBeNull();
+        expect(x!.hidden).toBe(true);
+    });
+
+    it('⛔ SCRAMBLE: the FLOATING arm is unchanged — omitting the flag keeps the old card exactly', () => {
+        // The cheapest wrong fix is to make every mount inline, which would flatten the panel on
+        // the 2-D map strip and the gisActionRegistry route, where the viewport IS the only host.
+        const viewport = host();
+        openSiteEnvelopeTool(viewport);
+        const root = viewport.querySelector<HTMLElement>(`[data-testid="${SITE_ENVELOPE_PANEL_TESTID}"]`);
+        expect(root!.getAttribute('data-presentation')).toBe('floating');
+        expect(root!.style.position).toBe('absolute');
+        expect(root!.style.boxShadow).not.toBe('');
+        expect(root!.style.zIndex).toBe('40');
+        const x = viewport.querySelector<HTMLElement>(`[data-testid="${SITE_ENVELOPE_CLOSE_TESTID}"]`);
+        expect(x!.hidden, 'the floating card must keep its only close affordance').toBe(false);
+    });
+
+    it('⛔ SCRAMBLE: opening into the card MOVES the one panel — it never mints a second', () => {
+        // ⭐ THE ARM THAT MATTERS MOST. "Put it in the panel" is satisfied just as well, to a
+        // screenshot, by rendering a COPY there — and a copy is two panels over one runtime, each
+        // holding its own "what the user last typed" (§MAP-IS-A-SINGLETON-TOO, L-12992).
+        const viewport = host();
+        const card = host();
+        openSiteEnvelopeTool(viewport);
+        const first = viewport.querySelector(`[data-testid="${SITE_ENVELOPE_PANEL_TESTID}"]`);
+
+        openSiteEnvelopeTool(card, { inline: true });
+        expect(
+            document.querySelectorAll(`[data-testid="${SITE_ENVELOPE_PANEL_TESTID}"]`).length,
+            'a SECOND panel was minted instead of the one being re-homed',
+        ).toBe(1);
+        const moved = card.querySelector(`[data-testid="${SITE_ENVELOPE_PANEL_TESTID}"]`);
+        expect(moved, 'the panel did not move into the card').not.toBeNull();
+        expect(moved, 'a different node — this is a copy, not the same panel').toBe(first);
+        expect(viewport.querySelector(`[data-testid="${SITE_ENVELOPE_PANEL_TESTID}"]`)).toBeNull();
+    });
+
+    it('⛔ the chrome FOLLOWS the host across a re-target, in both directions', () => {
+        // A re-target that moved the node but kept the old presentation would leave the panel
+        // floating inside a card, or flat over a viewport with no frame at all.
+        const viewport = host();
+        const card = host();
+        openSiteEnvelopeTool(viewport);
+        openSiteEnvelopeTool(card, { inline: true });
+        let root = document.querySelector<HTMLElement>(`[data-testid="${SITE_ENVELOPE_PANEL_TESTID}"]`);
+        expect(root!.getAttribute('data-presentation')).toBe('inline');
+        expect(root!.style.position).not.toBe('absolute');
+
+        openSiteEnvelopeTool(viewport);
+        root = document.querySelector<HTMLElement>(`[data-testid="${SITE_ENVELOPE_PANEL_TESTID}"]`);
+        expect(root!.getAttribute('data-presentation'), 'the panel stayed flat over the viewport')
+            .toBe('floating');
+        expect(root!.style.position).toBe('absolute');
+    });
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // ⛔ THE PRODUCER AND THE CONSUMER OF THE SLOT — asserted as SOURCE, because the failure is
+    //    a hook that looks for an id nothing renders. That is silent: it falls back to floating
+    //    and the founder sees the defect he already reported. [[committed-is-not-reachable]].
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    it('⭐ the Massing options card RENDERS the slot, on every arm', () => {
+        const src = readFileSync(
+            join(repoRoot, 'apps/editor/src/ui/site/massingAuthoredOptionSection.ts'), 'utf8',
+        );
+        expect(src).toContain('MASSING_AUTHOR_SLOT_TESTID');
+        // ⚠ In the SHARED tail of the builder, after the switch — so it exists on `offer`,
+        // `chosen`, `blocked-unknown`, `no-ground-level` and `unreadable` alike. A slot that
+        // appeared only once the tool was open would make the mount point conditional on the
+        // thing being mounted.
+        expect(src).toMatch(/data-testid="\$\{MASSING_AUTHOR_SLOT_TESTID\}"/);
+    });
+
+    it('⭐ the open hook PREFERS that slot, and keeps the viewport arm for surfaces without a card', () => {
+        const src = readFileSync(
+            join(repoRoot, 'apps/editor/src/ui/layout/GISAreaLayout.ts'), 'utf8',
+        );
+        const hook = src.indexOf('window.pryzmOpenSiteEnvelopeTool = () => {');
+        expect(hook, 'the open hook is gone — re-check this suite').toBeGreaterThan(-1);
+        const body = src.slice(hook, hook + 2600);
+        const slot = body.indexOf('MASSING_AUTHOR_SLOT_TESTID');
+        const container = body.indexOf("getElementById('container')");
+        expect(slot, 'the hook never looks for the in-panel slot').toBeGreaterThan(-1);
+        expect(container, 'the viewport arm is gone — the 2-D map strip has no card to mount in')
+            .toBeGreaterThan(-1);
+        // ⛔ ORDER IS THE WHOLE FIX: the card wins when it is on screen.
+        expect(slot, 'the viewport is still preferred over the panel').toBeLessThan(container);
+        expect(body, 'the slot mount must ask for the inline presentation').toContain('{ inline: true }');
+    });
+});
