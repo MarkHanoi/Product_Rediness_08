@@ -40,8 +40,16 @@
 //   node verify-published-region.mjs --region delaware --at 39.7459,-75.5466 --at 39.1582,-75.5244
 //   node verify-published-region.mjs --region delaware --layers trees --json
 //
-// EXIT 0 = every sampled tile carried · 1 = at least one LOST · 2 = no verdict possible
-//      3 = bad arguments.
+// EXIT 0 = every requested layer CARRIED · 1 = at least one LOST · 2 = no verdict possible
+//      3 = bad arguments · 4 = §ABSENCE-IS-A-FINDING: a layer's bytes are STAGED and NOT LIVE.
+//
+// ⭐ EXIT 4 IS THE ONE ADDED 2026-09-10 (L-13271) AND IT IS THE WHOLE POINT OF THE ROLL-UP. This
+// tool used to answer "did the merge LOSE anything?" over the WHOLE RUN — so a layer that had never
+// been published lost nothing, and its rows rode out of the run behind a different layer's pass:
+// measured 35 samples · 1 carried · 14 not-published · 6 claim-unknown → **RC=0, headline CARRIED**,
+// with four of five layers absent from the live map. The verdict is PER LAYER now. See
+// `layerVerdict` for the full account; the short version is that a per-run aggregate was answering
+// a per-layer question, and an EMPTINESS was sharing an exit code with a PASS.
 // ─────────────────────────────────────────────────────────────────────────────
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
@@ -134,6 +142,74 @@ export function manifestClaims(manifest, layer, region) {
   return 'unknown';                                         // see classify() — never the top-level list
 }
 
+/**
+ * ⭐⭐ §ABSENCE-IS-A-FINDING (L-13271, lane DELAWARE-DETAIL 2026-09-10) — **THE ROLL-UP IS PER
+ * LAYER, BECAUSE THE QUESTION IS PER LAYER.**
+ *
+ * ⛔ THE DEFECT THIS RETIRES, AND IT WAS IN THIS FILE'S OWN VERDICT BLOCK. The "did this run
+ * establish anything?" guard was written as `if (informative.length === 0)` over **every row of the
+ * whole run**. So the moment ONE layer had one informative sample, the guard was skipped and every
+ * OTHER layer's rows — including `not-published`, i.e. *staged bytes exist and the live archive has
+ * none* — fell straight through to `✔ CARRIED … 0 lost` and **exit 0**. Measured on the run that
+ * found it: **35 samples · 1 carried (buildings) · 14 not-published · 6 claim-unknown → RC=0**, with
+ * roads, water, landuse and parks entirely absent from the live map. The headline said CARRIED and
+ * four of the five layers someone was asking about were not on R2 at all.
+ *
+ * ⭐ THE AXIS, WHICH IS THE PART WORTH CARRYING (memory `gate-blind-on-the-wrong-axis`): the
+ * instrument was not wrong about its own question. `classify` is right, every row was right, and
+ * "did the merge LOSE anything?" was answered correctly — **a layer that was never published loses
+ * nothing.** The error is that a PER-RUN aggregate was used to answer a PER-LAYER question, so one
+ * layer's evidence was allowed to discharge another layer's burden. Population, not arithmetic.
+ *
+ * ⛔ AND IT IS THE §CONTEXT-DATA-HONESTY COLLAPSE (L-581 / L-616) COMMITTED BY THE INSTRUMENT: a
+ * FAILURE and an EMPTINESS must never share a value. `agree-empty` (the tile is genuinely empty in
+ * BOTH archives — nothing to carry, nothing to report) and `not-published` (**the region is baked,
+ * its bytes are sitting in `tiles-staging/`, and the live map does not have them**) are different
+ * facts, and exactly one of them is fine. They shared an exit code.
+ *
+ * THE STATES, in precedence order — the first that applies wins:
+ *   `LOST`          the manifest CLAIMS the region and the bytes are missing. Corruption. exit 1.
+ *   `PARTIAL`       some sampled tiles carried and others have staged bytes with nothing live.
+ *                   Ranked ABOVE `CARRIED` deliberately: a half-published layer must never be
+ *                   reported by its good half.
+ *   `NOT-PUBLISHED` every informative-capable sample has staged bytes and no live bytes. A MEASURED
+ *                   ABSENCE — not corruption, not unmeasurable, and NOT a pass. exit 4.
+ *   `CARRIED`       at least one sample carried or re-encoded, and no absence.
+ *   `UNREACHABLE`   reads failed; excluded from any verdict rather than guessed at. exit 2.
+ *   `NO-VERDICT`    every sample was absent in the STAGED archive too, so the run proved nothing
+ *                   about this layer. Pass `--at` points where the layer actually has data.
+ *
+ * @param {Array<{verdict:string, staged:number|null|'unreachable'}>} rows rows for ONE layer
+ */
+export function layerVerdict(rows) {
+  const of = (...v) => rows.filter((r) => v.includes(r.verdict));
+  const informative = of('carried', 're-encoded');
+  const lost = of('LOST');
+  // ⭐ THE ARM THE TOOL DID NOT HAVE. `not-published` / `claim-unknown` are only ever reached from
+  // `classify`'s "staged has a tile, live does not" branch, so every one of these rows is a tile we
+  // BAKED and did not ship. That is a measured absence, and it is the finding — never a pass.
+  const absent = of('not-published', 'claim-unknown');
+  const unreachable = of('unreachable');
+  const stagedBytes = absent.reduce((n, r) => n + (typeof r.staged === 'number' ? r.staged : 0), 0);
+  const base = {
+    samples: rows.length, informative: informative.length, lost: lost.length,
+    absent: absent.length, unreachable: unreachable.length, stagedBytes,
+  };
+  if (lost.length > 0) return { ...base, state: 'LOST' };
+  if (absent.length > 0) return { ...base, state: informative.length > 0 ? 'PARTIAL' : 'NOT-PUBLISHED' };
+  if (informative.length > 0) return { ...base, state: 'CARRIED' };
+  if (unreachable.length > 0) return { ...base, state: 'UNREACHABLE' };
+  return { ...base, state: 'NO-VERDICT' };
+}
+
+/** The run's exit code, from the per-layer states. Highest severity wins; 0 only if every layer CARRIED. */
+export function exitCodeFor(states) {
+  if (states.includes('LOST')) return 1;                                   // corruption
+  if (states.includes('PARTIAL') || states.includes('NOT-PUBLISHED')) return 4;  // measured absence
+  if (states.includes('UNREACHABLE') || states.includes('NO-VERDICT')) return 2; // nothing established
+  return 0;
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) await main();
 
 async function main() {
@@ -201,47 +277,68 @@ async function main() {
     }
   }
 
-  const lost = rows.filter((r) => r.verdict === 'LOST');
-  const unreachable = rows.filter((r) => r.verdict === 'unreachable');
-  const informative = rows.filter((r) => r.verdict === 'carried' || r.verdict === 're-encoded' || r.verdict === 'LOST');
-  const reenc = rows.filter((r) => r.verdict === 're-encoded');
+  // ⭐ §ABSENCE-IS-A-FINDING (L-13271) — PER LAYER. See `layerVerdict` for what this replaced and
+  // why: the old block aggregated every row of the run, so one carried layer discharged the burden
+  // for all the others and four unpublished layers exited 0 behind one published one.
+  const verdicts = layers.map((l) => [l, layerVerdict(rows.filter((r) => r.layer === l))]);
+  const code = exitCodeFor(verdicts.map(([, v]) => v.state));
+
   if (!JSON_OUT) {
+    const lost = rows.filter((r) => r.verdict === 'LOST');
     console.log(`\n  ${rows.length} sample(s): ${rows.filter((r) => r.verdict === 'carried').length} carried · ` +
-      `${reenc.length} re-encoded · ${lost.length} LOST · ${rows.filter((r) => r.verdict === 'agree-empty').length} agree-empty · ` +
+      `${rows.filter((r) => r.verdict === 're-encoded').length} re-encoded · ${lost.length} LOST · ` +
+      `${rows.filter((r) => r.verdict === 'agree-empty').length} agree-empty · ` +
       `${rows.filter((r) => r.verdict === 'not-published').length} not-published · ` +
       `${rows.filter((r) => r.verdict === 'claim-unknown').length} claim-unknown · ` +
-      `${unreachable.length} unreachable`);
+      `${rows.filter((r) => r.verdict === 'unreachable').length} unreachable`);
+
+    // ⭐ THE ROLL-UP IS IN THE VERDICT, NOT THE DETAIL. "1 informative sample" used to be the only
+    // clue that 34 of 35 rows established nothing, and it was printed as a reassurance.
+    const MARK = { CARRIED: '✔', LOST: '✖', PARTIAL: '✖', 'NOT-PUBLISHED': '✖', UNREACHABLE: '⚠', 'NO-VERDICT': '⚠' };
+    console.log('\n  per layer — each layer is its OWN question; one layer\'s pass never answers another\'s:');
+    for (const [l, v] of verdicts) {
+      const detail = v.state === 'NOT-PUBLISHED' || v.state === 'PARTIAL'
+        ? `${v.absent} tile(s) staged (${v.stagedBytes} B) with NOTHING live`
+        : v.state === 'NO-VERDICT'
+          ? `0 of ${v.samples} sample(s) informative — the staged archive is empty at every point too`
+          : `${v.informative} of ${v.samples} sample(s) informative`;
+      console.log(`    ${MARK[v.state] ?? '·'} ${l.padEnd(10)} ${v.state.padEnd(14)} ${detail}`);
+    }
   }
-  if (lost.length > 0) {
-    for (const r of lost) console.error(`✖ LOST — ${r.layer} z${r.z}/${r.x}/${r.y}: staged has ${r.staged} B, the LIVE archive has no tile.`);
+
+  for (const r of rows.filter((x) => x.verdict === 'LOST')) {
+    console.error(`✖ LOST — ${r.layer} z${r.z}/${r.x}/${r.y}: staged has ${r.staged} B, the LIVE archive has no tile.`);
+  }
+  if (rows.some((r) => r.verdict === 'LOST')) {
     console.error('  The merge listed this region but did not carry its bytes. The manifest is claiming coverage the map does not have.');
-    process.exit(1);
   }
-  if (informative.length === 0) {
-    const cu = rows.filter((r) => r.verdict === 'claim-unknown');
-    if (cu.length > 0) {
-      const ls = [...new Set(cu.map((r) => r.layer))].join(', ');
-      console.error(`⚠ NO VERDICT — the live manifest carries no per-layer 'regions' record for [${ls}],`);
-      console.error(`  so it cannot say whether it ever claimed '${region}'. Those layer records are`);
-      console.error('  carriedForward from an older merge. UNKNOWN IS NOT A LOSS and is not reported as one.');
-      console.error('  Re-run after that layer is merged: the merge writes its own regions record.');
-      process.exit(2);
+  // ⛔ THE ARM THE TOOL DID NOT HAVE. A layer whose bytes are baked and NOT on the live map is a
+  // MEASURED ABSENCE — not corruption (exit 1), not unmeasurable (exit 2), and never a pass. It gets
+  // its own code so a caller can tell "publish it" from "investigate it" from "sample it better".
+  const missing = verdicts.filter(([, v]) => v.state === 'NOT-PUBLISHED' || v.state === 'PARTIAL');
+  if (missing.length > 0) {
+    console.error(`\n✖ NOT ON THE LIVE MAP — ${missing.length} layer(s): ${missing.map(([l]) => l).join(', ')}`);
+    for (const [l, v] of missing) {
+      console.error(`  ${l}: ${v.absent} sampled tile(s) have bytes in tiles-staging/${region}/ and NOTHING in the live archive` +
+        `${v.state === 'PARTIAL' ? ` — and ${v.informative} other sample(s) DID carry, so this layer is HALF published` : ''}.`);
     }
-    const np = rows.filter((r) => r.verdict === 'not-published');
-    if (np.length > 0) {
-      console.error(`⚠ NO VERDICT — the live manifest does not list '${region}' for [${[...new Set(np.map((r) => r.layer))].join(', ')}].`);
-      console.error('  Those layers have not been merged for this region yet. That is NOT a loss and is');
-      console.error('  deliberately not reported as one — re-run after each layer publishes.');
-      process.exit(2);
-    }
-    console.error('⚠ NO VERDICT — every sampled tile was absent in the staged archive too, so this run');
-    console.error('  established nothing about the publish. Pass --at points where the region has data.');
+    console.error('  The bake is done and the publish is not. This is an EMPTINESS, not a loss — and it is');
+    console.error('  still a finding: §CONTEXT-DATA-HONESTY, a failure and an emptiness never share a value.');
+  }
+  for (const [l, v] of verdicts.filter(([, x]) => x.state === 'UNREACHABLE')) {
+    console.error(`⚠ ${l}: ${v.unreachable} sample(s) UNREACHABLE — excluded from the verdict, and NOT counted as lost.`);
+  }
+  for (const [l, v] of verdicts.filter(([, x]) => x.state === 'NO-VERDICT')) {
+    console.error(`⚠ ${l}: NO VERDICT — all ${v.samples} sample(s) were absent in the STAGED archive too, so this run`);
+    console.error(`  established nothing about ${l}. Pass --at points where ${l} actually has data.`);
     console.error('  (Printing "0 lost" here would be a gate that passes by measuring nothing.)');
-    process.exit(2);
   }
-  if (unreachable.length > 0) {
-    console.error(`⚠ ${unreachable.length} sample(s) UNREACHABLE — excluded from the verdict, and NOT counted as lost.`);
-    process.exit(2);
+
+  const carried = verdicts.filter(([, v]) => v.state === 'CARRIED');
+  if (carried.length > 0) {
+    const inf = carried.reduce((n, [, v]) => n + v.informative, 0);
+    console.log(`\n✔ CARRIED — ${carried.length} layer(s): ${carried.map(([l]) => l).join(', ')} ` +
+      `(${inf} informative sample(s) of ${rows.length} taken, 0 lost).`);
   }
-  console.log(`✔ CARRIED — ${informative.length} informative sample(s), 0 lost.`);
+  process.exit(code);
 }

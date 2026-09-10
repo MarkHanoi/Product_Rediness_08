@@ -15,7 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error — plain-Node ESM tool, no d.ts.
-import { classify, lonLatToTile, manifestClaims, samplePoints } from '../verify-published-region.mjs';
+import { classify, exitCodeFor, layerVerdict, lonLatToTile, manifestClaims, samplePoints } from '../verify-published-region.mjs';
 
 describe('§PUBLISH-FIDELITY classify', () => {
   it('calls it LOST when the staged archive has the tile and the live one does not', () => {
@@ -125,4 +125,151 @@ describe('§PUBLISH-FIDELITY sampling', () => {
     expect(lonLatToTile(-75.089744, 38.781987, 16)).toEqual([19098, 25097]); // the demo site
     expect(lonLatToTile(2.1686, 41.3874, 16)).toEqual([33162, 24477]); // Barcelona control
   });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⭐⭐ §ABSENCE-IS-A-FINDING (L-13271, lane DELAWARE-DETAIL 2026-09-10) — the per-LAYER roll-up.
+//
+// ⛔ THE DEFECT THESE ARMS PIN, and it was in this tool's own verdict block, not in `classify`.
+// The "did this run establish anything?" guard read `if (informative.length === 0)` over EVERY ROW
+// OF THE WHOLE RUN. One informative row anywhere skipped the guard, and every other layer's rows —
+// `not-published` among them, i.e. STAGED BYTES EXIST AND THE LIVE ARCHIVE HAS NONE — fell through
+// to `✔ CARRIED … 0 lost` and exit 0. Measured on the run that found it:
+//     35 samples · 1 carried (buildings) · 14 not-published · 6 claim-unknown  →  RC=0
+// while roads, water, landuse and parks were absent from the live map entirely.
+//
+// ⭐ THE AXIS IS THE LESSON (memory `gate-blind-on-the-wrong-axis`). Nothing here was arithmetically
+// wrong: `classify` was right, every row was right, and "did the merge LOSE anything?" was answered
+// correctly — a layer that was never published loses nothing. The error is that a PER-RUN aggregate
+// answered a PER-LAYER question, letting one layer's evidence discharge another layer's burden.
+// A count can be right while the population is wrong.
+//
+// ⛔ AND IT IS THE L-581 / L-616 COLLAPSE COMMITTED BY THE INSTRUMENT: `agree-empty` (genuinely no
+// tile in either archive) and `not-published` (baked, staged, and NOT on the map) are different
+// facts, exactly one of which is fine, and they shared an exit code.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('§ABSENCE-IS-A-FINDING — the verdict is per LAYER, and an emptiness is not a pass', () => {
+    const row = (verdict: string, staged: number | null = null) => ({ verdict, staged });
+
+    it('⛔ THE REGRESSION ARM — a layer with staged bytes and nothing live is NOT-PUBLISHED, not a pass', () => {
+        // The exact shape of the four Delaware layers: every sample has bytes staged, none live.
+        const v = layerVerdict([row('not-published', 185), row('not-published', 732), row('not-published', 1918)]);
+        expect(v.state).toBe('NOT-PUBLISHED');
+        expect(v.absent).toBe(3);
+        expect(v.informative).toBe(0);
+        expect(v.stagedBytes).toBe(185 + 732 + 1918);
+        expect(exitCodeFor([v.state])).toBe(4);
+        expect(exitCodeFor([v.state])).not.toBe(0);
+    });
+
+    it('`claim-unknown` is the SAME finding — the manifest cannot answer, but the bytes still are not there', () => {
+        // roads/water/landuse carried no per-layer `regions` record at all, so every absence came
+        // back `claim-unknown`. That is a statement about the MANIFEST, not about the archive: the
+        // staged tile exists and the live one does not either way.
+        const v = layerVerdict([row('claim-unknown', 880), row('claim-unknown', 10834)]);
+        expect(v.state).toBe('NOT-PUBLISHED');
+        expect(exitCodeFor([v.state])).toBe(4);
+    });
+
+    it('⭐ THE AXIS ARM — one CARRIED layer does not discharge another layer\'s absence', () => {
+        // This is the whole bug, reproduced as a run: buildings carried, four layers absent.
+        const states = [
+            layerVerdict([row('carried', 430), row('agree-empty'), row('agree-empty')]).state,
+            layerVerdict([row('not-published', 880)]).state,
+            layerVerdict([row('claim-unknown', 329)]).state,
+            layerVerdict([row('claim-unknown', 481)]).state,
+            layerVerdict([row('not-published', 165)]).state,
+        ];
+        expect(states[0]).toBe('CARRIED');
+        expect(states.filter((s) => s === 'NOT-PUBLISHED')).toHaveLength(4);
+        // ⛔ The old code exited 0 on exactly this input.
+        expect(exitCodeFor(states)).toBe(4);
+    });
+
+    it('a HALF-published layer is PARTIAL, and PARTIAL outranks its own good half', () => {
+        // A layer must never be reported by the samples that happened to work.
+        const v = layerVerdict([row('carried', 182), row('not-published', 732)]);
+        expect(v.state).toBe('PARTIAL');
+        expect(v.informative).toBe(1);
+        expect(v.absent).toBe(1);
+        expect(exitCodeFor([v.state])).toBe(4);
+    });
+
+    it('⛔ `agree-empty` and `not-published` do NOT share a value — the L-581/L-616 rule', () => {
+        // Genuinely empty in both archives: nothing was baked here, so nothing can be missing.
+        const empty = layerVerdict([row('agree-empty'), row('agree-empty')]);
+        // Baked and not shipped.
+        const absent = layerVerdict([row('not-published', 185)]);
+        expect(empty.state).toBe('NO-VERDICT');
+        expect(absent.state).toBe('NOT-PUBLISHED');
+        expect(empty.state).not.toBe(absent.state);
+        expect(exitCodeFor([empty.state])).toBe(2);   // nothing established
+        expect(exitCodeFor([absent.state])).toBe(4);  // established that it is NOT there
+        expect(exitCodeFor([empty.state])).not.toBe(exitCodeFor([absent.state]));
+    });
+
+    it('LOST still outranks everything — corruption is not downgraded to an absence', () => {
+        const v = layerVerdict([row('LOST', 182), row('not-published', 96)]);
+        expect(v.state).toBe('LOST');
+        expect(exitCodeFor(['LOST', 'NOT-PUBLISHED', 'CARRIED'])).toBe(1);
+    });
+
+    it('a genuinely carried layer still passes, and the informative count is on the verdict', () => {
+        // rail at Newark DE and trees at Wilmington/Dover, measured 2026-09-10.
+        const v = layerVerdict([row('carried', 1066), row('agree-empty'), row('agree-empty')]);
+        expect(v.state).toBe('CARRIED');
+        expect(v.informative).toBe(1);
+        expect(v.samples).toBe(3);
+        expect(exitCodeFor([v.state])).toBe(0);
+    });
+
+    it('exit 0 requires EVERY layer to have carried — not merely one of them', () => {
+        expect(exitCodeFor(['CARRIED'])).toBe(0);
+        expect(exitCodeFor(['CARRIED', 'CARRIED'])).toBe(0);
+        expect(exitCodeFor(['CARRIED', 'NO-VERDICT'])).toBe(2);
+        expect(exitCodeFor(['CARRIED', 'UNREACHABLE'])).toBe(2);
+        expect(exitCodeFor(['CARRIED', 'NOT-PUBLISHED'])).toBe(4);
+        expect(exitCodeFor(['CARRIED', 'PARTIAL'])).toBe(4);
+        expect(exitCodeFor(['CARRIED', 'NOT-PUBLISHED', 'LOST'])).toBe(1);
+    });
+
+    // ⭐ SCRAMBLE CONTROL (L-586). The arms above must reject the OLD behaviour, not merely describe
+    // the new one. `oldVerdict` is the retired per-run aggregate, transcribed exactly: informative
+    // counted across the WHOLE RUN, and `not-published` reachable only when informative hit zero.
+    it('SCRAMBLE CONTROL — the retired per-RUN aggregate returns 0 on the very input that motivated this', () => {
+        const oldVerdict = (allRows: Array<{ verdict: string }>): number => {
+            const lost = allRows.filter((r) => r.verdict === 'LOST');
+            const informative = allRows.filter(
+                (r) => r.verdict === 'carried' || r.verdict === 're-encoded' || r.verdict === 'LOST');
+            if (lost.length > 0) return 1;
+            if (informative.length === 0) return 2;
+            return 0;                                    // ⛔ the pass that hid four missing layers
+        };
+        // The measured run: 1 carried, 14 not-published, 6 claim-unknown, 14 agree-empty.
+        const measured = [
+            { verdict: 'carried' },
+            ...Array.from({ length: 14 }, () => ({ verdict: 'not-published' })),
+            ...Array.from({ length: 6 }, () => ({ verdict: 'claim-unknown' })),
+            ...Array.from({ length: 14 }, () => ({ verdict: 'agree-empty' })),
+        ];
+        expect(measured).toHaveLength(35);
+        // The control: the old shape PASSES this, which is why the founder was told it was live.
+        expect(oldVerdict(measured)).toBe(0);
+        // The new shape, given the same rows grouped by layer, REFUSES.
+        const grouped = [
+            layerVerdict([{ verdict: 'carried', staged: 430 }]).state,
+            layerVerdict([{ verdict: 'not-published', staged: 880 }]).state,
+            layerVerdict([{ verdict: 'claim-unknown', staged: 329 }]).state,
+        ];
+        expect(exitCodeFor(grouped)).toBe(4);
+        expect(exitCodeFor(grouped)).not.toBe(oldVerdict(measured));
+    });
+
+    it('SCRAMBLE CONTROL — the roll-up is not vacuously strict either', () => {
+        // A rule that refused everything would also "catch" the bug and would be useless. An
+        // all-carried run must still be 0, and a genuinely empty sample must still be 2, not 4.
+        expect(exitCodeFor([layerVerdict([{ verdict: 'carried', staged: 1 }]).state])).toBe(0);
+        expect(exitCodeFor([layerVerdict([{ verdict: 'agree-empty', staged: null }]).state])).toBe(2);
+        expect(exitCodeFor([layerVerdict([{ verdict: 're-encoded', staged: 182 }]).state])).toBe(0);
+    });
 });
