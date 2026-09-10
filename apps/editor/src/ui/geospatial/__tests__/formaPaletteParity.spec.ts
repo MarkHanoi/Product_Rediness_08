@@ -740,3 +740,162 @@ describe('§SITE-SCOPE-CITYWEFT — the backdrop outside the cut', () => {
         }
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⭐⭐ §CAGE-IS-A-DRAWN-MARK (L-13270, founder 2026-09-10 at the Delaware demo site:
+// *"buildings even if we don't have true heights should be wireframe — now they are more
+// transparent than wireframe"*).
+//
+// WHAT THIS ARM BINDS, AND WHY IT IS A CONTRAST ARM RATHER THAN A `toBe` OVER A HEX. Every other
+// arm in this file asks "is the 3D value equal to its 2D twin?" — the right question for a mass,
+// which is what all of them are about. **The unknown-height cage has no 2D twin** (the 2D map draws
+// a filled footprint whether or not the height is known), so equality has nothing to compare to
+// and would pin nothing. The property that actually failed at Delaware is not equality, it is
+// PERCEIVABILITY: a `fill:false` cage's only substance is its line, and that line was drawn in a
+// colour authored to sit ON a fill. So the target here is the GROUND the cage stands on, and the
+// instrument is WCAG 2.1 §1.4.11 non-text contrast — the published floor at which a drawn
+// graphical object counts as perceivable at all.
+//
+// ⛔ THE POLICY IS NOT UNDER TEST AND MUST NOT DRIFT. An unknown-height footprint stays an OPEN
+// CAGE to a stated nominal, never a solid at an invented height (§PLATE-FILLS PART B). These arms
+// make the cage legible; the last arm forbids making it solid.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** WCAG 2.1 relative luminance (the SAME channel transfer as `lStar` above, stopped one step earlier). */
+function relLuminance(hex: string): number {
+    const n = parseInt(hex.replace('#', ''), 16);
+    const chan = (c: number): number => {
+        const u = c / 255;
+        return u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * chan((n >> 16) & 255) + 0.7152 * chan((n >> 8) & 255) + 0.0722 * chan(n & 255);
+}
+/** WCAG contrast ratio between two opaque hexes, always >= 1. */
+function contrastRatio(a: string, b: string): number {
+    const pair = [relLuminance(a), relLuminance(b)].sort((x, y) => y - x);
+    return ((pair[0] as number) + 0.05) / ((pair[1] as number) + 0.05);
+}
+/** The tier haze the fills use, replayed here so the arm can prove it is NOT applied to the cage. */
+function hazedToward(hex: string, towardHex: string, t: number): string {
+    const n = parseInt(hex.replace('#', ''), 16);
+    const m = parseInt(towardHex.replace('#', ''), 16);
+    const mix = (s: number): string => {
+        const a = (n >> s) & 255;
+        const b = (m >> s) & 255;
+        return Math.round(a + (b - a) * t).toString(16).padStart(2, '0');
+    };
+    return `#${mix(16)}${mix(8)}${mix(0)}`;
+}
+
+describe('§CAGE-IS-A-DRAWN-MARK — the unknown-height cage is legible against the ground it stands on', () => {
+    /** The Forma ground the cage is drawn on — the slab TOP the founder sees behind it. */
+    const GROUND = FORMA_PALETTE_V2.land;             // #F5F2EA
+    const CAGE = FORMA_CONTEXT_3D.buildingCageEdge;   // the line
+    /** WCAG 2.1 §1.4.11: a non-text graphical object needs 3:1 against what is adjacent to it. */
+    const NON_TEXT_FLOOR = 3.0;
+
+    it('the cage line clears the WCAG non-text floor against the Forma ground', () => {
+        expect(contrastRatio(CAGE, GROUND)).toBeGreaterThanOrEqual(NON_TEXT_FLOOR);
+    });
+
+    it('⛔ THE REGRESSION ARM — the borrowed `buildingStroke` did NOT clear it, by a factor of ~2', () => {
+        // This is the shipped value the founder called "more transparent than wireframe". If a later
+        // change re-points the cage at `buildingEdge`, the arm above goes red and this one says why.
+        const borrowed = contrastRatio(FORMA_CONTEXT_3D.buildingEdge, GROUND);
+        expect(borrowed).toBeLessThan(1.5);                    // measured 1.37 : 1
+        expect(borrowed).toBeLessThan(NON_TEXT_FLOOR / 2);     // not marginal — half the floor
+        expect(contrastRatio(CAGE, GROUND)).toBeGreaterThan(borrowed * 2.5);
+    });
+
+    it('⭐ hazing the cage pushed it FURTHER below the floor rather than receding it', () => {
+        // The three tier hazes, replayed against the OLD cage colour. Every one lands below the
+        // un-hazed value — which is the whole reason haze is the wrong instrument for a line: a
+        // mass survives a contrast cut because it still owns an area of screen; a hairline has no
+        // area, so contrast is not one of its channels, it is its only one.
+        const FOG = '#E6E5E2';                     // FORMA_QUALITY.fogColor
+        const unhazed = contrastRatio(FORMA_CONTEXT_3D.buildingEdge, GROUND);
+        for (const haze of [0.10, 0.22]) {
+            const hazed = contrastRatio(hazedToward(FORMA_CONTEXT_3D.buildingEdge, FOG, haze), GROUND);
+            expect(hazed).toBeLessThan(unhazed);
+            expect(hazed).toBeLessThan(NON_TEXT_FLOOR);
+        }
+    });
+
+    it('the three PROVENANCE rungs stay separable, and the cage is the darkest mark in the plate', () => {
+        // SOLID and ESTIMATED are shaded opaque MASSES; WIREFRAME is an unfilled LINE. The reading
+        // that must survive is "what is known vs what is not", so the line must not be confusable
+        // with either mass — and no mass may be as dark as the line.
+        const solid = contrastRatio(FORMA_CONTEXT_3D.buildingFill, GROUND);       // ~1.4 : 1
+        const estimated = contrastRatio('#B8B6B0', GROUND);                       // ~1.8 : 1
+        const cage = contrastRatio(CAGE, GROUND);                                 // ~4.1 : 1
+        expect(estimated).toBeGreaterThan(solid);          // estimated reads darker than measured
+        expect(cage).toBeGreaterThan(estimated * 2);       // and the cage is in a different register
+        expect(FORMA_CONTEXT_3D.buildingCageEdge).not.toBe(FORMA_CONTEXT_3D.buildingFill);
+        expect(FORMA_CONTEXT_3D.buildingCageEdge).not.toBe(FORMA_CONTEXT_3D.buildingEdge);
+    });
+
+    it('⛔ the cage stays a NEUTRAL — it is not the founder-rejected amber, and not a hue at all', () => {
+        // 2026-07-30: `contextUncertainHeight` #E8973A was rejected as "a weird orange". Making the
+        // cage visible must never be done by making it colourful.
+        expect(cssChromaSpread(CAGE)).toBeLessThanOrEqual(32);
+        expect(cssChromaSpread('#E8973A')).toBeGreaterThan(120);   // the scale, so the bound reads
+        expect(CAGE.toLowerCase()).not.toBe('#e8973a');
+    });
+
+    it("the cage colour is the BUILDING family's own dark neutral, not an invented hex", () => {
+        // `buildingShadow` is authored as rgba(126, 116, 100, 0.16). The cage takes that exact RGB
+        // at full opacity, so this is the family's existing dark end rather than a new colour.
+        const m = FORMA_PALETTE_V2.buildingShadow.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        expect(m, 'buildingShadow is no longer an rgba() triple').toBeTruthy();
+        const g = m as RegExpMatchArray;
+        const hx = (i: number): string => Number(g[i]).toString(16).padStart(2, '0');
+        expect(FORMA_PALETTE_V2.buildingCageEdge.toLowerCase()).toBe(`#${hx(1)}${hx(2)}${hx(3)}`);
+    });
+
+    it('ARM C parity — the 3D key is a reference, and CesiumViewport reads it from FORMA_CONTEXT_3D', () => {
+        expect(FORMA_CONTEXT_3D.buildingCageEdge).toBe(FORMA_PALETTE_V2.buildingCageEdge);
+        const src = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+        const start = src.indexOf('const FORMA_PALETTE = {');
+        const block = src.slice(start, src.indexOf('} as const;', start));
+        expect(block).toMatch(/^\s*contextCageEdge: FORMA_CONTEXT_3D\.buildingCageEdge,\s*$/m);
+        expect(block).not.toMatch(/^\s*contextCageEdge: '#/m);
+    });
+
+    it('⛔ ALL THREE render tiers draw the cage from the ONE unhazed helper — no tier may re-haze it', () => {
+        const src = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+        // One helper, three call sites (near ring, demoted ring, instanced far tier).
+        expect(src).toContain('function ctxCageEdgeColour(): Cesium.Color {');
+        expect((src.match(/ctxCageEdgeColour\(\)/g) ?? []).length).toBeGreaterThanOrEqual(4);
+        // ⛔ And the pre-fix forms are GONE. Each is a cage drawn in the borrowed hairline, two of
+        // them hazed on top of that — the exact three lines the founder was looking at.
+        expect(src).not.toContain('fromCssColorString(FORMA_PALETTE.contextOutline).withAlpha(0.9)');
+        expect(src).not.toContain('ctxTierColour(FORMA_PALETTE.contextOutline, CTX_TIER_HAZE.demoted)');
+        expect(src).not.toContain('ctxTierColour(FORMA_PALETTE.contextOutline, CTX_TIER_HAZE.far)');
+    });
+
+    it('⛔ THE POLICY ARM — an unknown-height footprint is still a CAGE, never a solid at 9 m', () => {
+        // §PLATE-FILLS PART B. Legibility was the defect; presenting an assumption as a measurement
+        // would be a far worse one. `fill` must stay off for the wireframe rung in all three tiers.
+        const src = readFileSync(resolve(__dirname, '..', 'CesiumViewport.ts'), 'utf8');
+        expect(src).toContain("fill: renderTier !== 'wireframe',");   // near ring
+        expect(src).toContain('fill: !isWire,');                      // demoted ring
+        // …and the far tier keeps its cages in the outline-geometry batch, never the solid batch.
+        expect(src).toContain('geometry: new Cesium.PolygonOutlineGeometry({');
+        expect(src).toContain('const CTX_UNKNOWN_HEIGHT_CAGE_M = 9;');
+    });
+
+    // ⭐ SCRAMBLE CONTROL (L-586) — the arms above must FAIL on a wrong colour, or they assert
+    // nothing. Replay the load-bearing instrument against the value that actually shipped, against
+    // every other neutral in the palette a future lane might reach for, and against a near-miss.
+    it('SCRAMBLE CONTROL — the contrast instrument rejects the shipped colour and five near-misses', () => {
+        const wrong = ['#D6CFC2', '#E8E1D4', '#C9C4BA', '#B8B6B0', '#CFCAC0'];
+        for (const w of wrong) {
+            expect(contrastRatio(w, GROUND), `${w} must NOT clear the non-text floor`).toBeLessThan(NON_TEXT_FLOOR);
+        }
+        // A colour markedly darker than the shipped one STILL fails — the fix is not marginal tuning
+        // of a hairline, it is a different register.
+        expect(contrastRatio('#A9A399', GROUND)).toBeLessThan(NON_TEXT_FLOOR);
+        // And the chosen value passes the same instrument that rejected all six.
+        expect(contrastRatio(CAGE, GROUND)).toBeGreaterThanOrEqual(NON_TEXT_FLOOR);
+    });
+});

@@ -952,6 +952,10 @@ const FORMA_PALETTE = {
   contextFill: FORMA_CONTEXT_3D.buildingFill,
   /** Subtle graphite outline for context massing (lighter than proposed). */
   contextOutline: FORMA_CONTEXT_3D.buildingEdge,
+  /** §CAGE-IS-A-DRAWN-MARK (L-13270) — the UNKNOWN-HEIGHT CAGE's line, separate from
+   *  `contextOutline` on purpose: that one is a hairline drawn ON a fill, this one IS the drawing.
+   *  Measured 4.11 : 1 against the `land` ground where `contextOutline` measured 1.37 : 1. */
+  contextCageEdge: FORMA_CONTEXT_3D.buildingCageEdge,
   /** §CTX-HEIGHT-FIDELITY-RENDER (L-647, founder) — accent for context buildings whose HEIGHT is
    *  NOT accurate. It rendered them as a see-through WIREFRAME in this amber.
    *  ⛔ REJECTED BY THE FOUNDER 2026-07-30 ("a weird orange", a spiky mess of line-edges) and
@@ -1156,6 +1160,65 @@ const CTX_WIREFRAME_GROUND_LIFT_M = 0.15;
  * nominal is a drawing. That is the whole line, and §SOLID-OR-WIREFRAME exists to hold it.
  */
 const CTX_UNKNOWN_HEIGHT_CAGE_M = 9;
+
+/**
+ * ⭐⭐ §CAGE-IS-A-DRAWN-MARK (L-13270, founder 2026-09-10 at the Delaware demo site) —
+ * **THE ONE COLOUR EVERY UNKNOWN-HEIGHT CAGE IS DRAWN IN, IN ALL THREE TIERS, UNHAZED AND OPAQUE.**
+ *
+ * The founder: *"buildings even if we don't have true heights should be wireframe — now they are
+ * more transparent than wireframe."* §PLATE-FILLS PART B (L-13245) had already got the GEOMETRY
+ * right — bottom ring + top ring + verticals, an open box, not a flat ring — and the policy right:
+ * a footprint with no measured height is a DRAWING at a stated nominal, never a solid at an invented
+ * one. ⛔ None of that changes here. What was wrong is that the drawing could not be seen, and it
+ * was wrong for two separate, individually sufficient reasons.
+ *
+ * ⭐ REASON 1 — THE COLOUR WAS BORROWED FROM A JOB THAT IS NOT THIS ONE. All three tiers drew the
+ * cage in `FORMA_PALETTE.contextOutline` (= the 2D map's `buildingStroke`, `#D6CFC2`), which is
+ * authored as *"hairline building outline"* — a line whose entire purpose is separating two
+ * near-identical warm-whites while sitting ON the fill it bounds. A `fill:false` cage has no fill
+ * behind it: it stands on the bare `#F5F2EA` ground, where `#D6CFC2` measures **1.37 : 1**. WCAG
+ * 1.4.11's floor for a non-text graphical object is **3 : 1**. The cage was ~2.2× below the
+ * threshold at which a drawn mark counts as perceivable — so *"more transparent than wireframe"* is
+ * not a taste report, it is an accurate reading of a 1.37 : 1 line.
+ *
+ * ⭐⭐ REASON 2 — AND THIS IS THE INTERESTING ONE: **`CTX_TIER_HAZE` WAS APPLIED TO A LINE.**
+ * Its own header states what haze is for — *"real aerial perspective is a loss of CONTRAST toward
+ * the haze, not see-through-ness"* — and that is exactly right FOR A FILLED MASS. A mass survives a
+ * contrast cut: it still occludes, still shades, still owns an area of screen. **A one-pixel line
+ * has no area, so contrast is not one of its channels — it is its ONLY channel.** Hazing a hairline
+ * does not recede it, it erases it. And the three tiers hazed in the wrong order for this:
+ *     near     0 %  → 1.37 : 1
+ *     demoted 10 %  → ~1.34 : 1   (279 cages on the founder's read)
+ *     far     22 %  → ~1.30 : 1   (204 cages — the MOST cages, the LEAST contrast)
+ * ⛔ i.e. the more of the plate we knew nothing about, the less of it we drew. That is
+ * §CONTEXT-DATA-HONESTY running backwards: an UNKNOWN and an EMPTY became the same picture again,
+ * which is the precise defect PART B was written to remove, re-entering through the tone channel
+ * after PART B had closed the geometry channel.
+ *
+ * ⭐ AND THE `.withAlpha(0.9)` WAS PURE LOSS. `ctxTierColour`'s contract says *"Always alpha 1 …
+ * an alpha here is how the see-through plate came back last time"* — and all three cage sites then
+ * called `.withAlpha(0.9)` on its result. On the two ENTITY tiers that is real: an alpha < 1 pushes
+ * the outline into the translucent pass, so the line is composited 0.9 × line + 0.1 × ground,
+ * spending a tenth of the only channel it has. On the instanced far tier it bought even less than
+ * that — its appearance is `translucent: false`, so the 0.9 was **already being discarded by the
+ * renderer** and only the haze was doing the damage. Alpha 1 everywhere: it costs nothing and it
+ * moves the entity outlines into the opaque pass.
+ *
+ * ⭐ WHY ONE COLOUR FOR ALL THREE TIERS. The tier distinction that must survive is PROVENANCE, not
+ * distance — SOLID (measured) vs ESTIMATED (storeys real, metres ours) vs WIREFRAME (nothing
+ * measured) — and it now separates further than it ever has, because the two knowns are MASSES and
+ * the unknown is a LINE, at opposite ends of the contrast range:
+ *     SOLID      `#E8E1D4` shaded opaque mass   1.4 : 1 against ground
+ *     ESTIMATED  `#B8B6B0` shaded opaque mass   1.8 : 1
+ *     WIREFRAME  `#7E7464` unfilled line cage   **4.1 : 1**
+ * A cage can no longer be confused with either mass, and no mass in the scene is anywhere near as
+ * dark as a cage line. Distance recession for a cage is carried by the two channels that actually
+ * work on a line — projected size and the depth buffer — not by tone. The filled tiers keep their
+ * haze exactly as authored; this changes the cage edge and nothing else.
+ */
+function ctxCageEdgeColour(): Cesium.Color {
+  return Cesium.Color.fromCssColorString(FORMA_PALETTE.contextCageEdge).withAlpha(1.0);
+}
 
 /**
  * §SOLID-OR-WIREFRAME (L-13143) — the entity names, as CONSTANTS rather than repeated literals.
@@ -12563,9 +12626,11 @@ export class CesiumViewport {
         const renderTier = contextHeightRenderTier(f.properties.heightProvenance);
         const estimatedFill = ctxTierColour(FORMA_PALETTE.contextEstimatedHeight, CTX_TIER_HAZE.near);
         const estimatedEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextEstimatedHeight).withAlpha(0.85);
-        // The unknown-height outline: the neutral context edge at full strength, so a bare footprint
-        // reads as a deliberate drawing rather than as a faded building.
-        const unknownEdge = Cesium.Color.fromCssColorString(FORMA_PALETTE.contextOutline).withAlpha(0.9);
+        // §CAGE-IS-A-DRAWN-MARK (L-13270) — the cage's line. ⚠ THIS COMMENT USED TO SAY "the neutral
+        // context edge at full strength", and it was `contextOutline` at alpha 0.9: neither the
+        // right colour (1.37 : 1 against the ground it stands on) nor full strength. One colour for
+        // all three tiers now; see `ctxCageEdgeColour`.
+        const unknownEdge = ctxCageEdgeColour();
         const ent = viewer.entities.add({
           name: CTX_ENTITY_NAME[renderTier],
           polygon: {
@@ -12632,7 +12697,9 @@ export class CesiumViewport {
         `count real, metres ours — opaque ${FORMA_PALETTE.contextEstimatedHeight}) · ` +
         `${nearTierSplit.wireframe} WIREFRAME (no height input at all — an OPEN CAGE to an ASSUMED ` +
         `${CTX_UNKNOWN_HEIGHT_CAGE_M} m, ${Math.round(nearTierSplit.wireframeFraction * 100)}% of this ` +
-        'ring; §PLATE-FILLS PART B: the nominal is a DRAWING CONVENTION, identical for every unknown ' +
+        `ring, drawn ${FORMA_PALETTE.contextCageEdge} @1.0 UNHAZED — §CAGE-IS-A-DRAWN-MARK: 4.1:1 ` +
+        `against the ground, where the ${FORMA_PALETTE.contextOutline} it used to borrow was 1.4:1; ` +
+        '§PLATE-FILLS PART B: the nominal is a DRAWING CONVENTION, identical for every unknown ' +
         'footprint, never written to heightM and never read by a study — the height is NOT measured).',
     );
     // §CTX-DIAG (L-635) — THE FOUNDER-READABLE STABILITY LINE. Everything needed to tell
@@ -13455,7 +13522,10 @@ export class CesiumViewport {
     // Unknown-height footprints in this tier get the SAME treatment as the near ring: a ground
     // outline, no fill, no extrusion. This tier normally draws no outline at all (budget), so the
     // outline is switched on ONLY for the wireframe arm — which is the entire point of it.
-    const unknownEdge = ctxTierColour(FORMA_PALETTE.contextOutline, CTX_TIER_HAZE.demoted).withAlpha(0.9);
+    // §CAGE-IS-A-DRAWN-MARK (L-13270) — ⛔ NOT `ctxTierColour(..., CTX_TIER_HAZE.demoted)`, which is
+    // what this was. Haze is a CONTRAST cut and a line's only channel IS contrast, so hazing it
+    // erases rather than recedes it. The filled arms above keep their haze; the cage does not.
+    const unknownEdge = ctxCageEdgeColour();
 
     // §CTX-BUILDINGS-RENDER-FIRST (L-635) — same safe base as the near ring: an un-tessellated far
     // footprint under attached relief must fall back to the settled ground, never a culling ~0.
@@ -13531,7 +13601,10 @@ export class CesiumViewport {
         `${Math.round(CTX_TIER_HAZE.demoted * 100)}% toward ${FORMA_QUALITY.fogColor} for aerial ` +
         `perspective, NOT alpha — this tier was one flat @0.82 before L-13143) · ` +
         `${wireframed} WIREFRAME (no height input — an OPEN CAGE to an ASSUMED ` +
-        `${CTX_UNKNOWN_HEIGHT_CAGE_M} m; §PLATE-FILLS PART B: a drawing convention, never data).`,
+        `${CTX_UNKNOWN_HEIGHT_CAGE_M} m, drawn ${FORMA_PALETTE.contextCageEdge} @1.0 UNHAZED — ` +
+        '§CAGE-IS-A-DRAWN-MARK: the cage is the ONLY thing in this tier the haze does not touch, ' +
+        'because a line has no area to carry a tonal cut; §PLATE-FILLS PART B: a drawing ' +
+        'convention, never data).',
     );
   }
 
@@ -13635,7 +13708,12 @@ export class CesiumViewport {
     //     honesty signal rides the attribute the batch already had.
     const farSolid = ctxTierColour(FORMA_PALETTE.contextFill, CTX_TIER_HAZE.far);
     const farEstimated = ctxTierColour(FORMA_PALETTE.contextEstimatedHeight, CTX_TIER_HAZE.far);
-    const farUnknownEdge = ctxTierColour(FORMA_PALETTE.contextOutline, CTX_TIER_HAZE.far).withAlpha(0.9);
+    // §CAGE-IS-A-DRAWN-MARK (L-13270) — ⛔ this was `ctxTierColour(..., CTX_TIER_HAZE.far)` @0.9, the
+    // WORST of the three: the tier that holds the MOST cages (204 at the founder's Delaware site)
+    // carried the STRONGEST haze, so the more of the plate we knew nothing about, the less of it we
+    // drew. The 0.9 was already inert here — this primitive's appearance is `translucent: false` —
+    // so the haze was doing all of the damage on its own.
+    const farUnknownEdge = ctxCageEdgeColour();
     const instances: Cesium.GeometryInstance[] = [];
     // §SOLID-OR-WIREFRAME (L-13143) — the unknown-height footprints go into a SECOND batch, because a
     // line and a solid cannot share a geometry type. It is still ONE extra primitive for the whole
@@ -13756,7 +13834,11 @@ export class CesiumViewport {
         `primitive — ${wireInstances.length > 0 ? 2 : 1} primitive(s) for this tier, never one per footprint` +
         `; §PLATE-FILLS PART B: each is an OPEN CAGE to an ASSUMED ${CTX_UNKNOWN_HEIGHT_CAGE_M} m ` +
         '(bottom ring + top ring + verticals, no fill) — the height is NOT measured, the nominal is a ' +
-        'drawing convention identical for every unknown footprint, and it is never written to heightM.',
+        'drawing convention identical for every unknown footprint, and it is never written to heightM' +
+        `; §CAGE-IS-A-DRAWN-MARK (L-13270): drawn ${FORMA_PALETTE.contextCageEdge} @1.0 UNHAZED — ` +
+        `this tier holds the MOST cages and used to apply the STRONGEST haze (${Math.round(CTX_TIER_HAZE.far * 100)}%) ` +
+        'to the geometry least able to survive one, so the more of the plate we knew nothing about, ' +
+        'the less of it we drew.',
     );
   }
 

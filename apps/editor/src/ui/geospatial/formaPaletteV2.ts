@@ -69,6 +69,38 @@ export const FORMA_PALETTE_V2 = {
     buildingFill: '#E8E1D4',
     /** Hairline building outline. */
     buildingStroke: '#D6CFC2',
+    /**
+     * ⭐ §CAGE-IS-A-DRAWN-MARK (L-13270, founder 2026-09-10 at the Delaware demo site:
+     * *"buildings even if we don't have true heights should be wireframe — now they are more
+     * transparent than wireframe"*).
+     *
+     * THE UNKNOWN-HEIGHT CAGE'S OWN LINE COLOUR, and it needs one because reusing `buildingStroke`
+     * for it was a category error with a measurable cost. `buildingStroke` is authored for exactly
+     * one job — a HAIRLINE SEPARATING TWO NEARLY-IDENTICAL WARM-WHITES, drawn ON TOP OF the
+     * `buildingFill` mass it bounds. §PLATE-FILLS PART B then made it the ONLY SUBSTANCE of a
+     * `fill:false` cage standing on the bare `land` ground, where it has no fill behind it to
+     * separate from and nothing but its own contrast to be seen by.
+     *
+     * ⭐ MEASURED (WCAG 2.1 relative-luminance, computed in `formaPaletteParity.spec.ts` so it is a
+     * test and not a claim) — contrast against the `land` ground `#F5F2EA` the cage stands on:
+     *     buildingStroke  #D6CFC2   →  **1.37 : 1**    (the shipped cage)
+     *     …hazed 10 % (demoted)     →  ~1.34 : 1
+     *     …hazed 22 % (far tier)    →  ~1.30 : 1       ← the tier holding the MOST cages
+     *     buildingCageEdge #7E7464  →  **4.11 : 1**
+     * WCAG 1.4.11's floor for a NON-TEXT graphical object is 3 : 1, so every shipped cage tier sat
+     * ~2.2× BELOW the threshold at which a drawn mark counts as perceivable at all. "More
+     * transparent than wireframe" is not a preference; it is the accurate reading of 1.3 : 1.
+     *
+     * ⛔ IT IS NOT A NEW COLOUR AND NOT A LOUD ONE. `#7E7464` is the exact RGB already authored one
+     * line above as `buildingShadow`'s `rgba(126, 116, 100, …)` — the BUILDING family's own dark
+     * warm neutral — so the cage stays inside the family whose footprint it draws. For weight, it
+     * lands at 4.11 : 1 where the palette's own `label` text (`#77766F`, drawn on this same ground)
+     * lands at 4.08 : 1: a cage is now drawn at exactly the weight this palette already uses for
+     * its own drawn marks. ⛔ It is emphatically NOT the amber `contextUncertainHeight` (#E8973A)
+     * the founder rejected 2026-07-30 as "a weird orange" — that rejection was of a LOUD HUE over
+     * the whole not-accurate set; this is a NEUTRAL, and only where there is no height input at all.
+     */
+    buildingCageEdge: '#7E7464',
     /** Translucent duplicate-fill shadow, offset south-east under each footprint. */
     buildingShadow: 'rgba(126, 116, 100, 0.16)',
     /** Major-road fill (motorway…tertiary). */
@@ -166,6 +198,12 @@ export const FORMA_CONTEXT_3D = {
     buildingFill: FORMA_PALETTE_V2.buildingFill,
     /** Context-building outline — was #9A958C. */
     buildingEdge: FORMA_PALETTE_V2.buildingStroke,
+    /** §CAGE-IS-A-DRAWN-MARK (L-13270) — the unknown-height CAGE's line, which is 3D-only by nature:
+     *  the 2D map has no such mark to be equal to (it draws a filled footprint whatever the height
+     *  is known to be), so this is the one context key whose parity target is the GROUND it stands
+     *  on rather than a 2D twin. See `FORMA_PALETTE_V2.buildingCageEdge` for the measured reason it
+     *  cannot be `buildingEdge`. */
+    buildingCageEdge: FORMA_PALETTE_V2.buildingCageEdge,
     /** Street ribbon, motorway…tertiary (+ links) — was #C9C7C2 for every class. */
     roadMajor: FORMA_PALETTE_V2.roadMajor,
     /** Street ribbon, residential / service / unclassified / living_street — was #C9C7C2. */
