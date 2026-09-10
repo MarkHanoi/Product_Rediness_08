@@ -115,6 +115,7 @@
  */
 
 import { readFileSync, existsSync, readdirSync, statSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join, sep, relative } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -152,6 +153,41 @@ function walk(dir: string, acc: string[] = []): string[] {
 }
 
 const relPath = (root: string, p: string): string => relative(root, p).split(sep).join('/');
+
+/**
+ * The files git TRACKS, or null when git cannot answer.
+ *
+ * ⛔ §THE-SUBJECT-IS-WHAT-CI-WILL-HAVE (2026-09-10, lane CI-SIX-RED). This gate
+ * walked the FILESYSTEM, so its reading depended on whatever untracked debris a
+ * working tree happened to hold. It reported 14 dark files against a ledger of 13
+ * — and the fourteenth was `scratch/__tests__/probe3d.spec.ts`, untracked, absent
+ * from every fresh checkout and therefore incapable of being dark IN CI. The gate
+ * was RED locally and GREEN on CI for the same commit: one rule, two readings,
+ * which is the shape this repo keeps paying for. It cost this lane a full
+ * diagnosis pass to establish that the failure could not exist on the machine
+ * that matters.
+ *
+ * A test file git does not track cannot run in CI, so "tracked" is the honest
+ * subject — the same `git ls-files` basis check-command-naming.ts already uses.
+ * Narrowing to it hides nothing: it removes findings that were never real.
+ *
+ * ⭐ NULL, NOT AN EMPTY SET, when git fails (§CONTEXT-DATA-HONESTY). "git could
+ * not answer" and "git tracks nothing" must not share a value — an empty set
+ * would silently filter EVERY test file away and turn a broken subprocess into a
+ * clean bill of health. Null means "cannot tell", and the caller then scans
+ * everything, which is louder than before rather than quieter.
+ */
+function trackedFiles(root: string): ReadonlySet<string> | null {
+  try {
+    const out = execSync('git ls-files -z', {
+      cwd: root, encoding: 'buffer', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const names = out.toString('utf8').split('\0').filter(Boolean);
+    return names.length > 0 ? new Set(names) : null;
+  } catch {
+    return null;
+  }
+}
 
 // ─── Glob → RegExp, with an explicit UNPROVEN escape hatch ───────────────────
 
@@ -594,7 +630,20 @@ interface Analysis {
 }
 
 function analyse(root: string): Analysis {
-  const testFiles = walk(root).map((p) => relPath(root, p)).filter((p) => TEST_FILE_RE.test(p)).sort();
+  const tracked = trackedFiles(root);
+  const onDisk = walk(root).map((p) => relPath(root, p)).filter((p) => TEST_FILE_RE.test(p)).sort();
+  const testFiles = tracked === null ? onDisk : onDisk.filter((p) => tracked.has(p));
+  // Only the REAL repo run reports this. `analyse()` is also called twice on the
+  // gate's own planted/clean SELF-TEST fixtures, which are temp dirs outside git by
+  // design — the fallback is correct there and warning about it would print a
+  // scary, false "may not reproduce on a fresh checkout" against a fixture.
+  if (tracked === null && root === ROOT) {
+    console.log('[dark-test-files] ⚠ git ls-files did not answer — scanning the WORKING TREE, which may'
+      + ' hold untracked files CI will never see. Findings below may not reproduce on a fresh checkout.');
+  } else if (tracked !== null && onDisk.length !== testFiles.length) {
+    console.log(`[dark-test-files] subject: ${testFiles.length} tracked test file(s)`
+      + ` (${onDisk.length - testFiles.length} untracked on disk, excluded — CI never sees them).`);
+  }
   const present = new Set(testFiles);
   const { runners, unproven } = discoverRunners(root);
 
