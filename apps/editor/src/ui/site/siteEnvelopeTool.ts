@@ -92,6 +92,19 @@ import {
     getDrawnEnvelopeFootprint,
     subscribeDrawnEnvelopeFootprint,
 } from './drawnEnvelopeFootprintState';
+// ⭐⭐ §ANOTHER-ENVELOPE-IS-THE-SAME-ROSTER (L-13304) — THE MULTI-BUILDING FLOW, REUSED VERBATIM.
+// ⛔ NOT A SECOND IMPLEMENTATION, and the temptation to write one is the single defect shape this
+// repository fights hardest. `masterPlanSection` IS the roster the founder is describing — Add
+// another profile / per-profile Remove / Clear all / one "Create all blocks" through ONE command
+// and ONE Ctrl+Z — and it reads and writes the SAME `drawnEnvelopeFootprintState` profile list this
+// panel's own draw already appends to. Mounting it here gives the roster a second HOST, not a
+// second FLOW: whatever the user does on either surface, the other reads it on its next repaint,
+// because there is only one store underneath both. See `openSiteEnvelopeTool` for the wiring.
+import {
+    defaultMasterPlanSectionDeps,
+    mountMasterPlanSection,
+    type MasterPlanSectionHandle,
+} from './masterPlanSection';
 
 const _tracer = trace.getTracer('pryzm.site.siteEnvelopeTool');
 
@@ -111,6 +124,12 @@ export const SITE_ENVELOPE_DRAW_BTN_TESTID = 'site-envelope-draw-btn';
  * says which — `refused` / `armed` / `drawn` / `idle`.
  */
 export const SITE_ENVELOPE_DRAW_STATUS_TESTID = 'site-envelope-draw-status';
+
+/**
+ * §ANOTHER-ENVELOPE-IS-THE-SAME-ROSTER (L-13304) — the fold holding the shared master-plan roster.
+ * Also its key in the shared fold memory, so the user's open/closed choice survives a re-target.
+ */
+export const SITE_ENVELOPE_ROSTER_FOLD_TESTID = 'site-envelope-roster-fold';
 
 const VIOLET = '#6600FF';
 
@@ -140,6 +159,13 @@ let live: {
      * `DrawingModeBar` appends to `document.body`, so nothing else would ever remove it.
      */
     modeBar: DrawingModeBar;
+    /**
+     * §ANOTHER-ENVELOPE-IS-THE-SAME-ROSTER (L-13304) — the shared master-plan roster, mounted into
+     * this panel. ⛔ It hangs off the singleton for the same reason `modeBar` does: it opens its own
+     * store subscriptions, and a roster that outlived its panel would keep repainting a detached
+     * tree forever. `closeSiteEnvelopeTool` disposes it.
+     */
+    roster: MasterPlanSectionHandle | null;
 } | null = null;
 
 /** Whether the tool panel is open right now. Surfaces paint their button's pressed state from it. */
@@ -163,6 +189,12 @@ export function closeSiteEnvelopeTool(): void {
     for (const un of current.unsubs) {
         try { un(); } catch { /* teardown is best-effort */ }
     }
+    // §ANOTHER-ENVELOPE-IS-THE-SAME-ROSTER (L-13304) — the roster's subscriptions are ITS OWN, so
+    // it is disposed here rather than left to the `unsubs` loop above. ⛔ The PROFILES SURVIVE by
+    // design: they live in `drawnEnvelopeFootprintState`, not in the section, so closing the panel
+    // never discards work the user has drawn — re-opening (or the Parcel Law tab) finds the same
+    // roster. That is the whole reason this is one store with two hosts.
+    try { current.roster?.dispose(); } catch { /* a disposed roster must not block the close */ }
     try { current.authoring.dispose(); } catch { /* a disposed panel must not block the close */ }
     try { current.root.remove(); } catch { /* already detached */ }
     console.log('[site] §ENVELOPE-TOOL-ON-THE-SITE-VIEWS panel closed.');
@@ -188,6 +220,9 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
             }
             live.authoring.repaint();
             live.paintDraw();
+            // §ANOTHER-ENVELOPE-IS-THE-SAME-ROSTER — a re-target is a re-read. The roster may have
+            // gained profiles from the Parcel Law tab while this panel sat on another view.
+            try { live.roster?.refresh(); } catch { /* a stale roster must not block the re-target */ }
             const held = live;
             return {
                 element: held.root,
@@ -346,16 +381,45 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
                 // so: on this gesture Esc CANCELS and Enter finishes. A shared component with a
                 // per-tool hint is exactly why `escHint` exists.
                 escHint: 'ENTER closes · ESC cancels',
+                // ⭐⭐ §SITE-AUTHORING-IS-NOT-BIM-AUTHORING (L-13303) — THE FIX FOR THE ADMISSION
+                // BELOW. Founder: *"i want exactly what I have when I create a slab — the same —
+                // as the shape of the perimeter is similar."* He had the keyboard fallback and no
+                // pills, on EVERY attempt, and the reason was not that the strip was unbuilt.
+                //
+                // ⛔ MEASURED, NOT GUESSED: `appPhase()` is `'onboarding-globe'` for the WHOLE
+                // site-authoring session — `setAppPhase('canvas')` fires only when onboarding
+                // DISPOSES or a BIM view activates (recorded twice in this repo by L-13297, after
+                // it regressed his massing panel on the same wrong model of that phase's
+                // lifetime). This gesture runs ONLY on the 2-D Site Map and the 3-D Site. So the
+                // phase clause refused this strip on 100% of its surfaces and 0% of anyone
+                // else's: it was dead by construction, which is why the sentence under the button
+                // had to exist at all.
+                //
+                // ⛔ THE GATE IS STILL ASKED AND IS STILL CLOSED FOR THE THING IT WAS BUILT FOR.
+                // `'bim-element'` is the default, so WA / CW / DO / SL on the parcel map at step 3
+                // of 4 — the founder's original L-5103 report — refuse exactly as before. What
+                // this declares is that a SITE perimeter draw is not a BIM element creation, and
+                // it is honest: `armEnvelopeDraw()` has already succeeded above (it refuses on its
+                // own when no site surface is attached), so a strip only ever rises over a gesture
+                // the user explicitly armed on a surface that exists.
+                gestureKind: 'site-authoring',
             });
             // ⛔ ASKED, NOT ASSUMED. `show()` returns void and refuses by returning early, so the
             // ONLY way to know whether the strip is on screen is to read it back.
             modeBarRefused = !modeBar.isVisible();
             if (modeBarRefused) {
+                // ⚠ SINCE L-13303 THIS SHOULD NEVER FIRE — `'site-authoring'` is available in every
+                // phase. It is KEPT, not deleted, and that is deliberate: `show()` refuses by
+                // returning early and returns `void`, so the only way to know the strip is on
+                // screen is to read it back. If a future arm is added to the gate, the user gets a
+                // sentence and the console gets a line instead of the silent absence this lane
+                // spent its first hour diagnosing. A refusal nobody can see is the whole defect.
                 console.warn(
                     '[site] §ENVELOPE-MODE-BAR the mode strip was REFUSED by the authoring-context gate '
-                    + '(§AUTHORING-CONTEXT-GATE / L-5103 blocks the onboarding-globe phase). The six draw '
-                    + 'modes are still reachable by keyboard — L / O / C / Q / I / E — and the draw row '
-                    + 'says so. This is a PHASE state, not a broken bar.',
+                    + 'even though this gesture declares gestureKind:"site-authoring" (L-13303), which is '
+                    + 'available in EVERY phase. A NEW arm has been added to elementAuthoringAvailability. '
+                    + 'The six draw modes stay reachable by keyboard — L / O / C / Q / I / E — and the draw '
+                    + 'row says so.',
                 );
             }
         };
@@ -446,6 +510,73 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
         // runtime per call (§L-545) and it dispatches through the bus itself, so this module holds
         // no runtime handle, no id minting and no command string.
         const authoring = mountParcelLawEnvelopeAuthoring(slot);
+
+        // ═════════════════════════════════════════════════════════════════════════════════════
+        // ⭐⭐ §ANOTHER-ENVELOPE-IS-THE-SAME-ROSTER (L-13304) — "I WANT TO DRAW ANOTHER BUILDING"
+        // ═════════════════════════════════════════════════════════════════════════════════════
+        // FOUNDER, 2026-09-10: *"after i create the first envelope the panel only allows me to
+        // continue defining the levels or start from scratch — i need to have a small panel saying
+        // want to draw another building envelope — and like that will be a new entity."*
+        //
+        // ⭐ HE IS ON THE WRONG SURFACE, NOT ASKING FOR SOMETHING THAT DOES NOT EXIST. The roster
+        // he is describing SHIPPED (`masterPlanSection.ts`, ADR-0383) — *Add another profile*,
+        // per-profile *Remove*, *Clear all profiles*, and one *Create all blocks* that dispatches
+        // ONE command for N buildings, so N blocks are ONE Ctrl+Z. It was mounted in exactly one
+        // place: Parcel Law question 2. On the two site views he actually authors on, the only
+        // envelope surface is THIS panel, and this panel offered one envelope and nothing else.
+        // [[authored-but-unwired-is-the-bottleneck]] — audit REACHABILITY, not existence.
+        //
+        // ⛔ SO IT IS MOUNTED, NOT REBUILT — AND THE DISTINCTION IS THE WHOLE FIX. A second
+        // "draw another" control here would be this repository's dominant defect: two multi-profile
+        // flows over one session, drifting on the first divergence, each with its own idea of what
+        // the roster holds. There is ONE `mountMasterPlanSection`, ONE
+        // `buildMasterPlanAuthoringPlan`, ONE `drawnEnvelopeFootprintState` profile list. What this
+        // adds is a HOST. Everything the user does here is visible in Parcel Law and vice versa on
+        // the next repaint, because neither surface holds a copy — both read the store.
+        //
+        // ⭐ WHY IT SITS BELOW THE SINGLE-ENVELOPE PANEL AND NOT INSTEAD OF IT. His sentence is
+        // *"and like that will be a new entity"* — a SECOND building, after a first one he is happy
+        // with. The panel above is how the first one gets its levels and gets created; this is the
+        // answer to "now another". Replacing the panel would take away the flow he had just used.
+        //
+        // ⚠ FOLDED SHUT BY DEFAULT (§ENVELOPE-CARD-FOLDS, L-13249). He has told us three times the
+        // card is too large. A user with one building never opens this; a user who wants a second
+        // has a control that says so in his own words on the summary line.
+        const rosterFold = buildPanelFold({
+            id: SITE_ENVELOPE_ROSTER_FOLD_TESTID,
+            summary: 'Draw another building envelope',
+            open: false,
+        });
+        let roster: MasterPlanSectionHandle | null = null;
+        try {
+            const why = document.createElement('div');
+            why.style.cssText = 'font-size:10px;line-height:1.45;color:#6b6480;';
+            why.textContent =
+                'Each profile is a separate building. Draw one perimeter per building, then Create '
+                + 'all blocks makes them together — one command, one undo. This is the SAME roster '
+                + 'the Parcel Law tab shows, so a profile drawn here appears there too.';
+            rosterFold.body.appendChild(why);
+            // ⛔ NO RUNTIME PROP IS PASSED. `defaultMasterPlanSectionDeps()` resolves the live
+            // runtime PER CALL (§L-545) and falls back to `window.runtime`; handing it a captured
+            // handle from this module would re-open §L-12916, where a card read a null runtime prop
+            // and rendered a figure that had never been created.
+            roster = mountMasterPlanSection(rosterFold.body, defaultMasterPlanSectionDeps());
+        } catch (e) {
+            // ⛔ A REFUSAL IS A VALUE, AND IT IS RENDERED. The single-envelope flow above is
+            // untouched by a roster that failed to mount, so the panel must NOT go dark — but the
+            // user must not be left pressing a fold that silently contains nothing either.
+            console.warn('[site] §ANOTHER-ENVELOPE-IS-THE-SAME-ROSTER mount threw (non-fatal):', e);
+            const failed = document.createElement('div');
+            failed.style.cssText =
+                'font-size:10px;line-height:1.45;color:#8a5a00;background:#fdf8ee;'
+                + 'border-left:2px solid #c9973a;padding:4px 6px;border-radius:0 5px 5px 0;';
+            failed.textContent =
+                'The multi-building roster could not be mounted on this surface. The single envelope '
+                + 'above still works, and the roster is still reachable in the Parcel Law tab under '
+                + 'question 2.';
+            rosterFold.body.appendChild(failed);
+        }
+        root.appendChild(rosterFold.el);
         // §ENVELOPE-DRAW C4 — the two READ channels this row paints from. ⛔ The panel below
         // subscribes to the drawn-ring slot ITSELF, so this row never repaints it: one producer,
         // one subscriber each, no chain where a missed hop leaves half the panel stale.
@@ -460,7 +591,7 @@ export function openSiteEnvelopeTool(parent: HTMLElement): SiteEnvelopeToolHandl
         try { unsubs.push(subscribeEnvelopeDrawMode(() => paintModeBar())); }
         catch (e) { console.warn('[site] §ENVELOPE-MODE-BAR mode subscribe threw (non-fatal):', e); }
         paintDraw();
-        live = { root, authoring, unsubs, paintDraw, modeBar };
+        live = { root, authoring, unsubs, paintDraw, modeBar, roster };
         span.setAttribute('pryzm.siteEnvelopeTool.opened', true);
         console.log(
             '[site] §ENVELOPE-TOOL-ON-THE-SITE-VIEWS panel opened over a site view — ONE command '
