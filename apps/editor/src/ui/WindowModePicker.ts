@@ -20,6 +20,7 @@ import {
     SEGMENTAL_RISE_RATIO,
     type OpeningProfileKind,
 } from '@pryzm/geometry-wall';
+import { setKeyLabelPills } from './hudPills.js';
 
 export interface WindowModePickerCallbacks {
     onSwitchSingle: () => void;
@@ -118,7 +119,7 @@ export class WindowModePicker {
             btn.dataset.windowMode = mode.type;
             btn.type = 'button';
             btn.title = mode.title;
-            btn.innerHTML = `<span class="wdh-key">${mode.key}</span><span class="wdh-lbl">${mode.label}</span>`;
+            setKeyLabelPills(btn, mode.key, mode.label);
             btn.addEventListener('click', mode.action);
             bar.appendChild(btn);
         }
@@ -162,8 +163,8 @@ export class WindowModePicker {
                 btn.title = PROFILE_TITLES[kind];
                 // Only the FIRST pill carries the key hint: `A` cycles the axis, it does not
                 // select a specific member, and printing `A` on all four would say otherwise.
-                const keySpan = kind === 'rectangular' ? '<span class="wdh-key">A</span>' : '';
-                btn.innerHTML = `${keySpan}<span class="wdh-lbl">${OPENING_PROFILE_LABELS[kind]}</span>`;
+                const pillKey = kind === 'rectangular' ? 'A' : null;
+                setKeyLabelPills(btn, pillKey, OPENING_PROFILE_LABELS[kind]);
                 btn.addEventListener('click', () => {
                     if (this._typeCarriesOutline) return;   // read-only while the type's ring wins
                     setActiveProfile(kind);
@@ -181,7 +182,9 @@ export class WindowModePicker {
             customPill.type = 'button';
             customPill.disabled = true;
             customPill.title = PROFILE_TITLES['custom'];
-            customPill.innerHTML = `<span class="wdh-lbl">Custom (from type)</span>`;
+            // Label-only pill — the same builder, with no key. Static today; folded in for the
+            // same reason as WallDrawingHUD's `By Slab`, so one builder owns every wdh- pill here.
+            setKeyLabelPills(customPill, null, 'Custom (from type)');
             bar.appendChild(customPill);
         }
 

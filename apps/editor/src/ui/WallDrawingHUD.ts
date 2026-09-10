@@ -13,6 +13,8 @@
 
 import { WallDrawingMode } from '@pryzm/geometry-wall';
 
+import { setKeyLabelPills } from './hudPills.js';
+
 export interface WallDrawingHUDCallbacks {
     onSwitchLinear:   () => void;
     onSwitchOrtho:    () => void;
@@ -68,7 +70,7 @@ export class WallDrawingHUD {
             const btn = document.createElement('button');
             btn.className = 'wdh-btn' + (b.mode === initialMode ? ' wdh-btn--active' : '');
             btn.dataset.mode = b.mode;
-            btn.innerHTML = `<span class="wdh-key">${b.key}</span><span class="wdh-lbl">${b.label}</span>`;
+            setKeyLabelPills(btn, b.key, b.label);
             btn.title = `Switch to ${b.label} mode (${b.key})`;
             btn.addEventListener('click', () => {
                 this._setActive(b.mode);
@@ -86,7 +88,10 @@ export class WallDrawingHUD {
             const slabBtn = document.createElement('button');
             slabBtn.className = 'wdh-btn wdh-btn--slab';
             slabBtn.dataset.mode = 'bySlab';
-            slabBtn.innerHTML = `<span class="wdh-key">S</span><span class="wdh-lbl">By Slab</span>`;
+            // Third copy of the same pill markup — the gate never flagged this one (its two
+            // values are static literals), which is exactly why it is worth folding in: left
+            // alone it is the template a future edit copies, and the copy WILL take a variable.
+            setKeyLabelPills(slabBtn, 'S', 'By Slab');
             slabBtn.title = 'Create walls from selected slab (S)';
             slabBtn.addEventListener('click', () => {
                 callbacks.onSelectBySlab!();
@@ -117,7 +122,7 @@ export class WallDrawingHUD {
                 const btn = document.createElement('button');
                 btn.className = 'wdh-btn';
                 btn.dataset.mode = b.id;
-                btn.innerHTML = `<span class="wdh-key">${b.key}</span><span class="wdh-lbl">${b.label}</span>`;
+                setKeyLabelPills(btn, b.key, b.label);
                 btn.title = `${b.label} closed wall run (${b.key})`;
                 btn.addEventListener('click', () => {
                     this._setActiveLoop(b.id);

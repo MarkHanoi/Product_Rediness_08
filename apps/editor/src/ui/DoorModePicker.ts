@@ -19,6 +19,7 @@ import {
     SEGMENTAL_RISE_RATIO,
     type OpeningProfileKind,
 } from '@pryzm/geometry-wall';
+import { setKeyLabelPills } from './hudPills.js';
 
 /**
  * §OPENING-PROFILE-TOOLTIP (L-1251) — the door half of the shape axis.
@@ -108,7 +109,7 @@ export class DoorModePicker {
             btn.dataset.doorMode = mode.type;
             btn.type = 'button';
             btn.title = mode.title;
-            btn.innerHTML = `<span class="wdh-key">${mode.key}</span><span class="wdh-lbl">${mode.label}</span>`;
+            setKeyLabelPills(btn, mode.key, mode.label);
             btn.addEventListener('click', mode.action);
             bar.appendChild(btn);
         }
@@ -145,8 +146,8 @@ export class DoorModePicker {
                 btn.title = DOOR_PROFILE_TITLES[kind] ?? OPENING_PROFILE_LABELS[kind];
                 // Only the FIRST pill prints the key: `A` CYCLES the axis rather than selecting a
                 // member, and stamping A on all three would say otherwise.
-                const keySpan = kind === 'rectangular' ? '<span class="wdh-key">A</span>' : '';
-                btn.innerHTML = `${keySpan}<span class="wdh-lbl">${OPENING_PROFILE_LABELS[kind]}</span>`;
+                const pillKey = kind === 'rectangular' ? 'A' : null;
+                setKeyLabelPills(btn, pillKey, OPENING_PROFILE_LABELS[kind]);
                 btn.addEventListener('click', () => {
                     setActiveProfile(kind);
                     callbacks.onSwitchProfile!(kind);
