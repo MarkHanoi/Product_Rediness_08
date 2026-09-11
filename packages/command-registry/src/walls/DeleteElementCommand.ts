@@ -52,7 +52,7 @@ export class DeleteElementCommand implements Command {
     // must say so. Their absence was the smoking gun: the command removed the wall
     // opening but never touched the external store, so WindowBuilder/DoorBuilder
     // never received a 'remove' event and the mesh floated on the healed wall.
-    readonly affectedStores = ["wall", "slab", "column", "curtainWall", "furniture", "handrail", "roof", "floor", "ceiling", "beam", "plumbing", "stair", "level", "window", "door"] as const;
+    readonly affectedStores = ["wall", "slab", "column", "curtainWall", "furniture", "handrail", "roof", "floor", "ceiling", "beam", "plumbing", "stair", "level", "window", "door", "spaceEnvelope"] as const;
     id = crypto.randomUUID();
     type = CommandType.DELETE_ELEMENT;
     timestamp = Date.now();
@@ -121,6 +121,9 @@ export class DeleteElementCommand implements Command {
      * idempotent, so redo/undo cycles cannot duplicate edges.
      */
     private _removedRelationships: Relationship[] | null = null;
+    // §FIX-ENVELOPE-DELETE-NOT-FOUND (2026-09-11) — snapshot child ids before remove
+    // so undo can re-point withinId back to the restored parent.
+    private _spaceEnvelopeChildIds: string[] = [];
 
     constructor(private elementId: string) {
         this.targetIds = [elementId];
@@ -202,6 +205,11 @@ export class DeleteElementCommand implements Command {
         if ((stores as any).ceilingStore?.getById?.(id)) return { ok: true };
         if ((stores as any).beamStore?.get?.(id) ?? (stores as any).beamStore?.getById?.(id)) return { ok: true };
         if ((stores as any).plumbingStore?.get?.(id) ?? (stores as any).plumbingStore?.getById?.(id)) return { ok: true };
+        // §FIX-ENVELOPE-DELETE-NOT-FOUND (2026-09-11) — spaceEnvelope is a first-class
+        // element family with its own store and command-bus handler, but the generic
+        // delete probe did not include it. Selecting an envelope and pressing Delete
+        // fell through to the terminal refusal "Element X not found in any store".
+        if ((stores as any).spaceEnvelope?.get?.(id)) return { ok: true };
 
         // ⭐ §FIX-ORPHANED-HOSTED-MESH (L-3404, founder 2026-08-22) — THE HATCH THIS
         // REFUSAL DID NOT HAVE.
@@ -666,6 +674,28 @@ export class DeleteElementCommand implements Command {
             return { success: true, affectedElementIds: [id] };
         }
 
+        // 13b. Space envelopes — remove the parent and clear withinId on children
+        // (C114 §8), mirroring the command-bus handler's produceCommand patch set.
+        const spaceEnvelopeStore = (ctx.stores as any).spaceEnvelope;
+        const envelope = spaceEnvelopeStore?.get?.(id);
+        if (envelope) {
+            this.deletedData = structuredClone(envelope);
+            this.elementType = 'spaceEnvelope';
+            const bimMgr = ctx.bimManager;
+            // Snapshot children BEFORE the remove so undo can re-point withinId.
+            const childrenBefore = spaceEnvelopeStore.childrenOf(id);
+            this._spaceEnvelopeChildIds = childrenBefore.map(c => c.id);
+            // Build patches: remove parent + null-out withinId on each child.
+            const patches: any[] = [{ op: 'remove', path: [id] }];
+            for (const child of childrenBefore) {
+                patches.push({ op: 'replace', path: [child.id, 'withinId'], value: null });
+            }
+            try { spaceEnvelopeStore.applyPatch(patches); } catch { /* best-effort */ }
+            try { bimMgr?.unregisterElement?.(id); } catch { /* §SWALLOW-SIDE-INDEX */ }
+            try { elementRegistry.unregister(id); } catch { /* §SWALLOW-SIDE-INDEX */ }
+            return { success: true, affectedElementIds: [id] };
+        }
+
         // 14. Stairs — delegate to the dedicated command so the auto-opening heal
         // (§FIX-STAIR-DELETE-LEAVES-HOLE, L-298) — remove the stair's slab hole on
         // delete and restore it on undo — happens in ONE place. Mirrors the slab and
@@ -1109,6 +1139,22 @@ export class DeleteElementCommand implements Command {
                     return this._stairDelegate.undo(ctx);
                 }
                 break;
+            case 'spaceEnvelope': {
+                const snap = this.deletedData;
+                const bimMgr = ctx.bimManager;
+                const store = (ctx.stores as any).spaceEnvelope;
+                if (store && snap) {
+                    // Restore parent + re-point withinId on children that were cleared.
+                    const patches: any[] = [{ op: 'add', path: [snap.id], value: snap }];
+                    for (const childId of this._spaceEnvelopeChildIds) {
+                        patches.push({ op: 'replace', path: [childId, 'withinId'], value: snap.id });
+                    }
+                    try { store.applyPatch(patches); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                    try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                    try { elementRegistry.registerSemantic(snap.id, 'spaceEnvelope'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                }
+                break;
+            }
         }
         return { success: true, affectedElementIds: [this.elementId] };
     }
