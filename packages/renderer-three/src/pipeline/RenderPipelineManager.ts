@@ -66,6 +66,9 @@ import { DOMEventBus } from '@pryzm/event-bus';
 // §SURFACE-WITH-NO-AREA-REFUSES-THE-PASS (L-1470) — the shared "has this surface any
 // area?" ladder. See _isRenderTargetZeroSize() for why this stopped being local.
 import { hasDrawableArea } from '../surfaceArea';
+// §FRAME-THROW-STRANDS-RENDER-STATE (L-13313) — the renderer state a THROWN frame strands,
+// put back by the frame owner before any repair runs. See render()'s catch.
+import { RenderFrameUnwind } from './renderFrameUnwind';
 // §I2 — shared device-loss `usedTimes` predicate (single source of truth for
 // the WebGPU dispose-throw family; also used by the element-builder safeDispose
 // helpers). See ../safeDispose.ts.
@@ -440,6 +443,13 @@ export class RenderPipelineManager implements IViewSwitchListener {
     private _phase: PipelinePhase = 'idle';
     private _hasPipelineError    = false;
     private _retryCount          = 0;
+
+    /**
+     * §FRAME-THROW-STRANDS-RENDER-STATE (L-13313) — the renderer / camera / scene state three's
+     * WebGPU frame sets and restores only on a clean return, snapshotted before `rp.render()`
+     * and put back by its `catch`. See renderFrameUnwind.ts.
+     */
+    private readonly _frameUnwind = new RenderFrameUnwind();
 
     /**
      * §L-966 — the error that drove `_phase = 'error'`, preserved for the crash
@@ -966,6 +976,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
      * WebGL2 lightweight path ONLY — the native-WebGPU TSL path composes through
      * PostProcessing, which owns its own target chain; it is deliberately untouched
      * (§FIX-WEBGPU-INVALID-PIPELINE-MRT, L-253).
+     *
+     * ⚠ §FRAME-THROW-STRANDS-RENDER-STATE (L-13313) — "owns its own target chain" holds only on
+     * a CLEAN return: three's PassNode.updateBefore restores the target it borrowed with no
+     * try/finally, so a throw strands it. The WebGPU arm of this invariant is the snapshot /
+     * restore around `rp.render()` in {@link render} (renderFrameUnwind.ts).
      */
     /**
      * ── §VIEWPORT-BG-ONE-AUTHORITY-RUNTIME (L-1148) — THE single runtime writer ──
@@ -1392,7 +1407,11 @@ export class RenderPipelineManager implements IViewSwitchListener {
             // {@link setPreFrameBaseClearHook}.
             this._runPreFrameBaseClear();
             (this._renderer as any)?.setClearAlpha?.(0);
+            // §FRAME-THROW-STRANDS-RENDER-STATE (L-13313) — snapshot what three's pass chain sets
+            // and restores only on a clean return; the catch below puts it back (renderFrameUnwind.ts).
+            this._frameUnwind.capture(this._renderer, this._camera, this._scene);
             rp.render();
+            this._frameUnwind.release();
             // §L900-FRAME-SKIP-ATTRIBUTION — the ONE place a WebGPU frame is actually
             // submitted. Everything before this is a gate; reaching here is the only
             // evidence the user's viewport is live.
@@ -1405,6 +1424,22 @@ export class RenderPipelineManager implements IViewSwitchListener {
             this._hasPipelineError = true;
             console.error(`[RenderPipelineManager] PIPELINE_FAILURE reason="${(err as any)?.message ?? 'unknown'}" retryCount=${(this as any)._retryCount ?? '?'}`);
             console.error('[RenderPipelineManager] Pipeline render failed:', err);
+
+            // §FRAME-THROW-STRANDS-RENDER-STATE (L-13313) — FIRST, before the teardown and before
+            // any repair is chosen: put back what three's PassNode.updateBefore (PassNode.js:796-863)
+            // and RenderPipeline.render (RenderPipeline.js:112-130) set and restore only on a
+            // clean return. Left stranded, the renderer stays bound to the thrown pass's render
+            // target and every later frame — the reconstruction's included — composites OFF the
+            // canvas (Renderer.js:1392): the founder's white viewport with no RECURRED line, which
+            // no repair lever below could ever reach.
+            const unwound = this._frameUnwind.restore();
+            if (unwound.length > 0) {
+                console.warn(
+                    '[RenderPipelineManager] §FRAME-THROW-STRANDS-RENDER-STATE the failed frame left renderer ' +
+                    `state behind (${unwound.join(', ')}) — restored before recovery, so the next frame lands ` +
+                    'on the canvas.',
+                );
+            }
 
             this._safeDisposeRenderPipeline();
             this._renderPipeline = null;

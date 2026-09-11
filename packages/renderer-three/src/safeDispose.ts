@@ -1070,7 +1070,8 @@ export function safeDisposeGeometry(geometry: BufferGeometry | null | undefined)
  * element builders should call from their `dispose()` instead of a raw
  * `traverse(... geometry.dispose() / material.dispose())` loop, so a single
  * stale render object can never abort the whole teardown (and therefore the
- * whole `rebuild()`).
+ * whole `rebuild()`). Any OTHER error is still re-thrown — but only after every
+ * node has been offered its release (§ENVELOPE-EDIT-GPU-LIFETIME, L-13313).
  *
  * `disposeMaterials` defaults to true; pass `false` for builders that share
  * materials across elements (e.g. a per-builder singleton) and dispose those
@@ -1082,15 +1083,36 @@ export function safeDisposeObject3D(
     disposeMaterials = true,
 ): void {
     if (!root) return;
+    // §ENVELOPE-EDIT-GPU-LIFETIME (L-13313) — FINISH THE WALK, THEN REPORT. A non-§I2 error used
+    // to abort `traverse` at the first bad handle and leak every node after it — and the
+    // frame-boundary drain only logs, so nothing ever released them. It is still re-thrown
+    // (genuine disposal bugs are not masked), once every node has been offered its release.
+    const errors: unknown[] = [];
     root.traverse((obj: Object3D) => {
         const maybeMesh = obj as Partial<Mesh>;
-        if (maybeMesh.geometry) {
-            safeDisposeGeometry(maybeMesh.geometry as BufferGeometry);
+        // §ENVELOPE-EDIT-GPU-LIFETIME (L-13313) — INVARIANT L1, applied to THREE's own cache.
+        // three r183 hands EVERY Sprite the ONE module-level `_geometry` (Sprite.js:12,69-93),
+        // so a sprite never owns its geometry: freeing it here deleted the index + interleaved
+        // attribute records every OTHER sprite in the app still draws with (room and envelope
+        // labels — translucent and indexed, i.e. `_renderTransparents` → `setIndexBuffer … not
+        // of type 'GPUBuffer'`). The sprite's MATERIAL is the element's and is still released.
+        const isSprite = (obj as { isSprite?: boolean }).isSprite === true;
+        if (maybeMesh.geometry && !isSprite) {
+            try {
+                safeDisposeGeometry(maybeMesh.geometry as BufferGeometry);
+            } catch (err) {
+                errors.push(err);
+            }
         }
         if (disposeMaterials && maybeMesh.material) {
-            safeDisposeMaterials(maybeMesh.material as Material | Material[]);
+            try {
+                safeDisposeMaterials(maybeMesh.material as Material | Material[]);
+            } catch (err) {
+                errors.push(err);
+            }
         }
     });
+    if (errors.length > 0) throw errors[0];
 }
 
 /* ─── §FIX-DELETED-TEXTURE-BIND — shared-texture disposal safety ─────────────

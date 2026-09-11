@@ -51,6 +51,9 @@ import {
     resolveSpaceEnvelopeAppearance,
     type SpaceEnvelopeAppearance,
 } from './spaceEnvelopeAppearance';
+// §ENVELOPE-EDIT-GPU-LIFETIME (L-13313) — the ONE teardown order for envelope-edit producers:
+// detach now, release at the frame boundary (ADR-0297 L2).
+import { releaseSpaceEnvelopeObject, releaseSpaceEnvelopeResource } from './spaceEnvelopeGpuRelease';
 
 /** The envelope record as this builder needs to read it — the narrowest useful shape. */
 export interface SpaceEnvelopeRenderInput {
@@ -264,36 +267,24 @@ export class SpaceEnvelopeMeshBuilder {
         return { drew: 'volume', id: record.id, faces: group.children.length };
     }
 
-    /** Remove one envelope's group and dispose its geometries. Safe on an absent id. */
+    /**
+     * Remove one envelope's group and release its GPU resources. Safe on an absent id.
+     *
+     * ⛔ §ENVELOPE-EDIT-GPU-LIFETIME (L-13313) — FORGET, DETACH, THEN RELEASE AT THE FRAME
+     * BOUNDARY. This ran on every face-drag preview frame and every committed redraw, and it
+     * used to dispose every face geometry and both materials IN PLACE while the group was still
+     * parented to the scene, detaching LAST. On WebGPU after a live renderer swap a raw
+     * `material.dispose()` throws the §I2 `usedTimes` TypeError, so the detach never ran: a prism
+     * with destroyed index buffers stayed in the scene (and in `_groups`), and the next frame's
+     * `_renderTransparents` died on `setIndexBuffer … not of type 'GPUBuffer'` — the founder's
+     * white viewport. The helper owns the order: the shared face material and the label's own
+     * material + CanvasTexture are released once each, and THREE's shared sprite geometry never.
+     */
     removeSpaceEnvelope(id: string): void {
         const group = this._groups.get(id);
         if (!group) return;
-        group.traverse((obj: THREE.Object3D) => {
-            const mesh = obj as THREE.Mesh;
-            if ((mesh as { isMesh?: boolean }).isMesh) mesh.geometry?.dispose?.();
-            // §RESI-STAGE-G — the label sprite owns its OWN material and a canvas texture,
-            // neither of which is the shared face material disposed below. A redraw runs
-            // on every face drag, so a leaked texture per frame is a real GPU leak, not a
-            // theoretical one.
-            const sprite = obj as unknown as { isSprite?: boolean; material?: { map?: { dispose?: () => void }; dispose?: () => void } };
-            if (sprite.isSprite) {
-                sprite.material?.map?.dispose?.();
-                sprite.material?.dispose?.();
-            }
-        });
-        // ⚠ The material is SHARED across the faces of one envelope and is disposed
-        // once, here, rather than once per face — disposing it inside the traverse
-        // would call `dispose()` `n + 2` times on one object.
-        // ⚠ THE FIRST MESH, NOT THE FIRST CHILD. Since §RESI-STAGE-G the group may also
-        // hold a label sprite, and disposing the SPRITE's material here (already disposed
-        // in the traverse above) while leaking the faces' shared material would be a
-        // silent double-fault.
-        const first = group.children.find(
-            (c) => (c as unknown as { isMesh?: boolean }).isMesh,
-        ) as THREE.Mesh | undefined;
-        (first?.material as THREE.Material | undefined)?.dispose?.();
-        group.removeFromParent();
         this._groups.delete(id);
+        releaseSpaceEnvelopeObject(group, { disposeMaterials: true });
     }
 
     /** Every envelope currently drawn. Used by the subscriber to reap removed records. */
@@ -516,7 +507,9 @@ export class SpaceEnvelopeMeshBuilder {
             // `userData.spaceEnvelopeFace` survive, which is what the face-index convention,
             // the gizmo and `spaceEnvelope.moveFace` all key on.
             if (geo.getAttribute('position')?.count) return geo;
-            geo.dispose();
+            // §ENVELOPE-EDIT-GPU-LIFETIME (L-13313) — never attached, but released through the
+            // same funnel so "no envelope producer frees GPU memory in place" has no exception.
+            releaseSpaceEnvelopeResource(geo);
         } catch (err) {
             // Matches `buildFill`'s posture: a triangulator failure is reported, never fatal.
             console.warn('[SpaceEnvelopeMeshBuilder] cap triangulation failed, using fan:', err);

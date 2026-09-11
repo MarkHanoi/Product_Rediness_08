@@ -48,6 +48,9 @@ import {
     type SpaceEnvelopeFaceHandle,
     type SpaceEnvelopeFaceRef,
 } from '@pryzm/geometry-space-envelope';
+// §ENVELOPE-EDIT-GPU-LIFETIME (L-13313) — the ONE teardown order for envelope-edit producers:
+// detach now, release at the frame boundary.
+import { releaseSpaceEnvelopeObject } from './spaceEnvelopeGpuRelease';
 
 /** The record shape the gizmo needs — the same narrow prism fields the drag reads. */
 export interface GizmoSpaceEnvelope {
@@ -84,8 +87,10 @@ interface HandleNode {
     readonly group: THREE.Group;
     readonly key: string;
     readonly face: SpaceEnvelopeFaceRef;
-    /** The geometries this node owns, disposed with it. The material is shared. */
-    readonly geometries: readonly THREE.BufferGeometry[];
+    /**
+     * The node's meshes. Their geometries are the node's own and leave WITH `group`, through
+     * `releaseSpaceEnvelopeObject`; the material is the builder's shared pair.
+     */
     readonly meshes: readonly THREE.Mesh[];
 }
 
@@ -192,11 +197,21 @@ export class SpaceEnvelopeFaceGizmoBuilder {
         }
     }
 
-    /** Remove every arrow. Safe to call twice. */
+    /**
+     * Remove every arrow. Safe to call twice.
+     *
+     * §ENVELOPE-EDIT-GPU-LIFETIME (L-13313) — DETACH NOW, RELEASE AT THE FRAME BOUNDARY. This is
+     * HARDENING, not the crash path. The old body `dispose()`d each arrow geometry and detached
+     * its group in the SAME synchronous tick, so no frame could observe the freed buffers, and a
+     * geometry dispose cannot raise the §I2 throw (three's `RenderObject.onGeometryDispose` only
+     * nulls its attribute cache). The prism (`SpaceEnvelopeMeshBuilder.removeSpaceEnvelope`) was
+     * the only producer that could strand a destroyed translucent object. The arrows go through
+     * the same helper anyway, so the family's one teardown order is written once.
+     */
     clear(): void {
         for (const node of this._nodes) {
-            for (const g of node.geometries) g.dispose();
-            node.group.removeFromParent();
+            // The two arrow materials are shared and outlive a re-target — `dispose()` hands them in.
+            releaseSpaceEnvelopeObject(node.group, { disposeMaterials: false });
         }
         this._nodes = [];
         this._targetId = null;
@@ -204,12 +219,22 @@ export class SpaceEnvelopeFaceGizmoBuilder {
         this._activeKey = null;
     }
 
-    /** Full teardown — the arrows, the shared materials and the root. */
+    /**
+     * Full teardown — the arrows, the shared materials and the root.
+     *
+     * §ENVELOPE-EDIT-GPU-LIFETIME (L-13313) — hardening: the root leaves the scene NOW and the two
+     * shared materials are released at the frame boundary. The old order (raw
+     * `material.dispose()` first, detach last) let a §I2 `usedTimes` throw (WebGPU after a live
+     * renderer swap) abort the teardown. That was harmless to the frame, because `clear()` had
+     * already emptied the root, but it leaked the second material and left an empty root
+     * parented to the scene.
+     */
     dispose(): void {
         this.clear();
-        this._material.dispose();
-        this._activeMaterial.dispose();
-        this._root.removeFromParent();
+        releaseSpaceEnvelopeObject(this._root, {
+            disposeMaterials: false,
+            ownedMaterials: [this._material, this._activeMaterial],
+        });
     }
 
     // ── internals ────────────────────────────────────────────────────────────
@@ -311,6 +336,6 @@ export class SpaceEnvelopeFaceGizmoBuilder {
         }
 
         this._root.add(group);
-        return { group, key: h.key, face: h.face, geometries: [shaftGeom, headGeomA, headGeomB], meshes };
+        return { group, key: h.key, face: h.face, meshes };
     }
 }
