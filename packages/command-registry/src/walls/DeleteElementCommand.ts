@@ -684,7 +684,7 @@ export class DeleteElementCommand implements Command {
             const bimMgr = ctx.bimManager;
             // Snapshot children BEFORE the remove so undo can re-point withinId.
             const childrenBefore = spaceEnvelopeStore.childrenOf(id);
-            this._spaceEnvelopeChildIds = childrenBefore.map(c => c.id);
+            this._spaceEnvelopeChildIds = childrenBefore.map((c: { id: string }) => c.id);
             // Build patches: remove parent + null-out withinId on each child.
             const patches: any[] = [{ op: 'remove', path: [id] }];
             for (const child of childrenBefore) {
@@ -1151,7 +1151,8 @@ export class DeleteElementCommand implements Command {
                     }
                     try { store.applyPatch(patches); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
                     try { bimMgr?.registerElement?.(snap.id, snap.levelId); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
-                    try { elementRegistry.registerSemantic(snap.id, 'spaceEnvelope'); } catch { /* §SWALLOW-SIDE-INDEX — see file header */ }
+                    // §ROOT-TSC-RED-AT-HEAD (L-13316) — no `registerSemantic` here: `'spaceEnvelope'` is not a
+                    // `StoreType`, and the create path never registers one, so undo must not invent one.
                 }
                 break;
             }

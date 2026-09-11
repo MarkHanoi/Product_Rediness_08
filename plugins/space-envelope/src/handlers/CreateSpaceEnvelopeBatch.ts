@@ -213,7 +213,8 @@ implements CommandHandler<CreateSpaceEnvelopeBatchPayload, Stores> {
                 // "Create walls on envelope ENV_LEVEL_L0_001".
                 const seenNames = new Set<string>();
                 const seqByLevelRole = new Map<string, number>();
-                const storeState = ctx.stores.spaceEnvelope;
+                // §ROOT-TSC-RED-AT-HEAD (L-13316) — `SpaceEnvelopesState` has no `getState`; the defensive read stays, typed.
+                const storeState = ctx.stores.spaceEnvelope as unknown as { getState?: () => unknown };
                 const state = typeof storeState.getState === 'function' ? storeState.getState() : storeState;
                 const entries = typeof (state as any).values === 'function'
                     ? (state as any).values()
