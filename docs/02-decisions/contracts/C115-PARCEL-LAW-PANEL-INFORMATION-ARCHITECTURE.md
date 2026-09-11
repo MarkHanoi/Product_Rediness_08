@@ -1433,9 +1433,35 @@ honour, and an edge added or removed **changes the geometry**.
 `C115-74` The following graph behaviours **MUST** survive intact:
 
 1. read room count and relationship count; 2. every room as a colour-coded node with its name;
-3. **drag node → node to PLUG** a relationship; 4. **click an edge to UNPLUG** it; 5. drop a library
+3. **drag node → node to PLUG** a relationship — ⭐ and, since 2026-09-11, **click a node, then a node,
+to PLUG** (`C115-182`); 4. **click an edge to UNPLUG** it; 5. drop a library
 chip onto the graph to add a room; 6. hover a node or an edge for its sentence; 7. the plan below
-re-solves **synchronously** on every change.
+re-solves **synchronously** on every change; 8. ⭐ *(added 2026-09-11)* **drag a node onto empty canvas
+to REARRANGE** it — view-only: a position is never an input to the solver, which reads the plugs alone.
+
+`C115-181` ⭐ **QUESTION 4 RESOLVES PER BUILDING AND STOREY** (founder ruling 2026-09-11, Site-panel
+restructure Section 4, `L-13317`: *"Room library, relationship graph, and the plan it resolves to — per
+building and level"*). Two selectors — building (a massing group, or the ungrouped envelopes) and storey
+— choose the level envelope the plan resolves into and *"Place envelopes in 3D"* seats its rooms within.
+⛔ They **narrow** the level envelopes handed to the ONE picker (`pickHostLevelEnvelope`, through
+`apps/editor/src/ui/room-programme/roomProgrammeTarget.ts` `pickProgrammeHost`), which `render()` and
+`place()` both call: they never pick on their own, room envelopes are never filtered, and every refusal
+the picker states (none · ambiguous) is still stated in its own words. The defaults — *All buildings* ·
+*Active storey* — are today's rule exactly (the same array, the same storey). A chosen building or
+storey that no longer exists drops back to the default for the part it lost.
+⚠ **The room BRIEF is still ONE session brief (`C115-77`).** The selectors choose WHERE it resolves; a
+separate brief per (building, storey) is a model change and is **not** claimed by this clause.
+
+`C115-182` ⭐ **THE THREE GESTURES RIDE ONE PRESS** (founder 2026-09-11: *"Click two rooms to plug a
+relationship between them; click a connecting line to unplug it. Drag rooms to rearrange"*). ⛔ Behaviour
+3 is **extended, not replaced** — removing a working gesture is a deletion (`C115-18`). A press is told
+apart only by where it is released and whether it moved (≥ 4 px): released on **another** room → PLUG
+(the dragged room returns to its seat); released on **empty canvas** after moving → REARRANGE; released
+on the **same** room without moving → a CLICK (select; the next room clicked is plugged to it; the same
+room again cancels; a click on empty canvas cancels). A line keeps its own click (behaviour 4).
+
+`C115-183` Nodes and library chips got **smaller by glyph and whitespace only** — node radius 9 → 6.5,
+chip padding 3/8 → 2/6 px, swatch 9 → 7 px — and every label keeps its size (`C115-174`).
 
 `C115-75` The three plan direct-manipulation gestures **MUST** survive: **reorder pins** ·
 **party-wall drag** (with its live both-numbers preview, its *"Nothing was clamped"* refusal, its
@@ -2038,6 +2064,16 @@ them; it does not log them.
 ---
 
 ## §17 — STATUS (living record — appended, never rewritten)
+
+### 2026-09-11 · Site-panel restructure, Section 4 · `C115-74` AMENDED · `C115-181` … `C115-183` MINTED — `L-13317`
+Question 4 gained the founder's building and storey selectors (they NARROW the one picker; the
+defaults are today's rule), click-two-rooms to plug and drag-to-empty-space to rearrange — the old
+drag-onto-a-room plug is KEPT, extended rather than replaced — and smaller nodes and chips taken from
+glyph and whitespace, never type. **0 behaviours removed:** `C115-74`'s seven still pass on the
+mounted panel (the 7 existing room-programme spec files are green unchanged), plus
+`roomProgrammeSection4.spec.ts` (new) driving every gesture by real pointer events — 8 files · 134
+tests. ⚠ The brief is still ONE session brief; per-storey briefs are not claimed. ⛔ **NOT SEEN IN A
+BROWSER** — §14.14 stands.
 
 ### 2026-09-11 · Site-panel restructure, Section 1 · §1.4.3 ADDED — THE BUILDABLE ENVELOPE ANSWERS IN QUESTION 1 — `L-13315`
 The founder's mockup merged the cadastral card with the buildable envelope as ONE question, *"What is

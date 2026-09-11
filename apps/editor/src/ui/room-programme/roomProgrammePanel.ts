@@ -97,10 +97,19 @@ import type { EnvelopePoint } from '@pryzm/geometry-space-envelope';
 import {
   buildRoomEnvelopePlan,
   describeReplacement,
-  pickHostLevelEnvelope,
   roomEnvelopesWithin,
   type SpaceEnvelopeRecordLike,
 } from './roomEnvelopePlan';
+// §ROOM-PROGRAMME-TARGET (founder 2026-09-11 · `C115-181`) — the building/storey selectors' ONE rule,
+// wrapping `pickHostLevelEnvelope` so `render()` and `place()` cannot resolve against two storeys.
+import {
+  PROGRAMME_TARGET_DEFAULT,
+  listProgrammeBuildings,
+  pickProgrammeHost,
+  reconcileProgrammeTarget,
+  type ProgrammeBuildingOption,
+  type ProgrammeTarget,
+} from './roomProgrammeTarget';
 // §PROJECT-ROOMS-ARE-THE-PROGRAMME (L-13024) — the read this panel did not have.
 import {
   describeProjectRoomsImport,
@@ -170,6 +179,15 @@ export const ROOM_PROGRAMME_REDO_TESTID = 'room-programme-redo';
 export const ROOM_PROGRAMME_LOAD_BTN_TESTID = 'room-programme-load-project';
 export const ROOM_PROGRAMME_NODE_ATTR = 'data-room-node';
 export const ROOM_PROGRAMME_EDGE_ATTR = 'data-room-edge';
+/**
+ * §ROOM-PROGRAMME-TARGET (founder 2026-09-11 · Site-panel Section 4 · `C115-181`) — the building and
+ * storey selectors. They NARROW what the one picker sees (`roomProgrammeTarget.ts`); they never pick.
+ */
+export const ROOM_PROGRAMME_TARGET_TESTID = 'room-programme-target';
+export const ROOM_PROGRAMME_BUILDING_SELECT_TESTID = 'room-programme-building-select';
+export const ROOM_PROGRAMME_LEVEL_SELECT_TESTID = 'room-programme-level-select';
+/** §GRAPH-CLICK-TO-PLUG (`C115-74` behaviour 3, amended 2026-09-11) — the room awaiting its partner. */
+export const ROOM_PROGRAMME_NODE_SELECTED_ATTR = 'data-room-node-selected';
 
 // ── §ROOM-PIN (L-13079) — THE PLAN STRIP'S OWN IDENTITY ──────────────────────
 //
@@ -409,9 +427,23 @@ export function mountRoomProgrammePanel(
   let pendingReplace: readonly string[] | null = null;
   /** Drag-to-link state: the node the pointer went down on. */
   let linkFrom: string | null = null;
+  // ⭐ §GRAPH-CLICK-TO-PLUG (founder 2026-09-11 · `C115-74` behaviour 3, amended) — CLICK a room, then
+  // another, to plug them. Session view state only: it never reaches the brief.
+  let selectedNodeId: string | null = null;
+  // ⭐ §GRAPH-DRAG-TO-REARRANGE — where the reader dragged a room. VIEW-ONLY: the solver reads the
+  // plugs, never a position, so *"nothing here is inferred, the graph drives the plan"* stays true.
+  const nodePos = new Map<string, { x: number; y: number }>();
+  /** Where the press began (client px): a click is a press that barely moved. */
+  let dragFromClient: { x: number; y: number } | null = null;
+  let dragMoved = false;
+  /** The dragged room's seat before this drag — restored when the drag ends by PLUGGING instead. */
+  let dragOrigin: { id: string; pos: { x: number; y: number } | null } | null = null;
+  // ⭐ §ROOM-PROGRAMME-TARGET (`C115-181`) — which building and storey the plan resolves into.
+  let target: ProgrammeTarget = PROGRAMME_TARGET_DEFAULT;
 
   const slots = {
     note: el('p', NOTE_CSS, ROOM_PROGRAMME_NOTE),
+    target: el('div'),
     library: el('div'),
     graph: el('div'),
     list: el('div'),
@@ -521,6 +553,75 @@ export function mountRoomProgrammePanel(
     try { root.focus({ preventScroll: true }); } catch { root.focus(); }
   };
 
+  // ── TARGET — §ROOM-PROGRAMME-TARGET (founder 2026-09-11 · `C115-181`) ────────
+  //
+  // *"Room library, relationship graph, and the plan it resolves to — per building and level."*
+  // Two selectors, both NARROWING what the one picker sees (`roomProgrammeTarget.ts`). Their first
+  // options are TODAY'S RULE — every building, the active storey — so an untouched panel resolves
+  // exactly as it did before they existed.
+  function renderTarget(buildings: readonly ProgrammeBuildingOption[]): void {
+    const box = el('div', 'display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0 4px;');
+    box.setAttribute('data-testid', ROOM_PROGRAMME_TARGET_TESTID);
+    const selCss = 'font-size:11px;padding:3px 6px;border-radius:6px;min-width:0;max-width:100%;'
+      + 'border:1px solid var(--app-border,#dde3ef);background:var(--app-surface,#fff);'
+      + 'color:var(--app-text,#22223a);font-family:inherit;';
+    const none = buildings.length === 0;
+
+    const building = el('select', selCss);
+    building.setAttribute('data-testid', ROOM_PROGRAMME_BUILDING_SELECT_TESTID);
+    building.setAttribute('aria-label', 'Building the plan resolves into');
+    const allB = el('option', '', none ? 'No building yet' : 'All buildings');
+    allB.value = '';
+    building.appendChild(allB);
+    for (const b of buildings) {
+      const o = el('option', '', b.label);
+      o.value = b.key;
+      building.appendChild(o);
+    }
+    building.value = target.buildingKey ?? '';
+    building.disabled = none;
+
+    // The storeys of the chosen building — or of every building, one option per storey, with the
+    // envelope count when more than one contends (the picker then states the ambiguity itself).
+    const pool = target.buildingKey !== null
+      ? (buildings.find((b) => b.key === target.buildingKey)?.storeys ?? [])
+      : buildings.flatMap((b) => b.storeys);
+    const byLevel = new Map<string, { label: string; count: number }>();
+    for (const s of pool) {
+      const seen = byLevel.get(s.levelId);
+      if (seen) seen.count += s.envelopeCount;
+      else byLevel.set(s.levelId, { label: s.label, count: s.envelopeCount });
+    }
+    const level = el('select', selCss);
+    level.setAttribute('data-testid', ROOM_PROGRAMME_LEVEL_SELECT_TESTID);
+    level.setAttribute('aria-label', 'Storey the plan resolves into');
+    const active = el('option', '', 'Active storey');
+    active.value = '';
+    level.appendChild(active);
+    for (const [levelId, s] of byLevel) {
+      const o = el('option', '', s.count > 1 ? `${s.label} · ${s.count} envelopes` : s.label);
+      o.value = levelId;
+      level.appendChild(o);
+    }
+    level.value = target.levelId ?? '';
+    level.disabled = none;
+
+    building.addEventListener('change', () => {
+      // A new building resets the storey: another building's storey id would narrow to nothing.
+      target = { buildingKey: building.value === '' ? null : building.value, levelId: null };
+      pendingReplace = null;
+      render();
+    });
+    level.addEventListener('change', () => {
+      target = { buildingKey: target.buildingKey, levelId: level.value === '' ? null : level.value };
+      pendingReplace = null;
+      render();
+    });
+    box.appendChild(building);
+    box.appendChild(level);
+    slots.target.replaceChildren(box);
+  }
+
   // ── LIBRARY ────────────────────────────────────────────────────────────────
 
   function addRoom(kind: ResidentialRoomKind): void {
@@ -583,22 +684,24 @@ export function mountRoomProgrammePanel(
     const box = el('div');
     box.setAttribute('data-testid', ROOM_PROGRAMME_LIBRARY_TESTID);
     box.appendChild(el('div', LABEL_CSS, `Room library — ${RESIDENTIAL_ROOM_LIBRARY.length} kinds`));
-    const wrap = el('div', 'display:flex;flex-wrap:wrap;gap:4px;');
+    const wrap = el('div', 'display:flex;flex-wrap:wrap;gap:3px;');
     for (const entry of RESIDENTIAL_ROOM_LIBRARY) {
       const chip = el('button');
       chip.type = 'button';
       chip.draggable = true;
       chip.setAttribute(ROOM_PROGRAMME_CHIP_ATTR, entry.kind);
+      // ⭐ §STAGE-05-SMALLER-CHIPS (founder 2026-09-11) — smaller by WHITESPACE and SWATCH only; the
+      // label keeps its 11 px (`C115-174`: the reduction is never taken from the type scale).
       chip.style.cssText = [
-        'display:inline-flex', 'align-items:center', 'gap:5px',
-        'padding:3px 8px', 'border-radius:999px', 'cursor:grab',
+        'display:inline-flex', 'align-items:center', 'gap:4px',
+        'padding:2px 6px', 'border-radius:999px', 'cursor:grab',
         'font-size:11px', 'color:var(--app-text,#22223a)',
         'border:1px solid var(--app-border,#dde3ef)',
         'background:var(--app-surface,#fff)',
       ].join(';');
       chip.title = describeLibraryEntry(entry.kind);
       const dot = el('span',
-        `width:9px;height:9px;border-radius:2px;flex:0 0 auto;background:${libraryColourFor(entry.kind)};`);
+        `width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:${libraryColourFor(entry.kind)};`);
       chip.appendChild(dot);
       chip.appendChild(el('span', '', entry.label));
       chip.addEventListener('dragstart', (ev: DragEvent) => {
@@ -670,9 +773,10 @@ export function mountRoomProgrammePanel(
     box.appendChild(el('div', LABEL_CSS,
       `Relationships — ${p.links.length} plugged, ${p.entries.length} rooms`));
     box.appendChild(el('p', NOTE_CSS,
-      'Drag one room onto another to plug a relationship. Click a line to unplug it. Either '
-      + 'way the plan below re-solves immediately — that is what "the graph drives the layout" '
-      + 'means here. Drop a library chip anywhere on this panel to add a room.'));
+      'Click two rooms to plug a relationship between them — or drag one onto another. Click a '
+      + 'line to unplug it. Drag a room onto empty space to rearrange; positions are for reading '
+      + 'only. Either way the plan below re-solves immediately — that is what "the graph drives '
+      + 'the layout" means here. Drop a library chip anywhere on this panel to add a room.'));
 
     const W = 300;
     const H = 190;
@@ -737,10 +841,24 @@ export function mountRoomProgrammePanel(
       p.links.map((l) => [l.aId, l.bId] as const),
       [W - 40, H - 40],
     );
+    // §GRAPH-DRAG-TO-REARRANGE — a room the reader moved stays where they put it; every other room
+    // keeps its deterministic `layoutND` seat. Rooms that left the brief lose their override (and a
+    // pending selection) here, so neither can outlive the programme.
+    for (const id of [...nodePos.keys()]) if (!p.entries.some((e) => e.id === id)) nodePos.delete(id);
+    if (selectedNodeId !== null && !p.entries.some((e) => e.id === selectedNodeId)) selectedNodeId = null;
     const at = (id: string): { x: number; y: number } => {
+      const moved = nodePos.get(id);
+      if (moved) return moved;
       const q = pos.get(id);
       return { x: (q?.[0] ?? (W - 40) / 2) + 20, y: (q?.[1] ?? (H - 40) / 2) + 20 };
     };
+    /** Live handles, so a drag moves one room and its lines without rebuilding the graph. */
+    const lineEls: { el: SVGLineElement; a: string; b: string }[] = [];
+    const nodeEls = new Map<string, { c: SVGCircleElement; t: SVGTextElement }>();
+    // ⭐ §STAGE-05-SMALLER-NODES (founder 2026-09-11) — the GLYPH shrinks (r 9 → 6.5); the name
+    // under it keeps its size (`C115-174`: the reduction is never taken from the type scale).
+    const NODE_R = 6.5;
+    const NODE_LABEL_DY = 17;
 
     for (const l of p.links) {
       const a = at(l.aId);
@@ -751,8 +869,8 @@ export function mountRoomProgrammePanel(
       line.setAttribute('x2', String(b.x));
       line.setAttribute('y2', String(b.y));
       line.setAttribute('stroke', '#6600FF');
-      line.setAttribute('stroke-width', '6');
-      line.setAttribute('stroke-opacity', '0.28');
+      line.setAttribute('stroke-width', '4');
+      line.setAttribute('stroke-opacity', '0.32');
       line.setAttribute('stroke-linecap', 'round');
       line.setAttribute(ROOM_PROGRAMME_EDGE_ATTR, `${l.aId}|${l.bId}`);
       line.style.cursor = 'pointer';
@@ -765,50 +883,138 @@ export function mountRoomProgrammePanel(
         dispatchIntent(() =>
           applyRoomProgrammeIntent({ type: 'programme.unlink', aId: l.aId, bId: l.bId }));
       });
+      lineEls.push({ el: line, a: l.aId, b: l.bId });
       svg.appendChild(line);
     }
 
+    /** Client px → this SVG's viewBox units; `null` where the host has no layout to ask. */
+    const toSvg = (cx: number, cy: number): { x: number; y: number } | null => {
+      try {
+        const m = svg.getScreenCTM();
+        if (m && typeof DOMPoint === 'function') {
+          const r = new DOMPoint(cx, cy).matrixTransform(m.inverse());
+          return { x: r.x, y: r.y };
+        }
+        const box = svg.getBoundingClientRect();
+        if (box.width > 0 && box.height > 0) {
+          return { x: ((cx - box.left) / box.width) * W, y: ((cy - box.top) / box.height) * H };
+        }
+      } catch { /* a host without layout (a detached panel, a test DOM) — the drag still ends cleanly */ }
+      return null;
+    };
+    const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
+    const moveNodeTo = (id: string, x: number, y: number): void => {
+      const q = { x: clamp(x, 10, W - 10), y: clamp(y, 10, H - 24) };
+      nodePos.set(id, q);
+      const n = nodeEls.get(id);
+      if (n) {
+        n.c.setAttribute('cx', String(q.x));
+        n.c.setAttribute('cy', String(q.y));
+        n.t.setAttribute('x', String(q.x));
+        n.t.setAttribute('y', String(q.y + NODE_LABEL_DY));
+      }
+      for (const l of lineEls) {
+        if (l.a === id) { l.el.setAttribute('x1', String(q.x)); l.el.setAttribute('y1', String(q.y)); }
+        if (l.b === id) { l.el.setAttribute('x2', String(q.x)); l.el.setAttribute('y2', String(q.y)); }
+      }
+    };
+    /** A drag that ends by PLUGGING puts the dragged room back — that gesture plugs, it does not move. */
+    const restoreDragOrigin = (id: string): void => {
+      if (dragOrigin === null || dragOrigin.id !== id) return;
+      if (dragOrigin.pos === null) nodePos.delete(id);
+      else nodePos.set(id, dragOrigin.pos);
+      dragOrigin = null;
+    };
+    const plug = (aId: string, bId: string): void => {
+      selectedNodeId = null;
+      let changed = false;
+      dispatchIntent(() => (changed = applyRoomProgrammeIntent({ type: 'programme.link', aId, bId })));
+      // Already plugged: nothing re-rendered, so repaint the graph to drop the selection ring.
+      if (!changed) renderGraph(getRoomProgramme());
+    };
+    const endPress = (): void => { linkFrom = null; dragFromClient = null; dragMoved = false; };
+
     for (const e of p.entries) {
       const q = at(e.id);
+      const selected = selectedNodeId === e.id;
       const g = svgEl('g');
       g.setAttribute(ROOM_PROGRAMME_NODE_ATTR, e.id);
+      if (selected) g.setAttribute(ROOM_PROGRAMME_NODE_SELECTED_ATTR, 'true');
       g.style.cursor = 'grab';
       const c = svgEl('circle');
       c.setAttribute('cx', String(q.x));
       c.setAttribute('cy', String(q.y));
-      c.setAttribute('r', '9');
+      c.setAttribute('r', String(selected ? NODE_R + 1.5 : NODE_R));
       c.setAttribute('fill', libraryColourFor(e.kind));
-      c.setAttribute('stroke', '#3a3a52');
-      c.setAttribute('stroke-width', '1');
+      c.setAttribute('stroke', selected ? '#6600FF' : '#3a3a52');
+      c.setAttribute('stroke-width', selected ? '2' : '1');
       const t = svgEl('text');
       t.setAttribute('x', String(q.x));
-      t.setAttribute('y', String(q.y + 20));
+      t.setAttribute('y', String(q.y + NODE_LABEL_DY));
       t.setAttribute('text-anchor', 'middle');
       t.setAttribute('font-size', '9');
       t.setAttribute('fill', '#3a3a52');
       t.textContent = e.name;
       const title = svgEl('title');
-      title.textContent = `${e.name} — drag onto another room to plug a relationship`;
+      title.textContent = selected
+        ? `${e.name} — now click the room to plug it to (click ${e.name} again to cancel)`
+        : `${e.name} — click it, then another room, to plug a relationship (or drag it onto one); `
+          + 'drag it to empty space to rearrange';
       g.appendChild(title);
       g.appendChild(c);
       g.appendChild(t);
-      // ⭐ THE GESTURE IS `HouseLayoutModal.ts:1058`'s — drag a node onto a node. Reusing
-      // the interaction semantics rather than inventing a third way to say "connect".
+      nodeEls.set(e.id, { c, t });
+      // ⭐ THE PRESS. `HouseLayoutModal.ts:1058`'s drag-a-node-onto-a-node is KEPT (`C115-74`
+      // behaviour 3); the founder's 2026-09-11 click-two-rooms and drag-to-rearrange ride the same
+      // press and are told apart only by where it is released and whether it moved.
       g.addEventListener('pointerdown', (ev) => {
+        const pe = ev as PointerEvent;
         linkFrom = e.id;
-        (ev as PointerEvent).preventDefault();
+        dragFromClient = { x: pe.clientX, y: pe.clientY };
+        dragMoved = false;
+        dragOrigin = null;
+        pe.preventDefault();
       });
-      g.addEventListener('pointerup', () => {
+      g.addEventListener('pointerup', (ev) => {
         const from = linkFrom;
-        linkFrom = null;
-        if (!from || from === e.id) return;
-        dispatchIntent(() =>
-          applyRoomProgrammeIntent({ type: 'programme.link', aId: from, bId: e.id }));
+        const moved = dragMoved;
+        endPress();
+        // ⛔ The SVG root's release listener below must not ALSO act on this release.
+        ev.stopPropagation();
+        if (from !== null && from !== e.id) {
+          // Pressed on one room, released on another: PLUG (behaviour 3, unchanged).
+          restoreDragOrigin(from);
+          plug(from, e.id);
+          return;
+        }
+        if (from === e.id && moved) return;            // rearranged — the move already landed
+        if (selectedNodeId !== null && selectedNodeId !== e.id) { plug(selectedNodeId, e.id); return; }
+        selectedNodeId = selectedNodeId === e.id ? null : e.id;
+        renderGraph(getRoomProgramme());
       });
       svg.appendChild(g);
     }
-    svg.addEventListener('pointerup', () => { linkFrom = null; });
-    svg.addEventListener('pointerleave', () => { linkFrom = null; });
+    svg.addEventListener('pointermove', (ev) => {
+      if (linkFrom === null || dragFromClient === null) return;
+      const pe = ev as PointerEvent;
+      if (!dragMoved && Math.hypot(pe.clientX - dragFromClient.x, pe.clientY - dragFromClient.y) < 4) return;
+      if (!dragMoved) dragOrigin = { id: linkFrom, pos: nodePos.get(linkFrom) ?? null };
+      dragMoved = true;
+      const q = toSvg(pe.clientX, pe.clientY);
+      if (q) moveNodeTo(linkFrom, q.x, q.y);
+    });
+    svg.addEventListener('pointerup', (ev) => {
+      // Released on EMPTY canvas (never a line — its own click unplugs): a drag has already landed
+      // its move; a plain click there cancels a pending selection.
+      const onCanvas = ev.target === svg;
+      const pressed = linkFrom !== null;
+      endPress();
+      if (onCanvas && !pressed && selectedNodeId !== null) {
+        selectedNodeId = null;
+        renderGraph(getRoomProgramme());
+      }
+    });
+    svg.addEventListener('pointerleave', () => { endPress(); });
 
     box.appendChild(svg);
     slots.graph.replaceChildren(box);
@@ -1928,7 +2134,8 @@ export function mountRoomProgrammePanel(
   function place(layout: ProgrammeLayoutResult): void {
     if (!layout.ok) { say(layout.statement, true); render(); return; }
     const records = safe(() => deps.readSpaceEnvelopes(), [] as readonly SpaceEnvelopeRecordLike[]);
-    const pick = pickHostLevelEnvelope(records, safe(() => deps.readActiveLevelId(), null));
+    // §ROOM-PROGRAMME-TARGET — the SAME call `render()` makes, so what is placed is what is on screen.
+    const pick = pickProgrammeHost(records, target, safe(() => deps.readActiveLevelId(), null));
     if (!pick.ok) { say(pick.statement, true); render(); return; }
 
     const existing = roomEnvelopesWithin(records, pick.level.id);
@@ -2033,7 +2240,11 @@ export function mountRoomProgrammePanel(
     if (disposed) return;
     const p = getRoomProgramme();
     const records = safe(() => deps.readSpaceEnvelopes(), [] as readonly SpaceEnvelopeRecordLike[]);
-    const pick = pickHostLevelEnvelope(records, safe(() => deps.readActiveLevelId(), null));
+    // §ROOM-PROGRAMME-TARGET — a chosen building or storey that no longer exists drops back to the
+    // default for the part it lost BEFORE the pick, so the selectors never point at nothing.
+    const buildings = listProgrammeBuildings(records);
+    target = reconcileProgrammeTarget(target, buildings);
+    const pick = pickProgrammeHost(records, target, safe(() => deps.readActiveLevelId(), null));
     const layout: ProgrammeLayoutResult = pick.ok
       ? solveProgrammeLayout({ levelRing: pick.level.footprint, programme: p })
       : { ok: false, code: 'no-level-ring', statement: pick.statement };
@@ -2043,6 +2254,7 @@ export function mountRoomProgrammePanel(
     // ones, and the two reads could differ by one store update (§25.11 clause 1).
     const drawRing = pick.ok ? pick.level.footprint : null;
     try {
+      renderTarget(buildings);
       renderLibrary();
       renderGraph(p);
       renderList(p);
@@ -2055,6 +2267,7 @@ export function mountRoomProgrammePanel(
   }
 
   root.appendChild(slots.note);
+  root.appendChild(slots.target);
   root.appendChild(slots.library);
   root.appendChild(slots.graph);
   root.appendChild(slots.list);
