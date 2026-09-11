@@ -72,6 +72,14 @@ export { hatchSegments, ringSegments } from './spaceEnvelopePlanGeometry';
 /** ISO 13567 layer for authored area / space linework. See the header. */
 export const SPACE_ENVELOPE_LAYER = 'A-AREA';
 
+/**
+ * §PLAN-SYMBOL-ONLY-STOREY (L-13310) — the view types this family draws on: the plan-family
+ * triple `EdgeProjectorService` gates the injector with. ONE set, read by `inject()`, by the
+ * drivers' project-or-blank decision (`views/planProjectionDecision.ts`) and by the re-projection
+ * request (`attachSpaceEnvelopeRender`), so "which views show an envelope" has one answer.
+ */
+export const SPACE_ENVELOPE_PLAN_VIEW_TYPES: ReadonlySet<string> = new Set(['plan', 'detail', 'structural-plan']);
+
 /** One envelope, resolved: the record plus the storey datum it stands on. */
 export interface SpaceEnvelopePlanEntry {
     readonly id: string;
@@ -101,6 +109,29 @@ export interface SpaceEnvelopePlanInjectionOutcome {
     readonly skipped: readonly { readonly id: string; readonly reason: string }[];
 }
 
+/**
+ * §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — the linework ONE envelope contributes to a plan,
+ * as world-space segment pairs `[ax, ay, az, bx, by, bz, …]`, before drawing-space projection.
+ */
+export interface SpaceEnvelopePlanLinework {
+    readonly id: string;
+    readonly role: string;
+    /** The CLOSED outline. */
+    readonly outline: readonly number[];
+    /** The 45° hatch of a ROOM; empty for a level (see the header). */
+    readonly hatch: readonly number[];
+}
+
+/** What one storey's envelopes resolve to in plan — exactly what `inject()` then emits. */
+export interface SpaceEnvelopePlanLineworkResult {
+    /** `false` ⇒ no reader installed, which is NOT the same fact as a storey with no envelopes. */
+    readonly readerInstalled: boolean;
+    /** Records the reader returned for the storey, drawable or not. */
+    readonly entries: number;
+    readonly linework: readonly SpaceEnvelopePlanLinework[];
+    readonly skipped: readonly { readonly id: string; readonly reason: string }[];
+}
+
 export class SpaceEnvelopePlanSymbolBuilder {
     private readonly _read: SpaceEnvelopePlanReader | null;
     private _warnedNoElevation = false;
@@ -116,11 +147,7 @@ export class SpaceEnvelopePlanSymbolBuilder {
      */
     inject(drawing: OBC.TechnicalDrawing, viewDef: ViewDefinition): SpaceEnvelopePlanInjectionOutcome {
         const none: SpaceEnvelopePlanInjectionOutcome = { injected: 0, hatchedRooms: 0, skipped: [] };
-        if (
-            viewDef.viewType !== 'plan'
-            && viewDef.viewType !== 'detail'
-            && viewDef.viewType !== 'structural-plan'
-        ) return none;
+        if (!SPACE_ENVELOPE_PLAN_VIEW_TYPES.has(viewDef.viewType)) return none;
 
         if (!this._read) {
             // ⚠ NAMED, NOT SILENT. An uninstalled builder and a project with no envelopes
@@ -135,15 +162,50 @@ export class SpaceEnvelopePlanSymbolBuilder {
         const levelId = viewDef.spatial?.levelId;
         if (!levelId) return none;
 
-        const entries = this._read(levelId);
-        if (entries.length === 0) return none;
+        // ⭐ §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — ONE producer of the linework
+        // (`planLinework`), so what a spec asserts about a storey is exactly what is emitted here.
+        const resolved = this.planLinework(levelId);
+        if (resolved.entries === 0) return none;
 
         if (!drawing.layers.has(SPACE_ENVELOPE_LAYER)) drawing.layers.create(SPACE_ENVELOPE_LAYER);
 
         let injected = 0;
         let hatchedRooms = 0;
-        const skipped: { id: string; reason: string }[] = [];
+        const skipped = resolved.skipped;
 
+        for (const lw of resolved.linework) {
+            this._emit(drawing, [...lw.outline], lw.id);
+            injected += 1;
+            // ⭐ THE ROOM READS AS AN AREA. The level does not get one — see the header.
+            if (lw.hatch.length >= 6) {
+                this._emit(drawing, [...lw.hatch], lw.id);
+                hatchedRooms += 1;
+            }
+        }
+
+        if (injected > 0 || skipped.length > 0) {
+            console.log(
+                `[SpaceEnvelopePlanSymbolBuilder] Injected ${injected} space envelope(s) `
+                + `(${hatchedRooms} hatched) into view ${viewDef.id} (level ${levelId})`
+                + (skipped.length > 0
+                    ? ` — ${skipped.length} skipped: ${skipped.map((s) => `${s.id} (${s.reason})`).join('; ')}`
+                    : ''),
+            );
+        }
+        return { injected, hatchedRooms, skipped };
+    }
+
+    /**
+     * ⭐ §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — the plan linework of every envelope on
+     * `levelId`, read LIVE through the installed reader. No drawing and no THREE, so a spec can
+     * assert what the plan WILL draw after a real create dispatch — the reader is never cached,
+     * so this is always the store's answer at the moment of asking.
+     */
+    planLinework(levelId: string): SpaceEnvelopePlanLineworkResult {
+        if (!this._read) return { readerInstalled: false, entries: 0, linework: [], skipped: [] };
+        const entries = this._read(levelId);
+        const linework: SpaceEnvelopePlanLinework[] = [];
+        const skipped: { id: string; reason: string }[] = [];
         for (const entry of entries) {
             const ring = entry.footprint ?? [];
             if (ring.length < 3) {
@@ -162,35 +224,19 @@ export class SpaceEnvelopePlanSymbolBuilder {
                 );
             }
             const y = entry.baseElevation ?? entry.baseOffset;
-
             const outline = ringSegments(ring, y);
             if (outline.length < 6) {
                 skipped.push({ id: entry.id, reason: 'ring bounds no area — every edge is degenerate' });
                 continue;
             }
-            this._emit(drawing, outline, entry.id);
-            injected += 1;
-
-            // ⭐ THE ROOM READS AS AN AREA. The level does not get one — see the header.
-            if (entry.role === 'room') {
-                const hatch = hatchSegments(ring, y);
-                if (hatch.length >= 6) {
-                    this._emit(drawing, hatch, entry.id);
-                    hatchedRooms += 1;
-                }
-            }
+            linework.push({
+                id: entry.id,
+                role: entry.role,
+                outline,
+                hatch: entry.role === 'room' ? hatchSegments(ring, y) : [],
+            });
         }
-
-        if (injected > 0 || skipped.length > 0) {
-            console.log(
-                `[SpaceEnvelopePlanSymbolBuilder] Injected ${injected} space envelope(s) `
-                + `(${hatchedRooms} hatched) into view ${viewDef.id} (level ${levelId})`
-                + (skipped.length > 0
-                    ? ` — ${skipped.length} skipped: ${skipped.map((s) => `${s.id} (${s.reason})`).join('; ')}`
-                    : ''),
-            );
-        }
-        return { injected, hatchedRooms, skipped };
+        return { readerInstalled: true, entries: entries.length, linework, skipped };
     }
 
     /**

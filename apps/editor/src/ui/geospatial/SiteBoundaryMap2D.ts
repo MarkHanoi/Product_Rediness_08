@@ -154,11 +154,17 @@ import {
     FRONT_EDGE,
 } from '../site/parcelEdgeClassificationDetermination.js';
 import { getLastBuildableEnvelope } from '../site/siteDispatch.js';
-// §SPACE-ENVELOPE-ON-2D-MAP (L-13017) — the ONE appearance authority for an AUTHORED envelope
-// (colour · opacity · label), shared with the Cesium and THREE rasterisers. ⛔ Never re-derive a
-// hue here: the §TOBE-ENVELOPE ruling deliberately moved the level envelope OFF the confident
-// violet C58 §1.2 reserves for a determination, and a second copy would drift from that.
-import { resolveSpaceEnvelopeAppearance } from '../../engine/spaceEnvelopeAppearance.js';
+// §SPACE-ENVELOPE-ON-2D-MAP (L-13017) → §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — the ONE site
+// model for an AUTHORED envelope (drawability · colour · opacity · ink · label), shared with the
+// Cesium rasteriser and built on the appearance authority the THREE mesh builder asks. ⛔ Never
+// re-derive a hue here: the §TOBE-ENVELOPE ruling moved the level envelope OFF the confident violet
+// C58 §1.2 reserves for a determination, and a second copy would drift from that.
+import {
+    buildSpaceEnvelopeSitePrisms,
+    createSpaceEnvelopeStoreFeed,
+    spaceEnvelopeStoreOf,
+    type SpaceEnvelopeStoreFeed,
+} from './spaceEnvelopeSiteModel.js';
 // ADR-0383 S8 (D6) — the ONE group-selection channel, shared with the site panel and the 3D scene.
 // ⛔ This map does NOT own a selection of its own: C59 §2.10 rules one owner per view region, and
 // [[view-region-one-owner]] measured what the alternative costs (six writers of one property,
@@ -186,7 +192,6 @@ import {
 // hit-test must yield to the second, and reading the first would have silently yielded on the
 // wrong condition — the [[same-rule-two-implementations]] shape wearing a near-miss name.
 import { isEnvelopeDrawArmed } from '../site/siteEnvelopeDrawArming';
-import type { DirtySpaceEnvelopeStore } from '../../engine/attachSpaceEnvelopeRender.js';
 import { resolveSiteContext, dispatchParcelBoundary, dispatchSiteLocation, dispatchSiteTrueNorth, dispatchClearParcelBoundary, canCommitParcelBoundary } from '../site/siteDispatch.js';
 // §L-536-THETA-RESET — the SAME pure derivation `dispatchParcelBoundary` uses, so the θ this
 // surface publishes cannot drift from the θ the ring is de-rotated by. See commit() below.
@@ -541,6 +546,8 @@ const PROPOSED_PLATE_LINE_LAYER = 'pryzm-target-footprint-proposal-line';
 const SPACE_ENVELOPE_SOURCE = 'pryzm-space-envelope';
 const SPACE_ENVELOPE_FILL_LAYER = 'pryzm-space-envelope-fill';
 const SPACE_ENVELOPE_LINE_LAYER = 'pryzm-space-envelope-line';
+/** §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — the envelope NAME, on the same source. */
+const SPACE_ENVELOPE_LABEL_LAYER = 'pryzm-space-envelope-label';
 /** Snap activation radius in screen pixels (founder: "snap in corners"). */
 const SNAP_PX = 12;
 /** Half-size (px) of the queryRenderedFeatures box around the cursor — cheap. */
@@ -732,6 +739,14 @@ export function mountSiteBoundaryMap2D(
     opts: SiteBoundaryMap2DOptions,
 ): SiteBoundaryMap2DHandle {
     const { parent, runtime, getOrigin, onClose, onCommit } = opts;
+    // ⭐ §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — THE LIVE RUNTIME, resolved per call. `runtime`
+    // is the MOUNT-TIME value and is NULL on the live boot path by design; the composed runtime is
+    // `window.runtime` (§L-12916 — the captured-then-window rule `GISAreaLayout.liveRuntime`,
+    // `resolveSiteContext` and the Cesium `setRuntime` injection already follow).
+    const liveRuntime = (): PryzmRuntime | null =>
+        runtime ?? ((typeof window !== 'undefined')
+            ? (window.runtime as unknown as PryzmRuntime | undefined) ?? null
+            : null);
     // §PARCEL-SELECT (L-380 P1 / L-384) — the parcel data source for the "Select parcel"
     // mode. NULL = data not wired for this deployment → the select UI is fully built but
     // renders an honest "connecting to cadastral data" placeholder card (draw still works).
@@ -2384,8 +2399,31 @@ export function mountSiteBoundaryMap2D(
                 id: SPACE_ENVELOPE_LINE_LAYER,
                 type: 'line',
                 source: SPACE_ENVELOPE_SOURCE,
-                paint: { 'line-color': ['get', 'hue'], 'line-width': 2 },
+                // ⭐ §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — the INK, not the fill: a near-white
+                // to-be-built fill outlined in its own colour has no edge on this light basemap.
+                paint: { 'line-color': ['get', 'ink'], 'line-width': 2 },
             }, map.getLayer(FILL_LAYER) ? FILL_LAYER : undefined);
+        }
+        // §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — each envelope's NAME. Only on a style that
+        // carries a glyph server (the satellite style does not): a `text-field` layer on a glyph-less
+        // style is a MapLibre error, and an absent label is the honest degradation.
+        if (map.getSource(SPACE_ENVELOPE_SOURCE) && !map.getLayer(SPACE_ENVELOPE_LABEL_LAYER) && styleHasGlyphs()) {
+            map.addLayer({
+                id: SPACE_ENVELOPE_LABEL_LAYER,
+                type: 'symbol',
+                source: SPACE_ENVELOPE_SOURCE,
+                layout: {
+                    'text-field': ['coalesce', ['get', 'label'], ''],
+                    'text-font': ['Noto Sans Regular'],
+                    'text-size': 12,
+                    'text-max-width': 10,
+                },
+                paint: {
+                    'text-color': ['get', 'ink'],
+                    'text-halo-color': 'rgba(255,255,255,0.95)',
+                    'text-halo-width': 1.4,
+                },
+            });
         }
         // §MASSING-ON-THE-SITE-VIEWS (L-13022) — the to-be-built plate, ABOVE the permitted study
         // (an intent is read AGAINST the legal ceiling, so it must be legible on top of it) and
@@ -2495,17 +2533,27 @@ export function mountSiteBoundaryMap2D(
     // misleading offset. The honest 2D representation of a prism is the ground polygon it stands
     // on. The HEIGHT is not dropped silently — the 3D Site and the PRYZM view draw it.
 
-    /** The one shape this map reads off a space-envelope record. Structural, never a cast. */
-    interface Map2DSpaceEnvelopeRecord {
-        readonly role?: string;
-        readonly name?: string;
-        readonly occupancy?: string;
-        readonly materialColor?: string;
-        readonly footprintAreaM2?: number;
-        readonly footprint?: ReadonlyArray<{ readonly x: number; readonly z: number }>;
-        readonly baseOffset?: number;
-        readonly height?: number;
-    }
+    // ⭐ §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — THE ONE FEED, resolved LATE. This used to
+    // read `runtime?.stores?.spaceEnvelope`, the MOUNT-TIME runtime, which is NULL on the live boot
+    // path by design — so on every production session committed envelopes never reached this map
+    // and its dirty listener never installed. The feed re-resolves (`liveRuntime()`) on every read
+    // and subscribes on the first read that finds the store (`spaceEnvelopeSiteModel.ts`).
+    const spaceEnvelopeFeed: SpaceEnvelopeStoreFeed = createSpaceEnvelopeStoreFeed(
+        () => spaceEnvelopeStoreOf(liveRuntime()),
+        () => {
+            if (disposed) return;
+            try { refreshSpaceEnvelopes(); } catch { /* style may be mid-swap */ }
+        },
+    );
+    /**
+     * §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — the feed heals on a READ, and a map that loaded
+     * before the runtime existed reads again only on a basemap swap. The pane lifecycle (re-target,
+     * resize) calls this, so the layer starts hearing the store when the map is next shown.
+     */
+    const healSpaceEnvelopeFeed = (): void => {
+        if (disposed) return;
+        try { if (spaceEnvelopeFeed.heal()) refreshSpaceEnvelopes(); } catch { /* style may be mid-swap */ }
+    };
 
     /**
      * Project every AUTHORED space envelope into map-frame GeoJSON — or into an HONEST EMPTY.
@@ -2517,12 +2565,8 @@ export function mountSiteBoundaryMap2D(
      * is NOT θ = 0 (§L-446 — the right shape at the wrong bearing on any rotated site).
      */
     function spaceEnvelopeFeatureCollection(): GeoJSON.FeatureCollection {
-        const store = runtime?.stores?.spaceEnvelope as
-            { getState?: () => ReadonlyMap<string, unknown> } | undefined;
-        if (!store || typeof store.getState !== 'function') return emptyFC();
-        let records: ReadonlyMap<string, unknown>;
-        try { records = store.getState(); } catch { return emptyFC(); }
-        if (records.size === 0) return emptyFC();
+        const records = spaceEnvelopeFeed.read();
+        if (records === null || records.size === 0) return emptyFC();
 
         const origin = getOrigin();
         if (!origin) {
@@ -2534,7 +2578,7 @@ export function mountSiteBoundaryMap2D(
             );
             return emptyFC();
         }
-        const site = resolveSiteContext(runtime ?? null)?.store?.getSite() ?? null;
+        const site = resolveSiteContext(liveRuntime())?.store?.getSite() ?? null;
         const location = site?.location ?? null;
         if (!location) {
             console.warn(
@@ -2547,25 +2591,16 @@ export function mountSiteBoundaryMap2D(
         }
         const thetaRad = Number.isFinite(location.trueNorth) ? location.trueNorth : 0;
 
+        // ⭐ §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — ONE MODEL with the 3-D Site: the same
+        // drawability rule, the same appearance, the same label. A malformed row is SKIPPED and
+        // COUNTED there, never guessed at and never fatal.
+        const model = buildSpaceEnvelopeSitePrisms(records);
         const features: GeoJSON.Feature[] = [];
-        let skipped = 0;
-        for (const [id, raw] of records) {
-            const rec = raw as Map2DSpaceEnvelopeRecord | null | undefined;
-            const ring = rec?.footprint;
-            // A malformed row is SKIPPED and COUNTED, never guessed at and never fatal — one bad
-            // record must not take the map down.
-            if (!Array.isArray(ring) || ring.length < 3) { skipped += 1; continue; }
+        let skipped = model.skipped;
+        for (const prism of model.prisms) {
+            const rec = records.get(prism.id);
             try {
-                const appearance = resolveSpaceEnvelopeAppearance({
-                    id,
-                    role: rec?.role,
-                    name: rec?.name,
-                    occupancy: rec?.occupancy,
-                    materialColor: rec?.materialColor,
-                    footprintAreaM2: rec?.footprintAreaM2,
-                    height: rec?.height,
-                });
-                const coords = ring.map((p) => {
+                const coords = prism.ring.map((p) => {
                     const { east, north } = sceneXZToEnu(p.x, p.z, thetaRad);
                     const ll = sceneXZToLatLon({ x: east, z: -north }, origin.lat, origin.lon);
                     return [ll.lon, ll.lat] as [number, number];
@@ -2574,13 +2609,16 @@ export function mountSiteBoundaryMap2D(
                     type: 'Feature',
                     geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]!]] },
                     properties: {
-                        id,
-                        role: rec?.role ?? 'room',
-                        // ⭐ The colour travels ON THE FEATURE, straight off the one appearance
-                        // authority, so the paint below is a dumb `['get', …]` and this file holds
-                        // no space-envelope knowledge.
-                        hue: appearance.colour,
-                        fillAlpha: appearance.opacity,
+                        id: prism.id,
+                        role: prism.role,
+                        // ⭐ The colours travel ON THE FEATURE, straight off the one appearance
+                        // authority, so the paint is a dumb `['get', …]` and this file holds no
+                        // space-envelope knowledge. `ink` is the edge + label (L-13310).
+                        hue: prism.appearance.colour,
+                        ink: prism.appearance.ink,
+                        fillAlpha: prism.appearance.opacity,
+                        // The record's own name (never generated from the role) — or no label.
+                        label: prism.label,
                         // ADR-0383 S8 — WHICH BLOCK this prism belongs to, read through the ONE
                         // reader. `null` ⇒ ungrouped, which is every envelope written before
                         // ADR-0383 and every envelope on a single-building project.
@@ -2590,7 +2628,7 @@ export function mountSiteBoundaryMap2D(
                 });
             } catch (e) {
                 skipped += 1;
-                console.warn(`[gis] map2d §SPACE-ENVELOPE-ON-2D-MAP envelope "${id}" failed — skipped:`, e);
+                console.warn(`[gis] map2d §SPACE-ENVELOPE-ON-2D-MAP envelope "${prism.id}" failed — skipped:`, e);
             }
         }
         console.log(
@@ -2641,6 +2679,16 @@ export function mountSiteBoundaryMap2D(
         const src = map.getSource(SPACE_ENVELOPE_SOURCE) as GeoJSONSource | undefined;
         if (!src) return; // style is mid-swap; `installSiteHighlightLayers` re-adds + repaints.
         src.setData(spaceEnvelopeFeatureCollection());
+    }
+
+    /** §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — can the ACTIVE style render text at all? */
+    function styleHasGlyphs(): boolean {
+        try {
+            const glyphs = (map.getStyle() as { glyphs?: unknown } | undefined)?.glyphs;
+            return typeof glyphs === 'string' && glyphs.length > 0;
+        } catch {
+            return false;
+        }
     }
 
     /**
@@ -4541,13 +4589,13 @@ export function mountSiteBoundaryMap2D(
         // the next time the user picked an option.
         try { proposedPlateSub?.(); } catch { /* ignore */ }
         proposedPlateSub = null;
-        // §SPACE-ENVELOPE-ON-2D-MAP — drop the store's dirty listener. One left behind would hold
-        // this whole closure (and its dead map) alive and repaint into a removed source.
-        try { spaceEnvelopeSub?.(); } catch { /* ignore */ }
+        // §SPACE-ENVELOPE-ON-2D-MAP — drop the store's dirty listener (now held by the ONE feed,
+        // L-13310). One left behind would hold this whole closure (and its dead map) alive and
+        // repaint into a removed source.
+        try { spaceEnvelopeFeed.dispose(); } catch { /* ignore */ }
         // ADR-0383 S8 — released with its sibling. A selection listener that outlived this map
         // would repaint a disposed style on the next click in the site panel or the 3D scene.
         try { massingGroupSelectionSub?.(); } catch { /* ignore */ }
-        spaceEnvelopeSub = null;
         // §ENVELOPE-TOOL-ON-THE-SITE-VIEWS — the panel lives INSIDE this overlay, so a dispose that
         // left it open would take its DOM away while the singleton still believed it was mounted,
         // and the next open would re-target a detached node instead of building a fresh panel.
@@ -4726,20 +4774,14 @@ export function mountSiteBoundaryMap2D(
     // a partial redraw would need its own feature index and would become a second answer to "what
     // is on screen" (C84 EI-9).
     //
-    // ⚠ The runtime is late-injected on the live boot path (`createMainLayout(props, null)`), so a
-    // null store here is the ordinary early case, not a failure — the mount-time
-    // `installSiteHighlightLayers()` paint covers a map opened over an already-authored project.
-    let spaceEnvelopeSub: (() => void) | null = null;
+    // ⚠ CORRECTED (§COMMITTED-ENVELOPE-ON-EVERY-VIEW, L-13310). This block read
+    // `runtime?.stores?.spaceEnvelope` ONCE, here, and called a null store "the ordinary early case".
+    // On the live boot path it was the ONLY case — the mount-time runtime is null by design — so the
+    // listener never installed and the paint read the same null. The ONE feed (declared beside
+    // `spaceEnvelopeFeatureCollection`) resolves late and re-subscribes on every read that finds a
+    // store, so this is an EARLY attempt, not the gate: a miss here heals on the first paint.
     try {
-        const seStore = runtime?.stores?.spaceEnvelope as DirtySpaceEnvelopeStore | undefined;
-        // The same STRUCTURAL narrowing `initTools` and `CesiumViewport` perform, and for the same
-        // reason: `PluginDtoStoreHandle` declares only `getState()` while the live store also
-        // carries `subscribeDirty`. Never a cast through `any` (P4), and never an assumption.
-        if (seStore && typeof seStore.subscribeDirty === 'function') {
-            spaceEnvelopeSub = seStore.subscribeDirty(() => {
-                if (disposed) return;
-                try { refreshSpaceEnvelopes(); } catch { /* style may be mid-swap */ }
-            });
+        if (spaceEnvelopeFeed.ensure()) {
             console.log(
                 '[gis] map2d §SPACE-ENVELOPE-ON-2D-MAP subscribed to the ONE space-envelope store '
                 + '(subscribeDirty — execute, undo and redo alike). STR §26.4.',
@@ -4933,9 +4975,13 @@ export function mountSiteBoundaryMap2D(
             // parcel on every re-target, so *"no matter the view selected"* holds across a view
             // switch and not only across a fresh mount. No-op when nothing is committed.
             frameCommittedParcel('reparent');
+            healSpaceEnvelopeFeed();
         },
         isPlacedIn: (host: HTMLElement): boolean => !disposed && overlay.parentElement === host,
-        resize: (): void => { if (!disposed) { try { map.resize(); } catch { /* torn down */ } } },
+        resize: (): void => {
+            if (!disposed) { try { map.resize(); } catch { /* torn down */ } }
+            healSpaceEnvelopeFeed();
+        },
         // §MAP2D-ENVELOPE (STR §26.4) — see the interface for why the caller passes the PAYLOAD and
         // never the decision. Safe before `map.on('load')`: the solids are stored and the very
         // first `installEnvelopeLayers()` paints them.

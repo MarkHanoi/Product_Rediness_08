@@ -63,6 +63,8 @@ import { noteDrawingMounted, noteDrawingUnmounted } from './views/mountedDrawing
 // leaf module precisely so a driver can recognise it WITHOUT pulling the lazily loaded
 // 4,100-line projector into this bundle (`EdgeProjectorService` is imported type-only above).
 import { isProjectionSuperseded } from './views/projectionCancellation';
+// §PLAN-SYMBOL-ONLY-STOREY (L-13310) — the ONE project-or-blank decision every plan driver asks.
+import { decidePlanProjection } from './views/planProjectionDecision';
 import { ifcProjectionStore } from '@pryzm/core-app-model';
 // DOC-2.5d: level datum line injection for elevation views
 // DOC-2.5e: grid line injection for elevation views
@@ -677,7 +679,11 @@ export class ViewController implements IViewController {
 
         // Nothing in the scene falls inside this view — a real, terminal answer,
         // not a pending one. The view is projectable; there is simply no geometry.
-        if (models.length === 0 && nativeGroups.length === 0) return 'no-geometry';
+        // §PLAN-SYMBOL-ONLY-STOREY (L-13310) — unless a symbol injector has content here (an
+        // envelope-only storey has no group), which only `project()` can draw.
+        if (decidePlanProjection(viewDef, {
+            models: models.length, nativeGroups: nativeGroups.length, ifcSceneGroups: 0,
+        }) === 'blank') return 'no-geometry';
 
         const projectionGen = viewTechnicalDrawingCache.beginProjection(viewId);
         try {

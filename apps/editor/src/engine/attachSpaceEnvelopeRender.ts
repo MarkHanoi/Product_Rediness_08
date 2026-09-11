@@ -44,6 +44,9 @@
 
 import * as THREE from '@pryzm/renderer-three/three';
 import type { SpaceEnvelopeFaceRef } from '@pryzm/geometry-space-envelope';
+// §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — the ONE plan re-projection scheduler. This
+// family's store never reaches it on its own (see the plan leg below).
+import { viewDefinitionStore, viewDependencyTracker } from '@pryzm/core-app-model';
 import { SpaceEnvelopeMeshBuilder } from './SpaceEnvelopeMeshBuilder';
 import {
     installSpaceEnvelopeFaceDrag,
@@ -59,10 +62,33 @@ import { SpaceEnvelopeFaceGizmoBuilder } from './SpaceEnvelopeFaceGizmoBuilder';
 // second wiring site would be a second place for the plan and the 3-D view to disagree
 // about which records exist.
 import {
+    SPACE_ENVELOPE_PLAN_VIEW_TYPES,
     installSpaceEnvelopePlanSymbolBuilder,
     uninstallSpaceEnvelopePlanSymbolBuilder,
     type SpaceEnvelopePlanEntry,
 } from './SpaceEnvelopePlanSymbolBuilder';
+
+/**
+ * §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — the PRODUCTION plan re-projection request. It
+ * dirties exactly the views that DRAW this family on those storeys (the plan-family set its
+ * injector is gated on), not every section and elevation `markLevelsDirty` sweeps in: the family
+ * has no elevation producer, so re-projecting all of them on each envelope edit bought nothing.
+ * ⚠ During a building-generation hold the tracker coalesces LEVELS into its one release flush, so
+ * the request goes in as levels there; per-view `markDirty` would bypass the hold.
+ */
+function requestPlanViewsReprojection(levelIds: readonly string[]): void {
+    if (levelIds.length === 0) return;
+    if (viewDependencyTracker.isGenerationHoldActive) {
+        viewDependencyTracker.markLevelsDirty([...levelIds]);
+        return;
+    }
+    const wanted = new Set(levelIds);
+    for (const view of viewDefinitionStore.getAll()) {
+        if (!SPACE_ENVELOPE_PLAN_VIEW_TYPES.has(view.viewType)) continue;
+        const levelId = view.spatial?.levelId;
+        if (typeof levelId === 'string' && wanted.has(levelId)) viewDependencyTracker.markDirty(view.id);
+    }
+}
 
 /** The store shape `subscribeDirty` lives on. Structural, so no import edge is owed. */
 export interface DirtySpaceEnvelopeStore {
@@ -96,6 +122,12 @@ export interface SpaceEnvelopeRenderDeps {
     readonly onRefusal?: (message: string) => void;
     /** Make the element and its storey known to the plan pipeline. Best effort. */
     readonly registerElement?: (id: string, levelId: string) => void;
+    /**
+     * ⭐ §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — ask the plan pipeline to RE-PROJECT these
+     * storeys. Omit it and the one tracker is used (`requestPlanViewsReprojection`: the plan-family
+     * views of those storeys) — the production path; a spec passes its own to observe the request.
+     */
+    readonly markPlanLevelsDirty?: (levelIds: readonly string[]) => void;
     /**
      * §RESI-STAGE-G (2026-09-06) — double-click a prism face to edit its FOOTPRINT
      * (C114 §11 item 7). Threaded straight to the face-drag controller, which owns the only
@@ -201,7 +233,64 @@ export function attachSpaceEnvelopeRender(deps: SpaceEnvelopeRenderDeps): () => 
     // restore, one layer out.
     for (const id of deps.store.getState().keys()) draw(id, deps.store.getState());
 
+    // ⭐⭐ §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — THE PLAN IS TOLD TO RE-PROJECT.
+    // Founder: *"the envelopes (no matter if created on plan view or 3d view) dont render on plan
+    // view"*. The reader above was always right; nothing asked the plan to look again.
+    // `viewDependencyTracker` re-projects a storey only for store events whose type is in its
+    // `GEOMETRY_ELEMENT_TYPES` (`ViewDependencyTracker._onStoreEvent`), and `spaceEnvelope` is
+    // neither in that set nor emitted on `storeEventBus`; `registerElement` only records id→level.
+    // So a WARM plan drawing stayed warm, and an envelope that was in the store, drawn in 3-D and
+    // returned by the reader was never injected until some unrelated edit dirtied its storey.
+    //
+    // ⭐ SAME ROAD AS THE PRISM — the dirty channel, so execute, undo and redo each dirty the storey,
+    // and `performUndoRedo.ts`'s generic `spaceEnvelope` row stays honest. A REMOVED record's storey
+    // cannot be read back from `state` (the Map is already reconciled), so it is remembered per id.
+    // ⚠ The request only gets the plan to RUN again. On a storey holding nothing but envelopes the
+    // drivers used to blank it anyway (no mesh group) — `views/planProjectionDecision.ts` is the
+    // other half of this fix (§PLAN-SYMBOL-ONLY-STOREY).
+    const markPlanLevelsDirty = deps.markPlanLevelsDirty ?? requestPlanViewsReprojection;
+    const planLevelById = new Map<string, string>();
+    const levelIdOfRecord = (raw: unknown): string | null => {
+        const l = (raw as { levelId?: unknown } | null | undefined)?.levelId;
+        return typeof l === 'string' && l.trim().length > 0 ? l.trim() : null;
+    };
+    const notePlanLevel = (id: string, state: ReadonlyMap<string, unknown>, into: Set<string>): void => {
+        // The storey it WAS on is dirtied too: a record moved between storeys must leave the old plan.
+        const before = planLevelById.get(id);
+        if (before !== undefined) into.add(before);
+        const now = levelIdOfRecord(state.get(id));
+        if (now === null) { planLevelById.delete(id); return; }
+        into.add(now);
+        planLevelById.set(id, now);
+    };
+    const requestPlanReprojection = (levels: ReadonlySet<string>, cause: string): void => {
+        if (levels.size === 0) return;
+        try { markPlanLevelsDirty([...levels]); }
+        catch (err) {
+            console.warn(`[spaceEnvelope] §COMMITTED-ENVELOPE-ON-EVERY-VIEW plan re-projection (${cause}) failed (non-fatal):`, err);
+        }
+    };
+    {
+        // A plan projected BEFORE this reader was installed was drawn by the no-reader stub.
+        const initial = new Set<string>();
+        const state = deps.store.getState();
+        for (const id of state.keys()) notePlanLevel(id, state, initial);
+        requestPlanReprojection(initial, 'initial draw');
+    }
+
     const unsubscribe = deps.store.subscribeDirty((diff, state) => {
+        // §COMMITTED-ENVELOPE-ON-EVERY-VIEW — the PLAN leg first, so a 3-D draw that throws can
+        // never starve the plan of its re-projection request.
+        const planLevels = new Set<string>();
+        for (const id of diff.removed) {
+            const was = planLevelById.get(id);
+            if (was !== undefined) planLevels.add(was);
+            planLevelById.delete(id);
+        }
+        for (const id of diff.added) notePlanLevel(id, state, planLevels);
+        for (const id of diff.updated) notePlanLevel(id, state, planLevels);
+        requestPlanReprojection(planLevels, 'store change');
+
         // ⚠ REMOVALS FIRST. By the time this listener runs `Store` has already reconciled
         // its Map, so a removed id is unreadable from `state` — reaping it is the only
         // thing that can be done with it, and doing it first keeps the scene from

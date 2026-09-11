@@ -44,7 +44,7 @@ import { OCCUPANCY_PALETTE, UNCLASSIFIED_FILL } from '@pryzm/room-topology';
 // §TOBE-ENVELOPE (STR §25.2) — the ONE authority for the to-be-built envelope's colour, shared
 // with the pre-adoption plate (`ParcelBoundarySceneRenderer`) and the card legend. A pure leaf
 // with no imports of its own, so importing it here pulls no rendering stack across (P2).
-import { TO_BE_BUILT_FILL_ALPHA, TO_BE_BUILT_FILL_CSS } from '../ui/site/toBeBuiltEnvelopeStyle';
+import { TO_BE_BUILT_FILL_ALPHA, TO_BE_BUILT_FILL_CSS, TO_BE_BUILT_INK_CSS } from '../ui/site/toBeBuiltEnvelopeStyle';
 
 /**
  * ⭐ THE LEVEL ENVELOPE'S COLOUR — the TO-BE-BUILT rose, and the fallback for any role
@@ -86,6 +86,19 @@ export const SPACE_ENVELOPE_ROOM_OPACITY = 0.7;
 /** Any other role (today only `maximumBuildable`, which cannot be created — C114 §6b). */
 export const SPACE_ENVELOPE_OTHER_OPACITY = 0.28;
 
+/**
+ * ⭐ §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — THE INK: an envelope's EDGE and LABEL text on
+ * the two site views, whose ground is near-white.
+ *
+ * The level fill is the pale to-be-built white-grey, so an outline drawn in the FILL colour —
+ * which the 3-D Site and the 2-D site map both did — has no silhouette on a light ground and the
+ * prism reads as "not rendered". `toBeBuiltEnvelopeStyle` already publishes this ink for exactly
+ * that reason and the pre-adoption plate already wears it; the committed envelope now does too.
+ * ONE ink for every role: the fill still carries the role / occupancy colour, the edge only has
+ * to be legible. ⛔ Never a fill and never a confidence hue.
+ */
+export const SPACE_ENVELOPE_INK = TO_BE_BUILT_INK_CSS;
+
 /** The record fields this resolver reads. Structural over the L0 record. */
 export interface SpaceEnvelopeAppearanceInput {
     readonly id?: string;
@@ -105,6 +118,8 @@ export interface SpaceEnvelopeAppearance {
     readonly colour: string;
     readonly colourSource: SpaceEnvelopeColourSource;
     readonly opacity: number;
+    /** `#rrggbb` for the outline and label text on a light ground — see `SPACE_ENVELOPE_INK`. */
+    readonly ink: string;
     /**
      * The label's first line, or `null` when the record carries no name.
      * ⛔ NEVER GENERATED FROM THE ROLE. The schema's own comment on `name` says *"Never
@@ -173,6 +188,7 @@ export function resolveSpaceEnvelopeAppearance(
         colour,
         colourSource,
         opacity,
+        ink: SPACE_ENVELOPE_INK,
         labelTitle: name && name.length > 0 ? name : null,
         labelSubtitle,
         // A level envelope is labelled too — it is the storey's declared volume and the

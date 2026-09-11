@@ -136,7 +136,9 @@ describe('⛔ EMPHASIS, NEVER HUE (§L-616) — and the composed alpha, executed
         expect(render).toContain('outlineWidth: groupEmphasis.outlineWidth');
         // ⛔ `appearance.colour` is the CONFIDENCE signal; a per-group palette would launder a
         // study into a permit one colour at a time. No second colour source in this block.
-        expect(render).not.toMatch(/Cesium\.Color\.fromCssColorString\((?!appearance\.colour)/);
+        // §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — `appearance.ink` (the edge + name) comes
+        // from the SAME resolver; what stays forbidden is a colour from anywhere else.
+        expect(render).not.toMatch(/Cesium\.Color\.fromCssColorString\((?!appearance\.(?:colour|ink)\))/);
     });
 
     it('⛔ and it does NOT apply SITE_HIGHLIGHT_RECEDE_FACTOR itself', () => {

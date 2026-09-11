@@ -377,11 +377,11 @@ import {
   type TerrainAttachOutcome, type TerrainProviderState, type GroundReliefState,
 } from "./terrainProviderTransition";
 import { terrainTilesetCoversSite } from './terrainTilesetCoverage';
-// §SPACE-ENVELOPE-IN-CESIUM (STR §26.4) — the ONE authority for an authored envelope's colour,
-// opacity and label. Pure (no THREE, no DOM), which is why the THREE mesh builder and this Cesium
-// rasteriser can share it verbatim instead of each owning a palette that would drift. See
-// `toBeBuiltEnvelopeStyle.ts` for why a LEVEL envelope is deliberately NOT confident violet.
-import { resolveSpaceEnvelopeAppearance } from '../../engine/spaceEnvelopeAppearance';
+// §SPACE-ENVELOPE-IN-CESIUM (STR §26.4) → §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — the ONE site
+// model for an authored envelope (drawability, colour, opacity, ink, label), shared with the 2-D site
+// map and built on `resolveSpaceEnvelopeAppearance`, the authority the THREE mesh builder also asks.
+// See `toBeBuiltEnvelopeStyle.ts` for why a LEVEL envelope is deliberately NOT confident violet.
+import { buildSpaceEnvelopeSitePrisms } from './spaceEnvelopeSiteModel';
 import type { DirtySpaceEnvelopeStore } from '../../engine/attachSpaceEnvelopeRender';
 // ⭐ §MASSING-ON-THE-SITE-VIEWS (L-13022 · STR §26.6.3, lane DRAW-ON-VIEWS 2026-09-07) — THE MASSING
 // CANDIDATE THE FOUNDER PICKED, ON THE VIEW HE IS ON.
@@ -839,31 +839,6 @@ export interface TileLoadProgress {
    * "nobody is drawing the scene". Optional/undefined on a viewer that cannot report it.
    */
   readonly frameNumber?: number;
-}
-
-/**
- * §SPACE-ENVELOPE-IN-CESIUM (STR §26.4) — the fields this rasteriser reads off one authored
- * `spaceEnvelope` record.
- *
- * ⚠ STRUCTURAL, NOT AN IMPORT OF THE L0 TYPE, and that is the same discipline
- * `SpaceEnvelopeRenderInput` (the THREE mesh builder's input) already uses. The store hands back
- * `ReadonlyMap<string, unknown>` — `PluginDtoStoreHandle` declares nothing narrower — so the
- * honest shape is the subset actually read, with every field optional because a row that came
- * back from persistence may be missing any of them. ⛔ NOT `any` (P4): each field is typed, and
- * the renderer refuses (and COUNTS) a row whose geometry does not parse rather than guessing one.
- */
-interface CesiumSpaceEnvelopeRecord {
-  readonly role?: string;
-  readonly name?: string;
-  readonly occupancy?: string;
-  readonly materialColor?: string;
-  readonly footprintAreaM2?: number;
-  /** The footprint ring on the level's XZ plane, OPEN loop, metres (`y` is pinned 0 in L0). */
-  readonly footprint?: ReadonlyArray<{ readonly x: number; readonly z: number }>;
-  /** Metres above the owning level's datum at which the prism starts. */
-  readonly baseOffset?: number;
-  /** Metres of vertical extent. Strictly positive in a parsed record. */
-  readonly height?: number;
 }
 
 /**
@@ -9118,42 +9093,26 @@ export class CesiumViewport {
       );
     };
 
+    // ⭐ §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — ONE MODEL with the 2-D site map
+    // (`spaceEnvelopeSiteModel.ts`): the same drawability rule, appearance and label. The
+    // §ENVELOPE-FACE-DRAG preview overrides GEOMETRY ONLY — colour, name and role keep coming from
+    // the record, so a previewed envelope cannot change identity mid-gesture. A malformed row is
+    // SKIPPED and COUNTED there, never guessed at and never fatal.
+    const model = buildSpaceEnvelopeSitePrisms(records, this.spaceEnvelopePreviews);
     let drawn = 0;
-    let skipped = 0;
+    let named = 0;
+    let skipped = model.skipped;
     const roles: string[] = [];
-    for (const [id, raw] of records) {
-      const rec = raw as CesiumSpaceEnvelopeRecord | null | undefined;
-      // ⭐ §ENVELOPE-FACE-DRAG — THE ONE HUNK THE PREVIEW CHANNEL COSTS THIS RASTERISER.
-      // While a face is being dragged the geometry on screen must be what the commit WILL write,
-      // and the store still holds the pre-drag solid. The override supplies GEOMETRY ONLY —
-      // colour, name, role, occupancy and opacity keep coming from the record, so a previewed
-      // envelope cannot change identity mid-gesture and a stale override cannot invent one.
-      const preview = this.spaceEnvelopePreviews.get(id);
-      const ring = preview?.footprint ?? rec?.footprint;
-      const height = preview?.height ?? rec?.height;
-      const baseOffset = preview?.baseOffset ?? rec?.baseOffset;
-      // A malformed row is SKIPPED and COUNTED, never guessed at and never fatal — one bad record
-      // must not take the scene down (the same totality `resolveSpaceEnvelopeAppearance` promises).
-      if (!Array.isArray(ring) || ring.length < 3
-        || typeof height !== 'number' || !Number.isFinite(height) || height <= 0
-        || typeof baseOffset !== 'number' || !Number.isFinite(baseOffset)) {
-        skipped += 1;
-        continue;
-      }
+    for (const prism of model.prisms) {
       try {
-        const appearance = resolveSpaceEnvelopeAppearance({
-          id,
-          role: rec?.role,
-          name: rec?.name,
-          occupancy: rec?.occupancy,
-          materialColor: rec?.materialColor,
-          footprintAreaM2: rec?.footprintAreaM2,
-          height,
-        });
-        const bottom = baseHeight + baseOffset;
-        const top = bottom + height;
-        const positions = ring.map((p) => toCartesian(p.x, p.z, bottom));
+        const appearance = prism.appearance;
+        const bottom = baseHeight + prism.baseOffset;
+        const top = bottom + prism.height;
+        const positions = prism.ring.map((p) => toCartesian(p.x, p.z, bottom));
         const colour = Cesium.Color.fromCssColorString(appearance.colour);
+        // §COMMITTED-ENVELOPE-ON-EVERY-VIEW — the EDGE and the NAME wear the ink, not the fill: a
+        // near-white level outlined in its own colour has no silhouette on the Forma ground.
+        const ink = Cesium.Color.fromCssColorString(appearance.ink);
         // ⭐ ADR-0383 S8 — WHICH BLOCK, and how much it recedes for not being the selected one.
         //
         // ⛔ THE TWO EMPHASIS CHANNELS COMPOSE IN ONE PLACE, AND IT IS NOT THIS FILE.
@@ -9167,21 +9126,20 @@ export class CesiumViewport {
         // (`envelopeRenderStyle.ts`) and §L-616 forbids emphasis that recolours a solid: it would
         // make an estimate read as a determination. The block is carried by ALPHA and OUTLINE
         // WEIGHT, which is what `massingGroupSelectionState.ts:56-66` requires of S8.
-        const groupRef = readMassingGroupRef(rec);
+        const groupRef = readMassingGroupRef(records.get(prism.id));
         const groupEmphasis = composeMassingGroupEmphasis(
           1, selectedMassingGroupId, groupRef?.id ?? null);
         const ent = viewer.entities.add({
-          name: appearance.labelTitle ?? id,
+          name: prism.label ?? prism.id,
           polygon: {
             hierarchy: new Cesium.PolygonHierarchy(positions),
             height: bottom,
             extrudedHeight: top,
             material: colour.withAlpha(appearance.opacity * groupEmphasis.alphaFactor),
             outline: true,
-            // The outline is the second channel, and on a LEVEL envelope at 0.12 fill it is the
-            // channel that actually carries the volume — the same reason the buildable-envelope
-            // solids outline at full alpha over a translucent fill.
-            outlineColor: colour.withAlpha(groupEmphasis.alphaFactor),
+            // The outline is the second channel — on a pale LEVEL fill it is the channel that
+            // actually carries the volume, which is why it is drawn in the INK (L-13310).
+            outlineColor: ink.withAlpha(groupEmphasis.alphaFactor),
             // ⭐ The selected block gains WEIGHT — the one channel hue is not already spending.
             outlineWidth: groupEmphasis.outlineWidth,
             // A design-intent study volume must not cast a building's shadow: it is not a building.
@@ -9195,17 +9153,45 @@ export class CesiumViewport {
         // ADR-0383 S8 — written in the SAME beat the entity is created, so a click can never
         // resolve an entity this pass did not label.
         if (groupRef !== null) this.massingGroupByEntity.set(ent, groupRef);
+        // ⭐ §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — the envelope's NAME over its prism, the
+        // record's own `name` (unique per Lane C). ⛔ An unnamed record gets NO label rather than
+        // one generated from its role. The tag joins `spaceEnvelopeEntities`, so the next clear
+        // takes it with the prism.
+        if (prism.label !== null) {
+          const tag = viewer.entities.add({
+            name: prism.label,
+            position: toCartesian(prism.labelAnchor.x, prism.labelAnchor.z, top + 0.6),
+            label: {
+              text: prism.label,
+              font: '600 12px system-ui, -apple-system, "Segoe UI", sans-serif',
+              fillColor: ink,
+              showBackground: true,
+              backgroundColor: Cesium.Color.WHITE.withAlpha(0.88),
+              style: Cesium.LabelStyle.FILL,
+              verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+              pixelOffset: new Cesium.Cartesian2(0, -4),
+              scaleByDistance: new Cesium.NearFarScalar(50, 1.0, 1500, 0.5),
+              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            },
+          });
+          this.spaceEnvelopeEntities.push(tag);
+          // ADR-0383 S8 — the tag is drawn over the prism's top with depth test off, so it covers
+          // the block's most natural click target; it resolves to the SAME block as its prism.
+          if (groupRef !== null) this.massingGroupByEntity.set(tag, groupRef);
+          named += 1;
+        }
         drawn += 1;
-        roles.push(`${rec?.role ?? 'room'}@${height.toFixed(1)}m`);
+        roles.push(`${prism.role}@${prism.height.toFixed(1)}m`);
       } catch (e) {
         skipped += 1;
-        console.warn(`[CesiumViewport][space-envelope] envelope "${id}" failed — skipped:`, e);
+        console.warn(`[CesiumViewport][space-envelope] envelope "${prism.id}" failed — skipped:`, e);
       }
     }
 
     console.log(
       `[CesiumViewport][space-envelope] §SPACE-ENVELOPE-IN-CESIUM drew ${drawn}/${records.size} ` +
         `authored envelope(s) [${roles.join(', ')}]` +
+        ` · ${named} named` +
         (skipped > 0 ? ` · ${skipped} skipped as unreadable` : '') +
         ` · standing='design-intent' (NOT the permitted study — that is §ENVELOPE-VIA-MASSING)` +
         ` · base=${baseHeight.toFixed(2)} m, θ=${(thetaRad * 180 / Math.PI).toFixed(2)}°.`,

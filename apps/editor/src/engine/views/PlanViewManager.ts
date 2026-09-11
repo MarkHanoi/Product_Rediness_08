@@ -10,6 +10,8 @@ import { viewTechnicalDrawingCache } from '@pryzm/core-app-model';
 // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — leaf module by design: a value import
 // from EdgeProjectorService here would defeat its Phase 6 lazy load.
 import { isProjectionSuperseded } from './projectionCancellation';
+// §PLAN-SYMBOL-ONLY-STOREY (L-13310) — the ONE project-or-blank decision every plan driver asks.
+import { decidePlanProjection } from './planProjectionDecision';
 import { PLAN_INCREMENTAL_SAFE_TYPES } from '@pryzm/core-app-model';
 import { activePlanDrawingRef } from '@pryzm/core-app-model';
 import { nativeElementMeshExporter } from '@pryzm/core-app-model';
@@ -925,7 +927,11 @@ export class PlanViewManager implements IPlanViewManager {
             }
         }
 
-        if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) return;
+        // §PLAN-SYMBOL-ONLY-STOREY (L-13310) — an envelope-only storey has no group but must still
+        // reach `project()`, where its symbol injector draws it.
+        if (decidePlanProjection(viewDef, {
+            models: models.length, nativeGroups: nativeGroups.length, ifcSceneGroups: ifcSceneGroups.length,
+        }) === 'blank') return;
 
         // §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — planBelowDepthOffset is no
         // longer passed: `EdgeProjectorService.project()` resolves it from the viewDef.
@@ -1073,7 +1079,10 @@ export class PlanViewManager implements IPlanViewManager {
             }
         }
 
-        if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) {
+        // §PLAN-SYMBOL-ONLY-STOREY (L-13310) — see `planProjectionDecision.ts`.
+        if (decidePlanProjection(viewDef, {
+            models: models.length, nativeGroups: nativeGroups.length, ifcSceneGroups: ifcSceneGroups.length,
+        }) === 'blank') {
             // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — THE ONE CASE WHERE HOLDING IS WRONG.
             // Nothing to project means the correct content is NOTHING. Now that the
             // element-edit path routes through this method (it previously invalidated
@@ -1179,7 +1188,10 @@ export class PlanViewManager implements IPlanViewManager {
             }
         }
 
-        if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) return;
+        // §PLAN-SYMBOL-ONLY-STOREY (L-13310) — see `planProjectionDecision.ts`.
+        if (decidePlanProjection(viewDef, {
+            models: models.length, nativeGroups: nativeGroups.length, ifcSceneGroups: ifcSceneGroups.length,
+        }) === 'blank') return;
 
         // ⛔ §PERF105-CLIP-SIGNATURE-HAS-ONE-OWNER (L-11561) — AN INLINE THIRD COPY of
         // `_resolvePlanBelowDepthOffset` stood here (`planBelowDepthOffsetSV`), six lines

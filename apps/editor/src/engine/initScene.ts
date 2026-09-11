@@ -165,6 +165,8 @@ import type { EdgeProjectorService } from './views/EdgeProjectorService';
 // §PERF-PROJECTION-CANCEL-SUPERSEDED (L-704) — leaf module by design: a value import from
 // EdgeProjectorService here would defeat the Phase 6 lazy load of the projector.
 import { isProjectionSuperseded } from './views/projectionCancellation';
+// §PLAN-SYMBOL-ONLY-STOREY (L-13310) — the ONE project-or-blank decision every plan driver asks.
+import { decidePlanProjection } from './views/planProjectionDecision';
 import { viewDefinitionStore } from '@pryzm/core-app-model';
 import { ifcProjectionStore } from '@pryzm/core-app-model';
 import { frustumCullingService } from '@pryzm/core-app-model/rendering';
@@ -1436,7 +1438,11 @@ export async function initScene(container: HTMLElement, runtime: import('@pryzm/
             }
         }
 
-        if (models.length === 0 && nativeGroups.length === 0 && ifcSceneGroups.length === 0) {
+        // §PLAN-SYMBOL-ONLY-STOREY (L-13310) — a storey holding only symbol-injected content (committed
+        // space envelopes: no mesh group) must still reach `project()`, where the injector draws it.
+        if (decidePlanProjection(viewDef, {
+            models: models.length, nativeGroups: nativeGroups.length, ifcSceneGroups: ifcSceneGroups.length,
+        }) === 'blank') {
             // §FIX-PLAN-COMPUTE-THEN-SWAP (L-706) — THE ONE CASE WHERE HOLDING IS WRONG.
             // There is nothing to project, so the correct content is NOTHING. Under
             // hold-last-good the cache still contains the pre-edit drawing, and simply

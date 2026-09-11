@@ -91,11 +91,16 @@ describe('§SPACE-ENVELOPE-IN-CESIUM — the authored envelope has a Cesium rast
     // because the confident permitted envelope draws at `CONFIDENT_VIOLET_HEX = 0x6600ff`, so an
     // intent volume was wearing the CONFIDENCE BADGE C58 §1.2 reserves for a determination. A hue
     // re-derived in this file would be one commit away from re-creating that collision.
-    it('takes colour, opacity and label from the ONE pure resolver, minting no hex', () => {
+    it('takes colour, opacity, ink and label from the ONE pure resolver, minting no hex', () => {
         const src = read(VIEWPORT);
-        expect(src).toContain('resolveSpaceEnvelopeAppearance');
         const arm = src.slice(src.indexOf('private renderSpaceEnvelopes()'));
         const body = codeOnly(arm.slice(0, arm.indexOf('\n  }\n') + 5));
+        // §COMMITTED-ENVELOPE-ON-EVERY-VIEW (L-13310) — the rasteriser reads the ONE site model, and
+        // the model is built on the ONE resolver. Both links are asserted in CODE: this arm used to
+        // be satisfiable by the word appearing in a comment.
+        expect(body).toContain('buildSpaceEnvelopeSitePrisms(records, this.spaceEnvelopePreviews)');
+        expect(codeOnly(read('apps/editor/src/ui/geospatial/spaceEnvelopeSiteModel.ts')))
+            .toContain('resolveSpaceEnvelopeAppearance(');
         expect(body).not.toMatch(/#[0-9a-fA-F]{6}/);
         expect(body).not.toMatch(/0x[0-9a-fA-F]{6}/);
     });
