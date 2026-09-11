@@ -18,6 +18,7 @@ import type {
     EnvelopeDrawSink,
     EnvelopeDrawSurface,
     EnvelopeDrawSurfaceId,
+    EnvelopeRosterRing,
     SceneXZPoint,
 } from '../envelopeDrawSurface';
 import {
@@ -37,6 +38,7 @@ import {
 } from '../siteEnvelopeDrawArming';
 import {
     __resetDrawnEnvelopeFootprintForTests,
+    addDrawnEnvelopeProfile,
     clearDrawnEnvelopeFootprint,
     getDrawnEnvelopeFootprint,
     setDrawnEnvelopeFootprint,
@@ -68,6 +70,13 @@ class FakeSurface implements EnvelopeDrawSurface {
     clearPreview(): void { this.clearCount++; }
     drawSettledRing(ring: readonly SceneXZPoint[]): void { this.settled.push(ring.map((p) => ({ ...p }))); }
     clearSettledRing(): void { this.settledClears++; this.settled.length = 0; }
+    /** §ENVELOPE-ROSTER-ONE-SOURCE (L-13309) — the roster rings the registry last pushed here. */
+    roster: EnvelopeRosterRing[] = [];
+    rosterClears = 0;
+    drawProfileRoster(rings: readonly EnvelopeRosterRing[]): void { this.roster = [...rings]; }
+    clearProfileRoster(): void { this.rosterClears++; this.roster = []; }
+    /** The perimeters on screen, as a real adapter's roster entities / source would hold them. */
+    get rosterShowing(): SceneXZPoint[][] { return this.roster.map((r) => r.ring.map((p) => ({ ...p }))); }
     arm(sink: EnvelopeDrawSink): boolean {
         this.armCount++;
         if (!this.accept) return false;
@@ -390,16 +399,24 @@ describe('the hand-off store — ring and area together, session-only', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════════════════════════
-// ⭐⭐ §ENVELOPE-DRAW-SETTLED-RING (L-13148) — THE PERIMETER SURVIVES ENTER
+// ⭐⭐ §ENVELOPE-DRAW-SETTLED-RING (L-13148) → §ENVELOPE-ROSTER-ONE-SOURCE (L-13309)
 // ════════════════════════════════════════════════════════════════════════════════════════════
-// The founder: *"when i click enter - it desappar from hte screen - it should continue"*.
+// L-13148, the founder: *"when i click enter - it desappar from hte screen - it should continue"*.
+// L-13309, the founder: *"When the user adds another profile - the previous profile gets deleted
+// from the view … neither in plan view nor in 3d view"* and *"it renders perfect on plan view - but
+// i would like it to render also on 3d site view"*.
 //
-// ⛔ THESE CASES PIN THE LIFECYCLE, NOT THE PICTURE. Whether a Cesium polyline or a MapLibre fill
-// actually appears is browser-only and a fake cannot falsify it ([[fake-more-capable-than-real]]).
-// What IS testable above the port is the thing that was wrong: WHEN the settled ring is asked for
-// and WHEN it is taken away.
-describe('§ENVELOPE-DRAW-SETTLED-RING — the finished perimeter stays on screen', () => {
-    it('⭐ Enter paints the CLOSED ring on the owning surface, and the disarm does not remove it', () => {
+// ⚠ TWO CASES BELOW ARE INVERTED ON PURPOSE, AND THE OLD WORDING WAS THE DEFECT. They read *"a NEW
+// draw drops the previous outline"* and *"the ring is painted on the surface that OWNED the gesture,
+// not on the other pane"* — right for a ONE-ring slot, and exactly 3.3 and 3.1 once ADR-0383 S5 made
+// the slot a roster. A finished perimeter is now a ROSTER ring, pushed to EVERY registered surface
+// on every roster change; the gesture no longer decides what is painted.
+//
+// ⛔ THESE CASES PIN THE LIFECYCLE, NOT THE PICTURE (a fake of the port cannot falsify pixels —
+// [[fake-more-capable-than-real]]). The two real adapters' render models are pinned in
+// `envelopeRosterPaintSurfaces.spec.ts`.
+describe('§ENVELOPE-ROSTER-ONE-SOURCE — every finished perimeter stays on screen, on every surface', () => {
+    it('⭐ Enter paints the CLOSED ring as a roster ring, and the disarm does not remove it (L-13148)', () => {
         const s = new FakeSurface('site-3d');
         registerEnvelopeDrawSurface(s);
         armEnvelopeDraw();
@@ -411,37 +428,54 @@ describe('§ENVELOPE-DRAW-SETTLED-RING — the finished perimeter stays on scree
         expect(s.disarmCount).toBeGreaterThan(0);
         expect(s.clearCount).toBeGreaterThan(0);
         // … and the FINISHED ring is on screen, which is the whole point.
-        expect(s.settledShowing).toEqual(RECT);
+        expect(s.rosterShowing).toEqual([RECT]);
         // It is the SAME ring the panel was handed — one producer, not a second copy.
-        expect(s.settledShowing).toEqual(getDrawnEnvelopeFootprint()!.ring);
+        expect(s.rosterShowing[0]).toEqual(getDrawnEnvelopeFootprint()!.ring);
+        // ⛔ …and NOT also on the settled channel, which would paint one perimeter twice.
+        expect(s.settledShowing).toBeNull();
     });
 
-    it('⛔ DISCARDING the drawing takes the ring off screen — through the slot, not the caller', () => {
+    it('⭐ 3.1 — the ring is painted on EVERY registered pane, not only the one that owned the gesture', () => {
+        const a = new FakeSurface('site-map-2d');
+        const b = new FakeSurface('site-3d');
+        registerEnvelopeDrawSurface(a);
+        registerEnvelopeDrawSurface(b);
+        armEnvelopeDraw();
+        for (const p of RECT) a.sink!.onPoint(p);          // the first click wins on the 2D map
+        a.sink!.onFinish();
+        expect(a.rosterShowing).toEqual([RECT]);
+        expect(b.rosterShowing, 'the 3D Site never heard about the perimeter closed on the plan').toEqual([RECT]);
+    });
+
+    it('⭐ 3.3 — a NEW draw KEEPS every earlier profile painted (it used to drop the previous outline)', () => {
         const s = new FakeSurface('site-3d');
         registerEnvelopeDrawSurface(s);
         armEnvelopeDraw();
         for (const p of RECT) s.sink!.onPoint(p);
         s.sink!.onFinish();
-        expect(s.settledShowing).not.toBeNull();
+        // "Another profile" — append a copy of the current, then ARM. The arm used to wipe it.
+        addDrawnEnvelopeProfile(getDrawnEnvelopeFootprint()!);
+        armEnvelopeDraw();
+        expect(s.rosterShowing, 'profile 1 left the screen when profile 2 started').toEqual([RECT]);
+        const SECOND: SceneXZPoint[] = [{ x: 30, z: 0 }, { x: 40, z: 0 }, { x: 40, z: 10 }];
+        for (const p of SECOND) s.sink!.onPoint(p);
+        s.sink!.onFinish();
+        expect(s.rosterShowing).toEqual([RECT, SECOND]);
+    });
+
+    it('⛔ DISCARDING the drawing takes every ring off screen — through the roster, not the caller', () => {
+        const s = new FakeSurface('site-3d');
+        registerEnvelopeDrawSurface(s);
+        armEnvelopeDraw();
+        for (const p of RECT) s.sink!.onPoint(p);
+        s.sink!.onFinish();
+        expect(s.rosterShowing).toHaveLength(1);
 
         clearDrawnEnvelopeFootprint();                    // what the panel's discard button calls
-        expect(s.settledShowing).toBeNull();
-        expect(s.settledClears).toBeGreaterThan(0);
+        expect(s.rosterShowing).toEqual([]);
     });
 
-    it('⛔ a NEW draw drops the previous outline, so two rings are never on the globe at once', () => {
-        const s = new FakeSurface('site-3d');
-        registerEnvelopeDrawSurface(s);
-        armEnvelopeDraw();
-        for (const p of RECT) s.sink!.onPoint(p);
-        s.sink!.onFinish();
-        expect(s.settledShowing).not.toBeNull();
-
-        armEnvelopeDraw();                                 // he presses Draw again
-        expect(s.settledShowing).toBeNull();
-    });
-
-    it('⚠ ESC after a finished drawing keeps it — cancelling a REDRAW must not destroy the drawing', () => {
+    it('⚠ ESC after a finished drawing keeps it — stored AND painted', () => {
         const s = new FakeSurface('site-3d');
         registerEnvelopeDrawSurface(s);
         armEnvelopeDraw();
@@ -449,11 +483,13 @@ describe('§ENVELOPE-DRAW-SETTLED-RING — the finished perimeter stays on scree
         s.sink!.onFinish();
         const stored = getDrawnEnvelopeFootprint();
 
-        armEnvelopeDraw();                                 // re-arm: the old outline goes (case above)
-        s.sink!.onPoint({ x: 99, z: 99 });                 // one corner, then Esc
+        armEnvelopeDraw();                                 // re-arm to redraw …
+        s.sink!.onPoint({ x: 99, z: 99 });                 // … one corner, then Esc
         s.sink!.onCancel();
-        // The STORED drawing is untouched — the pre-existing rule this feature must not break.
+        // The STORED drawing is untouched — the pre-existing rule this feature must not break …
         expect(getDrawnEnvelopeFootprint()).toBe(stored);
+        // … ⭐ and it is still on screen: "still there but we dont render" was this state.
+        expect(s.rosterShowing).toEqual([RECT]);
     });
 
     it('⛔ a REFUSED (degenerate) finish paints nothing — the store write is what may refuse', () => {
@@ -464,31 +500,33 @@ describe('§ENVELOPE-DRAW-SETTLED-RING — the finished perimeter stays on scree
         for (let i = 0; i < 3; i++) s.sink!.onPoint({ x: 5, z: 5 });
         s.sink!.onFinish();
         expect(getDrawnEnvelopeFootprint()).toBeNull();
-        expect(s.settledShowing).toBeNull();
+        expect(s.rosterShowing).toEqual([]);
         expect(getEnvelopeDrawStatus().refusal).toContain('same spot');
     });
 
-    it('⚠ a surface that does not implement the port method still stores the ring', () => {
+    it('⚠ a surface that does not implement the roster method still stores the ring', () => {
         // Optional means optional: no picture, no throw, and the panel still has the perimeter.
         const s = new FakeSurface('site-map-2d');
-        (s as { drawSettledRing?: unknown }).drawSettledRing = undefined;
+        (s as { drawProfileRoster?: unknown }).drawProfileRoster = undefined;
         registerEnvelopeDrawSurface(s);
         armEnvelopeDraw();
         for (const p of RECT) s.sink!.onPoint(p);
         s.sink!.onFinish();
         expect(getDrawnEnvelopeFootprint()!.ring).toEqual(RECT);
-        expect(s.settledShowing).toBeNull();
+        expect(s.rosterShowing).toEqual([]);
     });
 
-    it('⛔ the ring is painted on the surface that OWNED the gesture, not on the other pane', () => {
-        const a = new FakeSurface('site-3d');
-        const b = new FakeSurface('site-map-2d');
+    it('a surface registered AFTER the drawing is painted on registration; unregistering clears it', () => {
+        const a = new FakeSurface('site-map-2d');
         registerEnvelopeDrawSurface(a);
-        registerEnvelopeDrawSurface(b);
         armEnvelopeDraw();
-        for (const p of RECT) a.sink!.onPoint(p);          // the first click wins on `a`
+        for (const p of RECT) a.sink!.onPoint(p);
         a.sink!.onFinish();
-        expect(a.settledShowing).toEqual(RECT);
-        expect(b.settledShowing).toBeNull();
+        const late = new FakeSurface('site-3d');         // 3D Site opened after drawing on the map
+        const unregister = registerEnvelopeDrawSurface(late);
+        expect(late.rosterShowing).toEqual([RECT]);
+        unregister();
+        expect(late.rosterClears).toBeGreaterThan(0);
+        expect(late.rosterShowing).toEqual([]);
     });
 });

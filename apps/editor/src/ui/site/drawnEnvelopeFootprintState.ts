@@ -73,7 +73,7 @@
 // ring refusal below exists to withhold an invented answer to.
 
 import { trace } from '@opentelemetry/api';
-import type { EnvelopeDrawSurfaceId, SceneXZPoint } from './envelopeDrawSurface';
+import type { EnvelopeDrawSurfaceId, EnvelopeRosterRing, SceneXZPoint } from './envelopeDrawSurface';
 
 const _tracer = trace.getTracer('pryzm.site.drawnEnvelopeFootprintState');
 
@@ -361,6 +361,42 @@ export function removeDrawnEnvelopeProfile(profileId: string): void {
 /** Drop every profile. The named twin of `clearDrawnEnvelopeFootprint()`, which does the same. */
 export function clearDrawnEnvelopeProfiles(): void {
     setDrawnEnvelopeFootprint(null);
+}
+
+/**
+ * ⭐ §ENVELOPE-ROSTER-ONE-SOURCE (L-13309) — THE RINGS A SITE SURFACE PAINTS FOR THE ROSTER.
+ *
+ * The founder: *"When the user adds another profile - the previous profile gets deleted from the
+ * view - then it is still there - but we dont render - neither in plan view nor in 3d view"*.
+ * The roster was right and the picture was not: the only paint was a single "settled ring" on the
+ * ONE surface that owned the gesture, cleared by the next arm. This is the read both site surfaces
+ * now paint from, so *"in the roster"* and *"on screen"* are one fact instead of two lifetimes.
+ *
+ * One entry per DISTINCT footprint object, oldest first — a seeded copy (`addDrawnEnvelopeProfile`
+ * stores the very same frozen footprint, the reference equality `undrawnCopies` reads) shares its
+ * source's entry. See `EnvelopeRosterRing` for why two coplanar paints of one ring are not wanted.
+ * Pure: reads the argument only, never the slot, so a caller decides which roster it paints.
+ */
+export function envelopeRosterRings(
+    list: readonly DrawnEnvelopeProfile[],
+): EnvelopeRosterRing[] {
+    const span = _tracer.startSpan('pryzm.site.envelopeRosterRings');
+    try {
+        const byFootprint = new Map<DrawnEnvelopeFootprint, { profileIds: string[]; label: string; ring: readonly SceneXZPoint[] }>();
+        const out: Array<{ profileIds: string[]; label: string; ring: readonly SceneXZPoint[] }> = [];
+        for (const p of list) {
+            const seen = byFootprint.get(p.footprint);
+            if (seen !== undefined) { seen.profileIds.push(p.profileId); continue; }
+            const entry = { profileIds: [p.profileId], label: p.label, ring: p.footprint.ring };
+            byFootprint.set(p.footprint, entry);
+            out.push(entry);
+        }
+        span.setAttribute('pryzm.envelopeDraw.profiles', list.length);
+        span.setAttribute('pryzm.envelopeDraw.rings', out.length);
+        return out;
+    } finally {
+        span.end();
+    }
 }
 
 /** Test-only reset — clears the roster, the mint counter and every subscriber. */

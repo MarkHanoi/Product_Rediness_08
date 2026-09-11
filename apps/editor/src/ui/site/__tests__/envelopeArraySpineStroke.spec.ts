@@ -18,6 +18,7 @@ import type {
     EnvelopeDrawSink,
     EnvelopeDrawSurface,
     EnvelopeDrawSurfaceId,
+    EnvelopeRosterRing,
     SceneXZPoint,
 } from '../envelopeDrawSurface';
 import {
@@ -58,6 +59,10 @@ class FakeSurface implements EnvelopeDrawSurface {
         this.settled.push({ ring: ring.map((p) => ({ ...p })), closed });
     }
     clearSettledRing(): void { this.settled.length = 0; }
+    /** §ENVELOPE-ROSTER-ONE-SOURCE (L-13309) — the roster rings the registry last asked for. */
+    roster: EnvelopeRosterRing[] = [];
+    drawProfileRoster(rings: readonly EnvelopeRosterRing[]): void { this.roster = [...rings]; }
+    clearProfileRoster(): void { this.roster = []; }
     arm(sink: EnvelopeDrawSink): boolean { this.sink = sink; return true; }
     disarm(): void { this.sink = null; }
 }
@@ -168,19 +173,24 @@ describe('§ARRAY-ALONG-PATH D6 — a spine is never drawn as a ring', () => {
         expect(surface.previews.some((p) => p.closeRing === true)).toBe(true);
     });
 
-    it('paints the finished spine OPEN, and the finished perimeter CLOSED', () => {
+    it('paints the finished spine OPEN on its own channel, and the finished perimeter as a ROSTER ring', () => {
         armEnvelopeDraw('array-path');
         click(0, 0); click(40, 0);
         finish();
         expect(surface.settled).toHaveLength(1);
         expect(surface.settled[0]!.closed).toBe(false);
         expect(surface.settled[0]!.ring).toHaveLength(2);
+        // ⛔ A spine is not a roster profile — it never reaches the roster channel.
+        expect(surface.roster).toHaveLength(0);
 
         armEnvelopeDraw();
         click(0, 0); click(10, 0); click(10, 10);
         finish();
-        expect(surface.settled).toHaveLength(1);   // the re-arm cleared the spine's
-        expect(surface.settled[0]!.closed).toBe(true);
+        // The re-arm cleared the spine's paint, and a perimeter never uses that channel any more …
+        expect(surface.settled).toHaveLength(0);
+        // … ⭐ §ENVELOPE-ROSTER-ONE-SOURCE (L-13309): it is a roster profile, painted as a closed ring.
+        expect(surface.roster).toHaveLength(1);
+        expect(surface.roster[0]!.ring).toHaveLength(3);
     });
 
     it('keeps a spine that returns to its own start, where a perimeter would pop the vertex', () => {

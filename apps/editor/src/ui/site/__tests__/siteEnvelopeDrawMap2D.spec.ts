@@ -120,14 +120,27 @@ it('actually read the module — an unrunnable guard must fail, never skip (§L-
 });
 
 describe('§ENVELOPE-DRAW C6 — ⛔ NO SECOND MAP-CLICK BINDING (L-69)', () => {
-    it('binds no map event at all — the count `siteMap2DStyleV2.spec.ts` pins stays untouched', () => {
+    it('binds no map INPUT event — the count `siteMap2DStyleV2.spec.ts` pins stays untouched', () => {
         // ⛔ THE INVARIANT IS THE BINDING, NOT THE FILE. `SiteBoundaryMap2D` holds exactly one
         // `map.on('click', onClick)` and L-69 records what a second one did: it consumed two
         // clicks as parcel vertices and in rectangle mode COMMITTED a boundary. An adapter that
         // reached for `map.on(...)` would reproduce that from a different file, where the existing
         // grep-based guard cannot see it.
-        expect(SOURCE).not.toMatch(/\bmap\.on\(/);
-        expect(SOURCE).not.toMatch(/\.on\(['"]click['"]/);
+        //
+        // ⚠ AMENDED WITH §ENVELOPE-DRAW-LIVE-DIMS (L-13308) / §ENVELOPE-ROSTER-ONE-SOURCE (L-13309).
+        // This arm used to forbid ANY `map.on(`. The adapter now listens to exactly two RENDER events:
+        // `move` (the live dimension chips follow the camera — what MapLibre's own `Marker` listens
+        // to) and `styledata` (the profile roster survives a basemap swap). Neither consumes an event
+        // nor reaches a click ladder, so L-69 is untouched. What is pinned now is the NAME of every
+        // map event bound here — so an INPUT binding, the thing L-69 is about, still fails this arm.
+        const bound = [...SOURCE.matchAll(/\bmap\.on\(\s*['"]([^'"]+)['"]/g)].map((m) => m[1]).sort();
+        expect(bound).toEqual(['move', 'styledata']);
+        expect(SOURCE).not.toMatch(
+            /\.on\(\s*['"](click|dblclick|mousedown|mouseup|mousemove|contextmenu|touchstart|touchend|keydown|keyup|wheel)['"]/,
+        );
+        // …and each render hook has its release (arm/disarm symmetry — L-7801 for a listener).
+        expect(SOURCE).toMatch(/\bmap\.off\(\s*'move'/);
+        expect(SOURCE).toMatch(/\bmap\.off\(\s*'styledata'/);
         // …and it does not disable panning either (plan §3b: click-to-place needs pan).
         expect(SOURCE).not.toMatch(/dragPan/);
     });

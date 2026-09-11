@@ -65,6 +65,54 @@ export interface SceneXZPoint {
 }
 
 /**
+ * ⭐ §ENVELOPE-DRAW-LIVE-DIMS (L-13308) — ONE live dimension chip of the in-progress perimeter.
+ *
+ * The founder: *"while defining the points that define the profile of the massing envelope - i want
+ * to see the preview dims - as we have while creating slabs + walls on pryzm views"*.
+ *
+ * ⛔ DECIDED ABOVE THE PORT, PAINTED BELOW IT. Which segments carry a chip (placed edges, the
+ * rubber-band, the closing edge, ONE chip per arc run, a radius for a circle) depends on the MODE,
+ * and only `siteEnvelopeDrawArming.ts` knows the mode — an adapter handed `committed`/`tail` cannot
+ * tell a 16-chord arc from 16 hand-placed corners. The text comes from the ONE formatter
+ * (`envelopeDrawDims.ts` → `formatDimension`). An adapter that measured or formatted a length itself
+ * would be the per-renderer drift this port exists to prevent (plan §7 rule 4).
+ */
+export interface EnvelopeDrawDimLabel {
+    /** Where the chip sits — project-frame scene-XZ metres, like every other point on this port. */
+    readonly at: SceneXZPoint;
+    /** The chip text, already formatted. An adapter paints it verbatim. */
+    readonly text: string;
+    /** The measured length in metres (the radius, for a circle). Carried so a spec can read the number. */
+    readonly lengthM: number;
+    /**
+     * `live` follows the pointer (the rubber-band, or a loop being dragged out); `placed` is an edge
+     * between two corners already placed; `closing` is the implied last → first edge. Adapters paint
+     * `live` as the emphasised chip (PRYZM purple fill, white text) and the others white with purple
+     * text — never black (founder brand rule).
+     */
+    readonly kind: 'live' | 'placed' | 'closing';
+}
+
+/**
+ * ⭐ §ENVELOPE-ROSTER-ONE-SOURCE (L-13309) — ONE ring of the transient profile roster
+ * (`drawnEnvelopeFootprintState`), as a site surface paints it.
+ *
+ * ⚠ ONE ENTRY PER DISTINCT FOOTPRINT, NOT PER PROFILE. "Add another profile" seeds the new profile
+ * with the SAME frozen footprint object as the one it copies (`undrawnCopies` reads exactly that
+ * reference equality), so two profiles can stand on one ring until the next draw replaces the copy.
+ * Painting that ring twice would stack two coplanar translucent fills — a darker patch on the map and
+ * z-fighting on the globe — for a picture that says nothing more.
+ */
+export interface EnvelopeRosterRing {
+    /** Every roster profile this ring stands for, oldest first. Never empty. */
+    readonly profileIds: readonly string[];
+    /** The first such profile's label (`Profile N` or the user's rename). */
+    readonly label: string;
+    /** The CLOSED perimeter — the very ring the roster stores, never a second copy. */
+    readonly ring: readonly SceneXZPoint[];
+}
+
+/**
  * What a surface tells the gesture. Every method is ALREADY converted to scene-XZ by the surface;
  * the gesture above never sees a pixel, a lat/lon or a renderer event.
  *
@@ -102,16 +150,47 @@ export interface EnvelopeDrawSurface {
      * Draw the committed vertices followed by the rubber-band tail. Called on every move and click.
      * `closeRing` asks for the closing edge (last → first) — true for a loop preview and for a path
      * of three or more, false for an open two-point path.
+     *
+     * ⭐ §ENVELOPE-DRAW-LIVE-DIMS (L-13308) — `dims` are the live dimension chips for exactly this
+     * preview, computed ONCE above the port (see `EnvelopeDrawDimLabel`). An adapter paints them at
+     * `at` with `text` and nothing else. OPTIONAL and last, so every adapter and fake written against
+     * the three-argument form keeps compiling and keeps its behaviour — it simply shows no chips.
      */
     drawPreview(
         committed: readonly ArcVertex2D[],
         tail: readonly ArcVertex2D[],
         closeRing: boolean,
+        dims?: readonly EnvelopeDrawDimLabel[],
     ): void;
     clearPreview(): void;
     /**
+     * ⭐⭐ §ENVELOPE-ROSTER-ONE-SOURCE (L-13309) — PAINT THE WHOLE PROFILE ROSTER, AND KEEP IT PAINTED.
+     *
+     * The founder, twice: *"When the user adds another profile - the previous profile gets deleted
+     * from the view - then it is still there - but we dont render"* and *"it renders perfect on plan
+     * view - but i would like it to render also on 3d site view"*.
+     *
+     * Called by the registry with the roster's rings on EVERY registered surface, whenever the roster
+     * changes (finish, add, remove, rename, clear) and when a surface registers — so a ring finished
+     * on one pane is painted on the other, and a pane mounted later shows what was drawn before it.
+     * `[]` means "paint nothing": the adapter removes its roster paint.
+     *
+     * ⛔ ITS OWN CHANNEL, SEPARATE FROM THE PREVIEW AND THE SETTLED SPINE. Every gesture exit clears
+     * the preview, and every arm clears the settled spine; either lifetime applied to the roster is
+     * exactly the defect this closes. Styled as the FINISHED footprint (faint fill + outline, no
+     * corner dots, no chips) so it never reads as the draft being drawn over it.
+     */
+    drawProfileRoster?(rings: readonly EnvelopeRosterRing[]): void;
+    /** Remove this surface's roster paint. Idempotent. Called when the surface unregisters. */
+    clearProfileRoster?(): void;
+    /**
      * ⭐ §ENVELOPE-DRAW-SETTLED-RING (lane ENVELOPE-DRAW-AND-STOREYS, 2026-09-07 · L-13148) —
      * PAINT THE PERIMETER THE USER JUST CLOSED, AND KEEP IT PAINTED AFTER THE GESTURE ENDS.
+     *
+     * ⚠ §ENVELOPE-ROSTER-ONE-SOURCE (L-13309) — A FINISHED PERIMETER NO LONGER COMES THROUGH HERE.
+     * It is a roster profile, and `drawProfileRoster` paints it on every surface. This channel now
+     * carries only the finished array SPINE (`closed = false`), which is not a roster profile. The
+     * notes below are kept as the record of why a finished stroke needs a channel of its own at all.
      *
      * The founder: *"when i click enter - it desappar from hte screen - it should continue"*. He
      * closed the ring and the drawing vanished, so while he decided how many storeys to ask for he

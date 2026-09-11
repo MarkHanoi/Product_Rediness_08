@@ -88,8 +88,10 @@ import {
     type SpaceEnvelopePrism,
 } from '@pryzm/geometry-space-envelope';
 import type {
+    EnvelopeDrawDimLabel,
     EnvelopeDrawSink,
     EnvelopeDrawSurface,
+    EnvelopeRosterRing,
     SceneXZPoint,
 } from './envelopeDrawSurface';
 import {
@@ -121,6 +123,9 @@ import type {
 const _tracer = trace.getTracer('pryzm.site.siteEnvelopeDrawCesium');
 
 const VIOLET_CSS = '#6600FF';
+
+/** §ENVELOPE-DRAW-LIVE-DIMS (L-13308) — the chip face: the 3D Site's existing dimension chip's. */
+const DIM_LABEL_FONT = '600 14px system-ui, sans-serif';
 
 /**
  * §25.6 GESTURE 1 — the two arrow colours, COPIED FROM THE THREE GIZMO rather than re-chosen.
@@ -291,6 +296,15 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
     /** The corner dots of the settled ring, one per vertex. */
     private readonly settledPoints: CesiumNS.Entity[] = [];
 
+    // ── §ENVELOPE-DRAW-LIVE-DIMS (L-13308) — the live dimension chips' label entities. ─────
+    // POOLED like the dots: a move fires per frame, and adding/removing labels per move makes
+    // Cesium rebuild its label batch so the chips judder (`SiteBoundaryDrawTool.refreshDimLabels`).
+    private readonly dimEntities: CesiumNS.Entity[] = [];
+    // ── §ENVELOPE-ROSTER-ONE-SOURCE (L-13309) — the profile roster's own entities. ─────────
+    // ⛔ A THIRD SET, NOT THE SETTLED ONE: the settled set now carries only the spine and is
+    // cleared on every arm; the roster outlives every gesture and changes only with the roster.
+    private readonly rosterEntities: CesiumNS.Entity[] = [];
+
     // ── §25.6 GESTURE 1 — THE ARROW AFFORDANCE'S OWN ENTITIES (L-13236) ─────────────────────
     // ⛔ POOLED AND REUSED, NEVER RE-ADDED PER FRAME, and that is not micro-optimisation. During a
     // drag `setTarget` is called on EVERY pointer move (the handle rides the face it is pulling),
@@ -446,6 +460,7 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
         committed: readonly ArcVertex2D[],
         tail: readonly ArcVertex2D[],
         closeRing: boolean,
+        dims: readonly EnvelopeDrawDimLabel[] = [],
     ): void {
         const frame = this.frame;
         if (!frame) return;
@@ -511,9 +526,61 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
                     },
                 });
             }
+            // ⭐ §ENVELOPE-DRAW-LIVE-DIMS (L-13308) — the chips, painted where the arming module put them.
+            this.paintDimLabels(dims, frame);
             this.viewer.scene.requestRender();
         } catch (e) {
             console.warn('[site][envelope-draw][3d] preview draw failed (non-fatal):', e);
+        }
+    }
+
+    /**
+     * §ENVELOPE-DRAW-LIVE-DIMS (L-13308) — one Cesium label per chip, pooled; surplus hidden.
+     *
+     * The LOOK is the site views' existing dimension chip (`SiteBoundaryDrawTool.refreshDimLabels`)
+     * in the founder's brand: white with PRYZM-purple text, and the LIVE chip inverted (purple, white
+     * text) so the length under the pointer reads first — the emphasis `DimensionPreview`'s filled
+     * chip gives the slab and wall tools. ⛔ Never black. The TEXT is never composed here.
+     *
+     * ⛔ SEATED ABSOLUTELY at the preview line's lifted ground height, NOT clamped — the 3D Site
+     * hides the globe (see `drawPreview`); `disableDepthTestDistance` keeps a chip readable through
+     * context massing.
+     */
+    private paintDimLabels(dims: readonly EnvelopeDrawDimLabel[], frame: SiteDrawFrame): void {
+        const C = this.C;
+        const violet = C.Color.fromCssColorString(VIOLET_CSS);
+        while (this.dimEntities.length < dims.length) {
+            this.dimEntities.push(this.viewer.entities.add({
+                position: C.Cartesian3.fromDegrees(0, 0),
+                label: {
+                    text: '',
+                    font: DIM_LABEL_FONT,
+                    fillColor: violet,
+                    showBackground: true,
+                    backgroundColor: C.Color.WHITE.withAlpha(0.95),
+                    backgroundPadding: new C.Cartesian2(7, 4),
+                    style: C.LabelStyle.FILL,
+                    horizontalOrigin: C.HorizontalOrigin.CENTER,
+                    verticalOrigin: C.VerticalOrigin.CENTER,
+                    disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                },
+            }));
+        }
+        for (let i = 0; i < this.dimEntities.length; i++) {
+            const ent = this.dimEntities[i]!;
+            const dim = dims[i];
+            if (dim === undefined) { ent.show = false; continue; }
+            const ll = projectXZToLatLon(dim.at, frame);
+            ent.show = true;
+            ent.position = new C.ConstantPositionProperty(
+                C.Cartesian3.fromDegrees(ll.lon, ll.lat, this.groundHeightFor(dim.at) + PREVIEW_LIFT_M),
+            );
+            const label = ent.label;
+            if (!label) continue;
+            const live = dim.kind === 'live';
+            label.text = new C.ConstantProperty(dim.text);
+            label.fillColor = new C.ConstantProperty(live ? C.Color.WHITE : violet);
+            label.backgroundColor = new C.ConstantProperty(live ? violet : C.Color.WHITE.withAlpha(0.95));
         }
     }
 
@@ -525,6 +592,9 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
                 this.viewer.entities.remove(this.lineEntity);
                 this.lineEntity = null;
             }
+            // §ENVELOPE-DRAW-LIVE-DIMS — the chips belong to the draft and end with it.
+            for (const ent of this.dimEntities) this.viewer.entities.remove(ent);
+            this.dimEntities.length = 0;
             this.viewer.scene?.requestRender?.();
         } catch { /* viewer torn down — nothing to clear */ }
     }
@@ -615,6 +685,96 @@ export class SiteEnvelopeDrawCesium implements EnvelopeDrawSurface, SpaceEnvelop
             if (this.settledLine) { this.viewer.entities.remove(this.settledLine); this.settledLine = null; }
             this.viewer.scene?.requestRender?.();
         } catch { /* viewer torn down — nothing to clear */ }
+    }
+
+    /**
+     * ⭐⭐ §ENVELOPE-ROSTER-ONE-SOURCE (L-13309) — EVERY roster profile on the globe until the roster
+     * says otherwise. The founder: *"it renders perfect on plan view - but i would like it to render
+     * also on 3d site view"* and *"the previous profile gets deleted from the view"*.
+     *
+     * The look is the settled ring's (faint violet fill + violet outline — the footprint he called
+     * "perfect" on the plan) WITHOUT the corner dots and chips the live draft carries, so the draft
+     * being drawn over the roster is always the one with handles.
+     *
+     * ⚠ IT RESOLVES ITS OWN FRAME, like `drawSettledRing`: the roster repaints after the finish has
+     * disarmed every surface (`this.frame` is null) and on registration, when nothing is armed.
+     *
+     * ⚠ THE SEAT, and why its fallback order differs from the preview's. A ring drawn on THIS view has
+     * a picked height per corner (`groundHeightAtVertex`) and uses it. A ring drawn on the 2D MAP has
+     * none and there is no pointer to follow, so the honest seat is the datum the rasteriser will seat
+     * the CREATED envelope on (`getSceneFrame().baseHeightM`) — the outline sits where the block's
+     * base will be. Only then the last pick, then the ellipsoid. The outline also carries a
+     * `depthFailMaterial`, so a seat the terrain has not resolved yet (the ellipsoid, tens of metres
+     * under the tiles at an inland site) still shows its outline instead of vanishing underground.
+     */
+    drawProfileRoster(rings: readonly EnvelopeRosterRing[]): void {
+        const span = _tracer.startSpan('pryzm.site.envelopeDrawCesium.drawProfileRoster');
+        try {
+            this.clearProfileRoster();
+            span.setAttribute('pryzm.envelopeDraw.rings', rings.length);
+            if (rings.length === 0) return;
+            const frame = this.frame ?? this.resolveFrameNow();
+            if (!frame) {
+                console.warn(
+                    '[site][envelope-draw][3d] §ENVELOPE-ROSTER-ONE-SOURCE the profile roster holds '
+                    + `${rings.length} ring(s) but the site frame origin is not resolvable on the 3D Site, `
+                    + 'so none is drawn here. The roster still holds them and the panel still lists them.',
+                );
+                return;
+            }
+            const C = this.C;
+            const violet = C.Color.fromCssColorString(VIOLET_CSS);
+            for (const r of rings) {
+                if (r.ring.length < 3) continue;
+                const positions = r.ring.map((p) => {
+                    const ll = projectXZToLatLon(p, frame);
+                    return C.Cartesian3.fromDegrees(ll.lon, ll.lat, this.rosterSeatFor(p) + PREVIEW_LIFT_M);
+                });
+                this.rosterEntities.push(this.viewer.entities.add({
+                    polygon: {
+                        hierarchy: new C.PolygonHierarchy(positions),
+                        // ⛔ `perPositionHeight` — each corner keeps its own seat (see above).
+                        perPositionHeight: true,
+                        material: violet.withAlpha(0.13),
+                        outline: false,
+                        shadows: C.ShadowMode.DISABLED,
+                    },
+                }));
+                this.rosterEntities.push(this.viewer.entities.add({
+                    polyline: {
+                        positions: [...positions, positions[0]!],
+                        width: 2.5,
+                        material: violet,
+                        depthFailMaterial: violet.withAlpha(0.45),
+                    },
+                }));
+            }
+            this.viewer.scene?.requestRender?.();
+        } catch (e) {
+            console.warn('[site][envelope-draw][3d] profile-roster draw failed (non-fatal):', e);
+        } finally {
+            span.end();
+        }
+    }
+
+    /** Idempotent; safe after teardown and when nothing was ever drawn. */
+    clearProfileRoster(): void {
+        try {
+            for (const ent of this.rosterEntities) this.viewer.entities.remove(ent);
+            this.rosterEntities.length = 0;
+            this.viewer.scene?.requestRender?.();
+        } catch { /* viewer torn down — nothing to clear */ }
+    }
+
+    /** §ENVELOPE-ROSTER-ONE-SOURCE — the roster's seat order; see `drawProfileRoster`. */
+    private rosterSeatFor(p: { readonly x: number; readonly z: number }): number {
+        const picked = this.groundHeightAtVertex.get(vertexKey(p));
+        if (picked !== undefined) return picked;
+        try {
+            const seat = this.deps.getSceneFrame?.()?.baseHeightM;
+            if (typeof seat === 'number' && Number.isFinite(seat)) return seat;
+        } catch { /* a host that throws tells us nothing; fall through */ }
+        return this.lastGroundHeightM ?? 0;
     }
 
     // ══════════════════════════════════════════════════════════════════════════════════════

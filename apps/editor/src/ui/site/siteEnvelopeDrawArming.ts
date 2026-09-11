@@ -72,15 +72,26 @@ import { polygonSignedAreaOrdinates } from '@pryzm/geometry-kernel';
 // "same as the wall" is true BY CONSTRUCTION and cannot drift into three matching literals.
 import { WALL_DRAW_MODES, type CreationMode } from '@app/engine/views/plantools/elementCreationMatrix';
 import { resolveActiveProjectId } from '@app/engine/project/activeProjectId';
-import type { EnvelopeDrawSink, EnvelopeDrawSurface, SceneXZPoint } from './envelopeDrawSurface';
+import type {
+    EnvelopeDrawSink,
+    EnvelopeDrawSurface,
+    EnvelopeRosterRing,
+    SceneXZPoint,
+} from './envelopeDrawSurface';
 import {
+    clearDrawnEnvelopeFootprint,
+    envelopeRosterRings,
     getDrawnEnvelopeFootprint,
+    getDrawnEnvelopeProfiles,
     setDrawnEnvelopeFootprint,
     subscribeDrawnEnvelopeFootprint,
     type EnvelopeDrawMode,
 } from './drawnEnvelopeFootprintState';
 // §ARRAY-ALONG-PATH (ADR-0386 D6) — the SECOND sink this ONE gesture driver can finish into.
 import { arrayPathLengthM, setDrawnArrayPath } from './envelopeArrayPathState';
+// §ENVELOPE-DRAW-LIVE-DIMS (L-13308) — the live chips. Decided HERE, because this is the one place
+// that knows the mode and which placed vertices came from one arc click; both adapters only paint.
+import { loopPreviewDims, pathPreviewDims, type EnvelopeArcRun } from './envelopeDrawDims';
 
 const _tracer = trace.getTracer('pryzm.site.siteEnvelopeDrawArming');
 
@@ -305,6 +316,13 @@ const author = new BoundaryPathAuthor();
 let loopFirst: SceneXZPoint | null = null;
 /** The last pointer position over ground, for the rubber-band. */
 let cursor: SceneXZPoint | null = null;
+/**
+ * §ENVELOPE-DRAW-LIVE-DIMS (L-13308) — which placed vertices came from ONE curved click, so the arc
+ * gets ONE chip (`~… (arc)`, the wall tool's own marking) instead of sixteen. `BoundaryPathAuthor`
+ * appends the tessellated run into its plain point list, so only this driver — which saw the click
+ * answer `'arc-segment'` — can know. Cleared with the gesture; trimmed on Backspace.
+ */
+let arcRuns: EnvelopeArcRun[] = [];
 
 // ── ⭐ §ENVELOPE-DRAW-SETTLED-RING (L-13148) — THE FINISHED PERIMETER STAYS ON SCREEN ───────
 //
@@ -376,6 +394,82 @@ function ensureSlotSubscription(): void {
     slotUnsub = subscribeDrawnEnvelopeFootprint(() => {
         if (getDrawnEnvelopeFootprint() === null) clearSettledRing();
     });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ §ENVELOPE-ROSTER-ONE-SOURCE (L-13309 · ADR-0383 S5) — THE ROSTER IS WHAT IS PAINTED
+// ══════════════════════════════════════════════════════════════════════════════════════════════
+// The founder: *"When the user adds another profile - the previous profile gets deleted from the
+// view - then it is still there - but we dont render - neither in plan view nor in 3d view"* and
+// *"it renders perfect on plan view - but i would like it to render also on 3d site view"*.
+//
+// ⛔ BOTH WERE ONE DEFECT IN THE SETTLED-RING LIFECYCLE ABOVE, WHICH WAS WRITTEN FOR A SLOT:
+//   · `finish()` painted the finished ring on `from` — the ONE surface that owned the gesture — so
+//     a perimeter closed on the 2D map was never asked of the 3D Site (3.1);
+//   · `armEnvelopeDraw()` cleared it (*"a new draw drops the previous outline"*), and both "Another
+//     Profile" controls ARM — so the moment profile 2 started, profile 1 left the screen while it
+//     stayed in the roster (3.3).
+// That rule was right when the slot held ONE ring. ADR-0383 S5 made it a ROSTER and nothing
+// re-derived the paint from it (the same gap left array-path copies unpainted before Create).
+//
+// ⭐ SO THE PAINT IS NOW A FUNCTION OF THE ROSTER, PUSHED TO EVERY REGISTERED SURFACE: one
+// subscription to the roster's change channel, one `envelopeRosterRings(getDrawnEnvelopeProfiles())`
+// read, one `drawProfileRoster` per surface. A surface that registers later (3D Site opened after
+// drawing on the map; the Cesium adapter re-created by `rewireSiteEnvelopeSurfaces`) is painted on
+// registration and cleared on unregistration. Arm, re-arm, cancel and which pane won the first click
+// cannot change what is painted, because none of them change the roster.
+//
+// ⛔ NO `runtime?.events?.on` AT MOUNT — the channel is module-local, so the null-at-mount race has
+// nothing to race: registration IS the mount.
+
+/** The one roster subscription — renewed on every registration (see `ensureRosterSubscription`). */
+let rosterUnsub: (() => void) | null = null;
+
+/**
+ * ⚠ RENEWED, NOT INSTALLED ONCE — the trap `ensureSlotSubscription` records: resetting the roster
+ * module empties its listener set, so a handle held across that is dead while still non-null.
+ * Re-subscribing on every registration (unsubscribe is idempotent) keeps the paint live whatever
+ * order a host or a suite resets in. Registrations are mount events, so this costs nothing.
+ */
+function ensureRosterSubscription(): void {
+    try { rosterUnsub?.(); } catch { /* a dead handle is the case this exists for */ }
+    rosterUnsub = subscribeDrawnEnvelopeFootprint(() => { repaintEnvelopeProfileRoster(); });
+}
+
+function paintRosterOn(surface: EnvelopeDrawSurface, rings: readonly EnvelopeRosterRing[]): boolean {
+    // ⚠ OPTIONAL, like `drawSettledRing`: a surface without it stores and names the profiles but
+    // paints none — a reachability statement, never an error.
+    if (typeof surface.drawProfileRoster !== 'function') return false;
+    try {
+        surface.drawProfileRoster(rings);
+        return true;
+    } catch (e) {
+        console.warn(`[site][envelope-draw] ${surface.surfaceId}.drawProfileRoster threw (non-fatal):`, e);
+        return false;
+    }
+}
+
+/**
+ * Paint the CURRENT roster on every registered surface; returns how many accepted.
+ *
+ * Exported for a host whose picture went stale WITHOUT the roster changing (a terrain re-seat): one
+ * call re-derives every surface from the one source, rather than a host keeping its own copy of what
+ * was painted.
+ *
+ * P8: `pryzm.site.repaintEnvelopeProfileRoster`.
+ */
+export function repaintEnvelopeProfileRoster(): number {
+    const span = _tracer.startSpan('pryzm.site.repaintEnvelopeProfileRoster');
+    try {
+        const rings = envelopeRosterRings(getDrawnEnvelopeProfiles());
+        let painted = 0;
+        for (const s of [...registered]) if (paintRosterOn(s, rings)) painted++;
+        span.setAttribute('pryzm.envelopeDraw.rings', rings.length);
+        span.setAttribute('pryzm.envelopeDraw.surfaces', painted);
+        return painted;
+    } finally {
+        span.end();
+    }
 }
 
 /** What the gesture is doing, in the user's words — read by the panel's status line. */
@@ -501,11 +595,19 @@ export function registerEnvelopeDrawSurface(surface: EnvelopeDrawSurface): () =>
     const span = _tracer.startSpan('pryzm.site.registerEnvelopeDrawSurface');
     try {
         if (!registered.includes(surface)) registered.push(surface);
+        // ⭐ §ENVELOPE-ROSTER-ONE-SOURCE (L-13309) — a surface that mounts AFTER profiles were drawn
+        // (3D Site opened after drawing on the map) shows them now, not on the next roster change.
+        ensureRosterSubscription();
+        paintRosterOn(surface, envelopeRosterRings(getDrawnEnvelopeProfiles()));
         span.setAttribute('pryzm.envelopeDraw.surface', surface.surfaceId);
         span.setAttribute('pryzm.envelopeDraw.registered', registered.length);
         return () => {
             const i = registered.indexOf(surface);
             if (i >= 0) registered.splice(i, 1);
+            // ⭐ §ENVELOPE-ROSTER-ONE-SOURCE — take THIS surface's roster paint with it. The Cesium
+            // adapter is re-created on the SAME viewer by `rewireSiteEnvelopeSurfaces`; without this
+            // the old adapter's rings would stay in that viewer under the new adapter's copy.
+            try { surface.clearProfileRoster?.(); } catch { /* mid-teardown — the entities went with it */ }
             // The surface holding the settled outline is going away with its entities; drop the
             // pointer so a later clear does not call into a torn-down viewer.
             if (settledOn === surface) settledOn = null;
@@ -570,6 +672,7 @@ function resetGesture(): void {
     author.reset();
     loopFirst = null;
     cursor = null;
+    arcRuns = [];
     owner = null;
     // ⛔ §ARRAY-ALONG-PATH — THE INTENT DIES WITH THE GESTURE. Every exit runs through here
     // (finish, cancel, re-arm, an unregister while armed), so `'array-path'` can never outlive
@@ -674,10 +777,14 @@ function repaintPreview(): void {
     const mode = _mode;
     try {
         if (isBoundaryLoopMode(mode)) {
-            if (loopFirst === null) { target.drawPreview([], [], false); return; }
+            if (loopFirst === null) { target.drawPreview([], [], false, []); return; }
             const ring = cursor ? boundaryLoopVertices(mode, loopFirst, cursor) : [];
             // Below the loop's minimum extent the generator returns []; show the anchor alone.
-            target.drawPreview(ring.length >= 3 ? [] : [loopFirst], ring, ring.length >= 3);
+            // §ENVELOPE-DRAW-LIVE-DIMS (L-13308) — the chips measure THE SAME ring the preview draws
+            // and the commit will use; an empty ring gets none, never a number for a shape that the
+            // generator refuses to make.
+            const dims = cursor ? loopPreviewDims(mode, loopFirst, cursor, ring) : [];
+            target.drawPreview(ring.length >= 3 ? [] : [loopFirst], ring, ring.length >= 3, dims);
             return;
         }
         const committed = author.points;
@@ -688,7 +795,17 @@ function repaintPreview(): void {
         // commit disagreeing about what is being drawn, which is the defect the loop preview's
         // own "generated from THE SAME ring the commit will use" note exists to prevent.
         const closeRing = _intent === 'perimeter' && committed.length + tail.length >= 3;
-        target.drawPreview(committed, tail, closeRing);
+        // ⭐ §ENVELOPE-DRAW-LIVE-DIMS (L-13308) — measured from the SAME arrays and the SAME
+        // `closeRing` the line is drawn from, so a chip can never label an edge the preview does not
+        // show (and a spine, never closed, never gets a closing chip).
+        const dims = pathPreviewDims({
+            committed,
+            tail,
+            closeRing,
+            arcRuns,
+            tailIsArc: mode === 'curved' && author.pendingArcMidpoint !== null,
+        });
+        target.drawPreview(committed, tail, closeRing, dims);
     } catch (e) {
         console.warn('[site][envelope-draw] preview draw threw (non-fatal):', e);
     }
@@ -807,11 +924,12 @@ function finish(rawRing: readonly ArcVertex2D[], mode: EnvelopeDrawMode): void {
     resetGesture();
     disarmAll();
     setDrawnEnvelopeFootprint({ ring: stored, areaM2, surfaceId: from.surfaceId, mode });
-    // ⭐ §ENVELOPE-DRAW-SETTLED-RING — AFTER the store write, never before: the write is the thing
-    // that can refuse (a degenerate ring), and painting first would leave an outline on screen for
-    // a perimeter the slot rejected. `from` is captured above because `resetGesture()` has already
-    // nulled `owner` by the time we get here.
-    paintSettledRing(from, stored, true);
+    // ⭐ §ENVELOPE-ROSTER-ONE-SOURCE (L-13309) — NOTHING IS PAINTED HERE, AND THAT IS THE FIX. The
+    // write above notifies the roster channel, which repaints EVERY registered surface from the
+    // roster (`repaintEnvelopeProfileRoster`). The `paintSettledRing(from, …)` that stood here painted
+    // only the surface that owned the gesture — a ring closed on the 2D map never reached the 3D Site
+    // (3.1) — and the next arm wiped it (3.3). The L-13148 rule survives unchanged: the store write is
+    // still the thing that may refuse, so a degenerate ring leaves the roster, and the paint, as it was.
     console.log(
         `[site][envelope-draw] §ENVELOPE-DRAW finished on ${from.surfaceId}: ${stored.length} corners · `
         + `${areaM2.toFixed(1)} m² · mode=${mode}. Handed to the create panel — nothing is dispatched here (P6).`,
@@ -869,7 +987,13 @@ function makeSink(surface: EnvelopeDrawSurface): EnvelopeDrawSink {
                 finish(boundaryLoopVertices(mode, loopFirst, p), mode);
                 return;
             }
-            author.click(mode, { x: p.x, z: p.z });
+            // §ENVELOPE-DRAW-LIVE-DIMS (L-13308) — remember which placed vertices ONE arc click
+            // appended, so the arc gets one chip. The author reports it; nothing here re-derives it.
+            const before = author.pointCount;
+            const outcome = author.click(mode, { x: p.x, z: p.z });
+            if (outcome === 'arc-segment' && before >= 1) {
+                arcRuns.push({ start: before - 1, end: author.pointCount - 1 });
+            }
             repaintPreview();
             notifyStatus();
         },
@@ -918,7 +1042,16 @@ function makeSink(surface: EnvelopeDrawSurface): EnvelopeDrawSink {
         onUndo(): void {
             if (!live() || owner !== surface) return;
             if (isBoundaryLoopMode(_mode)) loopFirst = null;
-            else author.undo();
+            else {
+                author.undo();
+                // §ENVELOPE-DRAW-LIVE-DIMS — Backspace pops ONE chord of an arc run; the run shrinks
+                // with it (and goes when nothing of it is left), so the one chip keeps measuring what
+                // is actually drawn rather than a chord that no longer exists.
+                const lastIdx = author.pointCount - 1;
+                arcRuns = arcRuns
+                    .map((r) => ({ start: r.start, end: Math.min(r.end, lastIdx) }))
+                    .filter((r) => r.end > r.start);
+            }
             lastRefusal = null;
             repaintPreview();
             notifyStatus();
@@ -941,6 +1074,10 @@ export function __resetEnvelopeDrawArmingForTests(): void {
     // listener set, so the stored unsubscribe already points at nothing. Dropping it is what lets
     // the next paint install a live one. See `ensureSlotSubscription`.
     slotUnsub = null;
+    // §ENVELOPE-ROSTER-ONE-SOURCE — CALLED, then dropped: unsubscribing from an emptied listener set
+    // is a no-op, and calling it stops a live one repainting into the next case's fresh surfaces.
+    try { rosterUnsub?.(); } catch { /* already gone */ }
+    rosterUnsub = null;
     resetGesture();
     for (const s of [...armed]) { armed.delete(s); try { s.disarm(); } catch { /* ignore */ } }
     registered.length = 0;
@@ -985,6 +1122,13 @@ export function resetEnvelopeDrawProjectState(): void {
     lastRefusal = null;
     _mode = 'linear';
     _owningProjectId = null;
+    // ⭐ §ENVELOPE-ROSTER-ONE-SOURCE (L-13309) — AND THE PROFILE ROSTER, which is scene coordinates on
+    // ONE plot exactly like the in-flight ring above. It used to survive a switch invisibly (only the
+    // panel listed it); now that the roster is what both site views PAINT, carrying it over would draw
+    // Project A's profiles on Project B's ground. The roster module's own rule: *"a site frame that
+    // moved invalidates every ring drawn about it"*. Clearing it notifies the roster channel, so every
+    // surface's roster paint goes in the same beat.
+    clearDrawnEnvelopeFootprint();
     notifyStatus();
 }
 
@@ -997,7 +1141,9 @@ function holdsProjectScopedState(): boolean {
         || cursor !== null
         || author.pointCount > 0
         || lastRefusal !== null
-        || _mode !== 'linear';
+        || _mode !== 'linear'
+        // §ENVELOPE-ROSTER-ONE-SOURCE — the roster this module's reset now owns (see above).
+        || getDrawnEnvelopeProfiles().length > 0;
 }
 
 /**
@@ -1024,6 +1170,8 @@ export function describeEnvelopeDrawArming(): Record<string, unknown> {
         mode: _mode,
         refusalHeld: lastRefusal !== null,
         stampedProjectId: _owningProjectId,
+        // §ENVELOPE-ROSTER-ONE-SOURCE — the roster this module's project reset now clears.
+        rosterProfiles: getDrawnEnvelopeProfiles().length,
     };
 }
 
