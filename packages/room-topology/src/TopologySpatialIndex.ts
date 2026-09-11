@@ -97,6 +97,10 @@ export class TopologySpatialIndex {
         // create/update → mark dirty; geometry may not be ready yet (Builder
         //                 runs after the store event, so we defer to next query)
         storeEventBus.subscribe((event) => {
+            // §FIX-LIGHT-TOPOLOGY-SKIP (2026-09-10) — lighting fixtures do not participate
+            // in room topology (no adjacency, no room bounds). Skip them so a lighting
+            // create/move/delete cannot dirty the index.
+            if (event.elementType === 'lighting') return;
             if (event.operation === 'delete') {
                 this.remove(event.elementId);
             } else {

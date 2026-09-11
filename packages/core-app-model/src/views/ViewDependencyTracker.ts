@@ -149,6 +149,15 @@ const GEOMETRY_ELEMENT_TYPES = new Set([
  */
 export const PLAN_INCREMENTAL_SAFE_TYPES: ReadonlySet<string> = new Set([
     'wall', 'slab', 'beam', 'ceiling', 'floor',
+    // §FIX-LIGHT-PLAN-INCREMENTAL (2026-09-10) — lighting fixtures are pure
+    // store-driven canvas symbols (`renderLightingSymbols`). They contribute
+    // ZERO LineSegments to the technical drawing and do not affect any other
+    // element's projection. Graft-eligibility means a create/update re-paints
+    // only the changed fixture (O(dirty)) instead of re-projecting all N
+    // elements on the level (O(N)). A delete still takes the coarse path,
+    // which is correct: removing a symbol from the canvas needs the full
+    // paint, but placing or moving one does not.
+    'lighting',
 ]);
 
 /** Debounce interval in ms — chosen to absorb OBC WebWorker projection timing. */

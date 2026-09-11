@@ -331,6 +331,12 @@ export class TopologyLayer {
     // ── Private — store event handling ────────────────────────────────────────
 
     private _handleStoreChange(event: StoreChangeEvent): void {
+        // §FIX-LIGHT-TOPOLOGY-SKIP (2026-09-10) — lighting fixtures are not structural
+        // BIM elements. They do not bound rooms, join walls, or participate in any
+        // adjacency relationship. Rebuilding the spatial index + adjacency graph for a
+        // lighting create/move/delete is a pure O(N) waste: the graph is unchanged.
+        if (event.elementType === 'lighting') return;
+
         if (event.operation === 'delete') {
             // Immediate removal: compute the removed edges so we can emit them.
             const removed = this._adjacency.getEdges(event.elementId).slice();

@@ -418,6 +418,6 @@ describe('ViewDependencyTracker — per-edit blast radius (SPEC-30 §9, C16 §8 
         // "pure projection, no whole-view symbol pass" types. Anything outside this set
         // (door, window, furniture, stair, column, roof, opening) costs a FULL pass.
         expect([...PLAN_INCREMENTAL_SAFE_TYPES].sort())
-            .toEqual(['beam', 'ceiling', 'floor', 'slab', 'wall']);
+            .toEqual(['beam', 'ceiling', 'floor', 'lighting', 'slab', 'wall']);
     });
 });

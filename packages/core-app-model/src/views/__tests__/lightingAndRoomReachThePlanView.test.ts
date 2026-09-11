@@ -211,14 +211,68 @@ describe('§PLAN-MEMBERSHIP — lighting and room mutations reach the plan view'
 
     it('C4 — `stairRailing` (what StairRailingStore actually emits) MISSES the Set: the member is spelled `stair-railing`', async () => {
         await emitAndSettle({ elementId: 'rail-1', elementType: 'stairRailing', operation: 'create' });
-        // Dropped at the membership check — no reprojection, no fallback warn.
         expect(reprojected).toEqual([]);
 
-        // …while the hyphenated spelling in the Set does pass the check. Nothing in
-        // production emits it on `storeEventBus` (it is a `userData.elementType`
-        // value), so this half is the proof the miss is a SPELLING gap and not an
-        // intentional exclusion.
         await emitAndSettle({ elementId: 'rail-1', elementType: 'stair-railing', operation: 'create' });
         expect(reprojected).toEqual([PLAN_L0.id]);
+    });
+});
+
+// ── §FIX-LIGHT-PLAN-INCREMENTAL — graft-eligibility for lighting ───────────────
+// Lighting is a store-driven canvas symbol (ZERO projected LineSegments). A
+// create/update must therefore be graft-eligible: the driver re-paints only the
+// changed fixture, not all N elements on the level. A delete still takes the
+// coarse path because removing a symbol from the canvas needs the full paint.
+
+describe('§FIX-LIGHT-PLAN-INCREMENTAL — lighting graft-eligibility', () => {
+    let tracker: ViewDependencyTracker;
+    let graftCalls: Array<{ viewId: string; graftIds: ReadonlySet<string> | undefined }>;
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        invalidate.mockClear();
+        invalidateElement.mockClear();
+        beginSwap.mockClear();
+        _views = [PLAN_L0];
+        graftCalls = [];
+        tracker = new ViewDependencyTracker();
+        tracker.init();
+        tracker.registerElement('lt-1', 'L0');
+        tracker.onReprojectionNeeded = async (viewId, _gen, graftIds) => {
+            graftCalls.push({ viewId, graftIds });
+        };
+    });
+
+    afterEach(() => {
+        tracker.destroy();
+        vi.useRealTimers();
+    });
+
+    async function emitAndSettle(e: { elementId: string; elementType: string; operation: string }): Promise<void> {
+        _emitStoreEvent!({ timestamp: Date.now(), ...e });
+        await vi.advanceTimersByTimeAsync(400);
+    }
+
+    it('a lighting CREATE offers the graft fast-path with only the new fixture id', async () => {
+        await emitAndSettle({ elementId: 'lt-1', elementType: 'lighting', operation: 'create' });
+        expect(graftCalls).toHaveLength(1);
+        expect(graftCalls[0].viewId).toBe(PLAN_L0.id);
+        expect(graftCalls[0].graftIds).toBeInstanceOf(Set);
+        expect([...graftCalls[0].graftIds!]).toEqual(['lt-1']);
+    });
+
+    it('a lighting UPDATE offers the graft fast-path with only the moved fixture id', async () => {
+        await emitAndSettle({ elementId: 'lt-1', elementType: 'lighting', operation: 'update' });
+        expect(graftCalls).toHaveLength(1);
+        expect(graftCalls[0].viewId).toBe(PLAN_L0.id);
+        expect(graftCalls[0].graftIds).toBeInstanceOf(Set);
+        expect([...graftCalls[0].graftIds!]).toEqual(['lt-1']);
+    });
+
+    it('a lighting DELETE takes the coarse path (graftIds undefined) — symbol removal needs the full paint', async () => {
+        await emitAndSettle({ elementId: 'lt-1', elementType: 'lighting', operation: 'delete' });
+        expect(graftCalls).toHaveLength(1);
+        expect(graftCalls[0].viewId).toBe(PLAN_L0.id);
+        expect(graftCalls[0].graftIds).toBeUndefined();
     });
 });
