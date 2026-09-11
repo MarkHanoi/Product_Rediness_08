@@ -59,6 +59,8 @@ import { removeEnvelopesFromDraft } from './removeEnvelopes.js';
 // See `spaceEnvelopeRecord.ts` for why they were extracted rather than copied.
 import { spaceEnvelopeRecordOf, type CreateSpaceEnvelopeSpec } from '../spaceEnvelopeRecord.js';
 
+const isRec = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
 
 
 export interface CreateSpaceEnvelopeBatchPayload {
@@ -202,6 +204,47 @@ implements CommandHandler<CreateSpaceEnvelopeBatchPayload, Stores> {
                     ctx, cmd, new Set(fresh.map((r) => r.id)),
                 );
                 if (supersedeRefusal) throw new SpaceEnvelopeGeometryError(supersedeRefusal);
+
+                // §FIX-ENVELOPE-UNIQUE-NAMING (2026-09-11) — every envelope carries a queryable
+                // human-readable name. Callers that omit `name` get an auto-generated one of the
+                // form ENV_{ROLE}_{levelId}_{seq:03d}, where seq counts existing envelopes with
+                // the same role on the same level plus this batch's siblings. Names are unique
+                // within a level+role pair and survive save/load, so RAC can query
+                // "Create walls on envelope ENV_LEVEL_L0_001".
+                const seenNames = new Set<string>();
+                const seqByLevelRole = new Map<string, number>();
+                const storeState = ctx.stores.spaceEnvelope;
+                const state = typeof storeState.getState === 'function' ? storeState.getState() : storeState;
+                const entries = typeof (state as any).values === 'function'
+                    ? (state as any).values()
+                    : Object.values(state as Record<string, Record<string, unknown>>);
+                for (const existing of entries) {
+                    if (!isRec(existing)) continue;
+                    if (existing.name && typeof existing.name === 'string') {
+                        seenNames.add(existing.name);
+                    }
+                    const key = `${existing.levelId}:${existing.role}`;
+                    seqByLevelRole.set(key, (seqByLevelRole.get(key) ?? 0) + 1);
+                }
+                // Account for siblings in this same batch (they share level+role).
+                for (const rec of fresh) {
+                    const key = `${rec.levelId}:${rec.role}`;
+                    seqByLevelRole.set(key, (seqByLevelRole.get(key) ?? 0) + 1);
+                }
+                for (const rec of fresh) {
+                    if (rec.name && rec.name.trim().length > 0) continue;
+                    const key = `${rec.levelId}:${rec.role}`;
+                    const seq = seqByLevelRole.get(key) ?? fresh.length;
+                    const roleLabel = rec.role === 'level' ? 'LEVEL' : 'ROOM';
+                    const candidate = `ENV_${roleLabel}_${rec.levelId}_${String(seq).padStart(3, '0')}`;
+                    let unique = candidate;
+                    let n = 1;
+                    while (seenNames.has(unique)) {
+                        unique = `${candidate}_${n++}`;
+                    }
+                    seenNames.add(unique);
+                    (rec as Record<string, unknown>).name = unique;
+                }
 
                 // ⭐ ONE `produceCommand` FOR THE WHOLE SET — one Immer patch pair, one
                 // ring entry, one Ctrl+Z. This single call is what the "one gesture =
