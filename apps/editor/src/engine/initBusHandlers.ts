@@ -99,6 +99,8 @@ import {
   UpdateRoomBoundaryCommand,
   UpdateLevelCommand,
   AddLevelCommand,
+  // §LEVEL-DELETE-ON-THE-BUS (L-13306) — the `level.delete` bridge below.
+  DeleteLevelCommand,
   UpdateGridCommand,
   AddGridCommand,
   UpdateViewDefinitionCommand,
@@ -2370,6 +2372,19 @@ export function initBusHandlers(
                 if ((cmd as any)._skipBridge) return;
                 _cmExec(new AddLevelCommand({ levelId: cmd.levelId, name: cmd.name, elevation: cmd.elevation, height: cmd.height }));
             },
+        },
+        // §LEVEL-DELETE-ON-THE-BUS (L-13306) — the storey "−" beside the Master planning levels
+        // (founder, 2026-09-11: "add levels, delete levels (with a simple + - options next to
+        // current levels)"). `DeleteLevelCommand` existed only on the legacy registry
+        // (CommandRegistry.ts DELETE_LEVEL), so no UI could reach it through the bus (P6).
+        // ⛔ `_cmExecOrRefuse`, NOT `_cmExec`: the command's own guards — the last remaining
+        // level, a level that still contains elements — must reach the caller BY NAME. `_cmExec`
+        // drops the legacy verdict, so a refused delete would read as done.
+        {
+            type: 'level.delete',
+            stores: [] as const,
+            validate: (cmd) => (!cmd.levelId ? 'levelId is required' : null),
+            fn: (cmd) => { _cmExecOrRefuse('level.delete', new DeleteLevelCommand({ levelId: cmd.levelId })); },
         },
 
         // ── E.5.4: grid bridges ─────────────────────────────────────────────

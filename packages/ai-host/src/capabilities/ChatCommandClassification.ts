@@ -457,6 +457,11 @@ const E_REGENERATE = family(
 const F_NEXT = [
   ...family('F', 'Same user-text rename shape as rename-room; deferred to bound this tranche (needs a sheet/view reference, which selection does not provide today).', ['sheet.rename', 'view.rename'], { potentialCapability: 'rename-sheet / rename-view' }),
   ...family('F', 'Width+height pair with the set-width shape (set-width drives the width half today); deferred to bound this tranche.', ['structural.setDimensions'], { potentialCapability: 'set-structural-dimensions' }),
+  // §LEVEL-DELETE-ON-THE-BUS (L-13306) — registered for the Master planning storey "−". Class F,
+  // not B, because nothing is missing: the bridge runs DeleteLevelCommand through
+  // `_cmExecOrRefuse`, so its own refusals (last level, a level still holding elements) already
+  // reach any caller by name — a chat capability would inherit them unchanged.
+  ...family('F', 'Deleting a named storey is chat-shaped ("delete level 3") and the verb already refuses by name when the storey holds elements or is the last one; deferred only to bound this tranche, whose surface is the Master planning levels row.', ['level.delete'], { potentialCapability: 'delete-level' }),
 ];
 
 const D_DEAD_F = family(

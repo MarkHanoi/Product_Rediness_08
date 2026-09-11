@@ -973,6 +973,12 @@ export type MiscMutationCommands = {
      * §R7-CONTRACT: see C02 §3.4 and C03 §6 for the level.add dual-write invariant.
      */
     'level.add':                { levelId: string; name?: string; elevation?: number; height?: number; _skipBridge?: boolean };
+    /**
+     * §LEVEL-DELETE-ON-THE-BUS (L-13306) — the storey "−" of the Master planning levels row.
+     * Bridges to the legacy `DeleteLevelCommand`, whose guards (the last remaining level, a level
+     * that still contains elements) reach the caller BY NAME as a rejected dispatch.
+     */
+    'level.delete':             { levelId: string };
     'template.create':          { id: string; name: string; scope: string; [k: string]: unknown };
     'template.assignToNode':    { nodeId: string; nodeType: string; templateId: string; assignedBy?: string };
     'level.createMultiple':     { count?: number; spacing?: number; startElevation?: number };

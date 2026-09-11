@@ -371,6 +371,14 @@ export const SYNC_DISPOSITIONS: Readonly<Record<string, SyncDisposition>> = {
       'routing (levelId selects the doc, so it cannot also be a record within one). ' +
       'Needs a coordination-scope disposition kind; W5-3 did not wire it.',
   },
+  'level.delete': {
+    kind: 'not-synced',
+    reason:
+      'The inverse of level.add, not-synced for the same reason: a LEVEL is not an element ' +
+      'but coordination-doc state with its own ADR-049 routing (levelId selects the doc, so ' +
+      'it cannot also be a record within one). Both verbs need a coordination-scope ' +
+      'disposition kind before either can replicate (L-13306).',
+  },
   'room.redetect': {
     kind: 'not-synced',
     reason:

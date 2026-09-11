@@ -15,9 +15,9 @@ change, not a rename — see C69 §2.
 
 | | |
 |---|---|
-| Handler files read | 1453 (floor 900) |
-| **Verbs** | **379** (floor 250) |
-| LIVE | 168 |
+| Handler files read | 1460 (floor 900) |
+| **Verbs** | **380** (floor 250) |
+| LIVE | 169 |
 | REFUSES | 37 |
 | SHADOWED (dead route) | 0 |
 | UNKNOWN | 174 |
@@ -209,6 +209,7 @@ These numbers are re-derived on every run. Do not transcribe them anywhere else
 | `hierarchy.createUnit` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
 | `hierarchy.updateNode` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified C |
 | `level.add` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: add-level |
+| `level.delete` | apps/editor | LIVE | legacy geometry store (via commandManager) | UNKNOWN | not-synced (reason declared) | classified F |
 | `level.duplicate-floor-plan` | plugins/levels | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | capability: duplicate-level |
 | `level.update` | apps/editor | LIVE | legacy geometry store (via commandManager) | legacy-stack (no affectedStores) | not-synced (reason declared) | classified B |
 | `lift.create` | plugins/lift | UNKNOWN | UNKNOWN | patch-pair → lift + liftPart + wall + curtainwall + door + slab | synced via 'liftId' (disclose) | deferred (CHAT_UNAVAILABLE) |
