@@ -380,6 +380,27 @@ export const SOURCES = {
       + 'marker. It is a bake STAMP (heights/usasNationalStamp.mjs stampUsasNationalHeightsOnGeojsonseq), NOT a footprint fetcher — a region must '
       + 'declare heightJoin:\'usas\' (bake.mjs dispatch + stampBboxesFor → US_NATIONAL_BBOXES) to receive it.',
   },
+  // §US-3DEP-HAG (L-13314, 2026-09-11, lane DELAWARE-HEIGHTS) — the LiDAR FILL tier INSIDE the usas stamp. NOT a
+  // REGION_SOURCE key (delaware stays 'usas_national'): it has no stamp of its own and is reached only through
+  // heights/usasNationalStamp.mjs, for footprints the city channel / USA Structures left without a height.
+  us_3dep_hag: {
+    country: 'us', name: 'USGS 3DEP LiDAR Height-Above-Ground (Planetary Computer COGs, 2 m) — a fill tier inside the usas stamp', impl: 'live',
+    provenance: 'tagged', lodNow: 'LoD1-real-height (LiDAR HAG P50, canopy-guarded; armed for delaware only)', lodNext: 'point-level class-6 roof P95 over the 2023 QL1 COPC/EPT (needs a LAZ decoder — priced, not built)',
+    endpoint: 'planetarycomputer.microsoft.com/api/stac/v1/search (collections 3dep-lidar-hag + 3dep-lidar-returns) + anonymous SAS /api/sas/v1/token/<collection>',
+    heightField: 'P50 of HeightAboveGround over the 1 m-eroded OSM footprint interior (2 m pixel centres), admitted only when ≥ 75 % of the '
+      + 'interior sits on single-return LiDAR cells; stamped only where the city channel and USA Structures left the footprint without a height',
+    coverage: 'partial', // armed per region in US_3DEP_HAG_BBOXES (heights/us3depHag.mjs) — delaware only, each row a stated, validated decision
+    keyless: true, // anonymous SAS tokens — NO api key, NO account, NO repo secret
+    note: 'LIVE-PROBED 2026-09-11 (lane DELAWARE-HEIGHTS; heights/us3depHag.mjs carries every URL, byte count and validation number). STAC '
+      + 'search over the demo bbox → HTTP 200 44,515 B, 4 items USGS_LPC_DE_Snds_2013_LAS_2015; over the delaware bake bbox 310 items in one page, '
+      + 'DE_Snds_2013 = 119 items spanning -75.843,38.402 → -75.040,39.758. COGs: 2 m Float32 LERC (geotiff 2.1.3 decodes it), EPSG:26918, '
+      + 'GDAL_NODATA -9999. VALIDATED against three independent references: Boston BPDA authority (1,494 parts) HAG P50 median Δ +1.71 m, '
+      + 'P90 +2.45 m, USA Structures −0.40 m on the SAME parts — so it reads HIGH and sits BEHIND USA Structures (US_HEIGHT_TIER_ORDER); '
+      + 'Brooklyn NYC height_roof vs USA Structures −1.20 m (1,580); Wilmington HAG P50 vs USA Structures +1.42 m (361). ⛔ CANOPY: unguarded, ten '
+      + 'Cape Henlopen `building=cabin`/levels=1 footprints read 4.2–16.2 m (the pine canopy); the 2013 vendor classification carries NO class 6, '
+      + 'so the guard is the RETURNS raster — single-return share ≥ 0.75 refuses every canopy cabin and admits 9 of 33 demo-ring footprints '
+      + 'at 3.8–4.6 m. Keyless (anonymous SAS), USGS public-domain data under the Planetary Computer terms of use.',
+  },
   ndh_no: {
     country: 'no', name: 'Kartverket NHM nDSM (DOM − DTM, keyless WCS) on OSM footprints', impl: 'live',
     provenance: 'tagged', lodNow: 'LoD1-real-height (1 m national nDSM)', lodNext: 'LoD2-mesh (self-reconstruct)',

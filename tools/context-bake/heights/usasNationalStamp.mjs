@@ -79,6 +79,20 @@
 // marker. The marker's NAME is a repo-wide misnomer this stamp does not widen; the method is recorded
 // per footprint in `heightSource` and per channel in `measurement`.
 // KEYLESS: an anonymous ArcGIS FeatureServer — no key, no app token, no repo secret. CC BY 4.0.
+//
+// ── §US-3DEP-HAG-FILL (L-13314, 2026-09-11, lane DELAWARE-HEIGHTS) — THE THIRD TIER, AND WHERE IT SITS ──
+// For a footprint the resolved channel (a city survey or USA Structures) left WITHOUT a height, and only
+// inside an ARMED working set (US_3DEP_HAG_BBOXES — delaware today), heights/us3depHagStamp.mjs reads the
+// USGS 3DEP LiDAR Height-Above-Ground raster (Microsoft Planetary Computer) and returns a canopy-guarded
+// P50 or a NAMED refusal (heights/us3depHag.mjs). Which height a footprint wears is decided by ONE
+// function, `usHeightDecision` (usOpenHeights.mjs — US_HEIGHT_TIER_ORDER authority > usas > 3dep-hag >
+// county-storeys), and written by ONE function, `applyUsHeightDecision` below: there is no other
+// property write in this file. The order is a MEASUREMENT (Boston BPDA authority: USA Structures median
+// |Δ| 0.80 m, the HAG P50 1.75 m), so the raster FILLS behind USA Structures instead of replacing it.
+// ⛔ A footprint whose channel page FAILED is NOT filled: with the higher tier unknown the precedence cannot
+// be decided, and a failure is never an empty. It is counted (`channel-failed`) and keeps its OSM tags.
+// The fill is why the founder's Lewes demo site (Sussex: USA Structures 41 structures, 0 heights) can
+// carry a measured height at all; the note names what it admitted and what it refused, by reason.
 // ─────────────────────────────────────────────────────────────────────────────
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -90,8 +104,10 @@ import {
 import {
   USAS_SWATHE_ROWS, USAS_SWEEP_CONCURRENCY, USAS_TILE_DEG, formatUsasSweepSummary, parseUsOpenPage,
   usasCellBbox, usasCellKm2, usasNationalSwathes, usasSweepBatches, usasSweepOrder, usasTileGrid,
-  usOpenChannelForPoint, usOpenComponents, usOpenHeightForFootprint, usOpenPageUrl,
+  usOpenChannelForPoint, usOpenComponents, usOpenHeightForFootprint, usOpenPageUrl, usHeightDecision,
 } from './usOpenHeights.mjs';
+import { US_3DEP_HAG, formatHagSummary } from './us3depHag.mjs';
+import { createUs3depHagSampler } from './us3depHagStamp.mjs';
 
 /** The resume cursor, from the option or the environment. Anything not a finite ord ⇒ start at 0. */
 function resolveCursor(opt) {
@@ -109,6 +125,22 @@ function resolveSwatheRows(opt) {
   const raw = opt ?? process.env.USAS_SWATHE_ROWS ?? null;
   const n = raw === null || raw === '' ? USAS_SWATHE_ROWS : Number(raw);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+/**
+ * §US-HEIGHT-PRECEDENCE — the ONE property write in this stamp. `d` is `usHeightDecision`'s answer: a
+ * measured tier sets `height` + the measured marker; a county storey count sets `building:levels` and
+ * NEVER a height or the marker (C58 §1.19 applied to context); both are kept when both exist (the
+ * founder's "store both"). An OSM `height` tag is never removed — the client ranks it above a storey count.
+ */
+function applyUsHeightDecision(feat, d) {
+  const props = feat.properties ?? {};
+  feat.properties = {
+    ...props,
+    building: props.building ?? 'yes',
+    ...(d.measured ? { height: d.height, heightSource: d.heightSource, [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE } : {}),
+    ...(d.levels != null ? { 'building:levels': d.levels, levelsSource: d.levelsSource } : {}),
+  };
 }
 
 /**
@@ -154,7 +186,7 @@ async function fetchCellComponents(channel, cell, { timeoutMs, padDeg, maxPagesP
  */
 async function usasStampPass({
   inPath, passThroughPath, retainedOutPath, areas, grid, budget, agg, heights,
-  timeoutMs, padDeg, maxPagesPerCell, concurrency, label,
+  timeoutMs, padDeg, maxPagesPerCell, concurrency, label, hag,
 }) {
   const load = loadJoinFootprintsBounded(inPath, passThroughPath, (feat) => {
     const fp = footprintFromFeature(feat);
@@ -211,12 +243,30 @@ async function usasStampPass({
           if (!ch) continue;
           perChannel.push({ key, ch, rs, res: await fetchCellComponents(ch, cell, { timeoutMs, padDeg, maxPagesPerCell }) });
         }
-        return { c, perChannel };
+        // §US-3DEP-HAG-FILL — the channel match is a pure function of the fetched components, so it is
+        // decided HERE, concurrently with the batch's other cells; the raster fill then runs only for the
+        // footprints it left without a height, and never for one whose channel page FAILED.
+        const matchOf = new Map();
+        const channelFailed = new Set();
+        for (const { ch, rs, res } of perChannel) {
+          if (res.failed) { for (const r of rs) channelFailed.add(r); continue; }
+          if (res.components.length === 0) continue;
+          for (const r of rs) {
+            const h = usOpenHeightForFootprint(r.ext, r.interiors, r.clon, r.clat, res.components);
+            if (h) matchOf.set(r, { h, ch });
+          }
+        }
+        const fillable = hag ? recs.filter((r) => !matchOf.has(r) && hag.eligible(r.clon, r.clat)) : [];
+        const needHag = fillable.filter((r) => !channelFailed.has(r));
+        if (fillable.length > needHag.length) hag.noteChannelFailed(fillable.length - needHag.length);
+        const hagRes = needHag.length ? await hag.heightsFor(needHag) : [];
+        const hagOf = new Map(needHag.map((r, i) => [r, hagRes[i]]));
+        return { c, perChannel, recs, matchOf, hagOf };
       }));
 
-      for (const { c, perChannel } of fetched) {
+      for (const { c, perChannel, recs, matchOf, hagOf } of fetched) {
         let cellOk = false;
-        for (const { ch, rs, res } of perChannel) {
+        for (const { res } of perChannel) {
           agg.requests += res.requests; agg.bytesFetched += res.bytes;
           if (res.pageCapHit) agg.pageCapHits++;
           for (const k of Object.keys(agg.componentsSkipped)) agg.componentsSkipped[k] += res.skipped[k];
@@ -224,20 +274,26 @@ async function usasStampPass({
           cellOk = true;
           agg.componentsFetched += res.components.length;
           if (res.components.length === 0) { agg.voidTiles++; continue; }   // an honest EMPTY
-          for (const r of rs) {
-            const h = usOpenHeightForFootprint(r.ext, r.interiors, r.clon, r.clat, res.components);
-            if (!h) continue;
-            r.feat.properties = {
-              ...(r.feat.properties ?? {}),
-              building: r.feat.properties?.building ?? 'yes',
-              height: h.height,
-              heightSource: ch.heightSourceTag,
-              [MEASURED_HEIGHT_SRC_TAG]: MEASURED_HEIGHT_SRC_VALUE,
-            };
-            heights.push(h.height);
-            agg.rules.set(h.rule, (agg.rules.get(h.rule) ?? 0) + 1);
-            agg.channelsUsed.set(ch.metro, (agg.channelsUsed.get(ch.metro) ?? 0) + 1);
+        }
+        // ⭐ THE ONE DECISION per footprint (usHeightDecision) and THE ONE WRITE (applyUsHeightDecision).
+        for (const r of recs) {
+          const cands = [];
+          const m = matchOf.get(r);
+          if (m) {
+            const { h, ch } = m;
+            cands.push({ tier: ch.metro === 'usas' ? 'usas' : 'authority', height: h.height, heightSource: ch.heightSourceTag, rule: h.rule, channel: ch.metro });
           }
+          const hg = hagOf.get(r);
+          if (hg && !hg.reject) cands.push({ tier: '3dep-hag', height: hg.height, heightSource: US_3DEP_HAG.heightSourceTag, rule: hg.rule, channel: '3dep-hag' });
+          const d = usHeightDecision(cands);
+          if (!d) continue;
+          applyUsHeightDecision(r.feat, d);
+          if (d.levels != null) agg.levelsStamped++;
+          if (!d.measured) continue;
+          heights.push(d.height);
+          agg.rules.set(d.rule, (agg.rules.get(d.rule) ?? 0) + 1);
+          const used = cands.find((x) => x.tier === d.tier)?.channel ?? d.tier;
+          agg.channelsUsed.set(used, (agg.channelsUsed.get(used) ?? 0) + 1);
         }
         if (cellOk) { agg.cellsStamped++; agg.km2Stamped += usasCellKm2(grid, c.ix, c.iy); }
       }
@@ -273,7 +329,8 @@ async function usasStampPass({
 
 /**
  * Stamp USA Structures national heights (with the three city channels taking priority inside their own
- * working sets) onto an EXISTING OSM buildings GeoJSONSeq (bake's own clip).
+ * working sets, and the 3DEP HAG fill behind both inside an armed working set) onto an EXISTING OSM
+ * buildings GeoJSONSeq (bake's own clip).
  *
  * Reads `inPath`, tiles the region at 0.02°, and sweeps the POPULATED cells in deterministic
  * south→north order from the resume cursor, one BOUNDED-HEAP BAND at a time (§USAS-SWATHE), setting
@@ -282,10 +339,13 @@ async function usasStampPass({
  * leaves footprints at their honest OSM default.
  *
  * @param bbox [w,s,e,n] WGS84 — the bake region row's bbox.
+ * @param opts.hagSampler  undefined ⇒ one is created for `bbox` (DISARMED, no network, when the region
+ *                         meets no US_3DEP_HAG_BBOXES box); null ⇒ the fill is switched off explicitly.
  */
 export async function stampUsasNationalHeightsOnGeojsonseq(inPath, outPath, bbox, {
   timeoutMs = 60_000, padDeg = 0.0005, maxTiles = 20_000, maxPagesPerCell = 25, retainBboxes = null,
   concurrency = USAS_SWEEP_CONCURRENCY, sweepCursor = null, sweepBudgetMs = null, swatheRows = null,
+  hagSampler = undefined,
 } = {}) {
   if (!inPath || !existsSync(inPath)) return { status: 'error', reason: `USA Structures national join: input footprints not found (${inPath})` };
   if (!bbox || bbox.length !== 4) return { status: 'error', reason: 'USA Structures national join: no bbox supplied' };
@@ -305,12 +365,15 @@ export async function stampUsasNationalHeightsOnGeojsonseq(inPath, outPath, bbox
     km2Stamped: 0, km2Skipped: 0, tileErrors: 0, voidTiles: 0, requests: 0, pageCapHits: 0,
     componentsFetched: 0, bytesFetched: 0, componentsSkipped: { notBuilding: 0, noHeight: 0, noGeometry: 0 },
     rules: new Map(), channelsUsed: new Map(), sweepAborted: false, sweepAbortReason: null,
-    peakHeapUsedMB: 0, heapLimitMB: 0,
+    peakHeapUsedMB: 0, heapLimitMB: 0, levelsStamped: 0,
   };
   const heights = [];
   const t0 = Date.now();
   const rows = resolveSwatheRows(swatheRows);
-  const passArgs = { grid, budget, agg, heights, timeoutMs, padDeg, maxPagesPerCell, concurrency: Math.max(1, concurrency) };
+  // §US-3DEP-HAG-FILL — ONE sampler per run, so the STAC item list, the SAS tokens and the open COG
+  // headers are shared by every band and every cell (the cache is the sampler, not a module global).
+  const hag = hagSampler === undefined ? createUs3depHagSampler(bbox, { timeoutMs }) : hagSampler;
+  const passArgs = { grid, budget, agg, heights, timeoutMs, padDeg, maxPagesPerCell, concurrency: Math.max(1, concurrency), hag };
 
   let swathesTotal = 1, swathesScanned = 0;
   if (!rows) {
@@ -329,7 +392,8 @@ export async function stampUsasNationalHeightsOnGeojsonseq(inPath, outPath, bbox
     let cur = inPath, alt = 0, firstStatus = null;
     console.log(`\n  USA Structures national sweep · grid ${grid.nx}×${grid.ny} cells of ${USAS_TILE_DEG}° · ` +
       `${swathes.length} bounded-heap swathe(s) of ${rows} row(s) (${(rows * USAS_TILE_DEG).toFixed(2)}° of latitude each) · ` +
-      `budget ${budgetMs > 0 ? `${Math.round(budgetMs / 60000)} min` : 'none'} / ${maxTiles} cells · cursor ${cursor}`);
+      `budget ${budgetMs > 0 ? `${Math.round(budgetMs / 60000)} min` : 'none'} / ${maxTiles} cells · cursor ${cursor}` +
+      `${hag?.stats?.armed ? ' · 3DEP HAG fill ARMED' : ''}`);
     for (const sw of swathes) {
       if (budget.stopReason) break;
       if (sw.ordTo <= cursor) continue;   // resumed run — this band is entirely behind the cursor
@@ -353,7 +417,9 @@ export async function stampUsasNationalHeightsOnGeojsonseq(inPath, outPath, bbox
       // the summary that can is never printed if a later band dies (§CONTEXT-DATA-HONESTY).
       console.log(`    · USA Structures swathe ${sw.index + 1}/${swathes.length} (lat ${sw.bbox[1].toFixed(2)}–${sw.bbox[3].toFixed(2)}): ` +
         `${heights.length} measured so far over ${agg.cellsStamped} cell(s), ${Math.round(agg.km2Stamped)} km² ` +
-        `(${agg.voidTiles} void / ${agg.tileErrors} error cell(s), ${agg.componentsFetched} components), peak heap ${agg.peakHeapUsedMB} MB.`);
+        `(${agg.voidTiles} void / ${agg.tileErrors} error cell(s), ${agg.componentsFetched} components` +
+        `${hag?.stats?.armed ? `, 3DEP HAG ${hag.stats.decisions.admitted} admitted / ${hag.stats.decisions.canopy} canopy-refused / ${hag.stats.decisions.error} failed` : ''}` +
+        `), peak heap ${agg.peakHeapUsedMB} MB.`);
     }
     // Everything still unretained — bands never opened, cells behind a cap, and anything outside the
     // working set — is written through UNCHANGED. Original OSM tags, honest `assumed`; never
@@ -373,14 +439,17 @@ export async function stampUsasNationalHeightsOnGeojsonseq(inPath, outPath, bbox
   };
 
   const measured = heights.length;
+  const viaHag = agg.channelsUsed.get('3dep-hag') ?? 0;
   const footprintCount = agg.retained;
   heights.sort((a, b) => a - b);
   return {
     status: 'ok', outPath, count: agg.parsed, footprintCount, measuredCount: measured,
     // ⛔ There is deliberately NO `estimatedCount` sibling with a value: this stamp writes measurements
     // only. If an Overture/Microsoft modelled height is ever wired it must arrive with its own tag and
-    // its own counter, never folded into `measuredCount` (brief item 3, §CONTEXT-DATA-HONESTY).
+    // its own counter, never folded into `measuredCount` (brief item 3, §CONTEXT-DATA-HONESTY). A county
+    // storey count is not a height either: it lands in `levelsStampedCount`, never in `measuredCount`.
     estimatedCount: 0,
+    levelsStampedCount: agg.levelsStamped,
     coverage: footprintCount ? Number((measured / footprintCount).toFixed(3)) : 0,
     heightStats: statsOf(heights), heightSamples: heights.slice(0, 8),
     tilesProcessed: agg.cellsStamped, tileErrors: agg.tileErrors, voidTiles: agg.voidTiles,
@@ -395,9 +464,11 @@ export async function stampUsasNationalHeightsOnGeojsonseq(inPath, outPath, bbox
     matchRules: Object.fromEntries(agg.rules), elapsedS: Number(((Date.now() - t0) / 1000).toFixed(1)),
     retainedFootprints: footprintCount, passedThroughFootprints: agg.passedThrough,
     stampAreas: stampAreas.length, peakHeapUsedMB: agg.peakHeapUsedMB, heapLimitMB: agg.heapLimitMB,
+    hag: hag ? hag.stats : null,
     note: `USA Structures NATIONAL heights (FEMA/ORNL, HEIGHT m, NGA LiDAR-derived subset; NYC/SF/Boston keep their own ` +
       `channel inside their own bboxes) stamped onto OSM footprints → ${measured}/${footprintCount} RETAINED footprint(s) ` +
-      `got a MEASURED height across ${swathesScanned}/${swathesTotal} bounded-heap swathe(s) of ${rows || grid.ny} tile row(s); ` +
+      `got a MEASURED height (${measured - viaHag} via the city/USA Structures channels, ${viaHag} via the 3DEP HAG fill) across ` +
+      `${swathesScanned}/${swathesTotal} bounded-heap swathe(s) of ${rows || grid.ny} tile row(s); ` +
       `${agg.cellsStamped} of ${agg.populatedCells} populated cell(s) read at ${USAS_TILE_DEG}° ` +
       `(${agg.requests} page(s), ${agg.componentsFetched} components, ${(agg.bytesFetched / 1e6).toFixed(0)} MB; skipped ` +
       `${agg.componentsSkipped.noHeight} no-height / ${agg.componentsSkipped.noGeometry} no-geometry record(s)), ` +
@@ -405,6 +476,7 @@ export async function stampUsasNationalHeightsOnGeojsonseq(inPath, outPath, bbox
       `${agg.pageCapHits ? `, ${agg.pageCapHits} cell(s) hit the ${maxPagesPerCell}-page cap` : ''}` +
       `${cursor ? `; resumed at cursor ${cursor}` : ''}. ${formatUsasSweepSummary(sweep)}` +
       `${agg.sweepAborted ? ` ⚠ SWEEP ABORTED — ${agg.sweepAbortReason}; the rest keep OSM (a FAILURE, not a cap)` : ''}` +
+      ` ${formatHagSummary(hag?.stats)}` +
       ` Peak heap ${agg.peakHeapUsedMB} MB of ${agg.heapLimitMB} MB.`,
   };
 }

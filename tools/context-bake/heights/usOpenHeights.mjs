@@ -952,6 +952,17 @@ export const US_NATIONAL_ASSESSED = [
       'answer count-only at 3,530,320 / 1,828,525), which is the reason to probe them next rather than the reason not to.' },
   { source: 'seattle-denver-city-models', status: 'unprobed',
     evidence: 'data.seattle.gov metadata API → HTTP 200 2,043 B (alive); Denver was not reached at all. No verdict is claimed for either.' },
+  // ⭐ §US-3DEP-HAG (L-13314, 2026-09-11, lane DELAWARE-HEIGHTS) — the `usgs-3dep-dsm` row above is TRUE of
+  // USGS's OWN services (elevation.nationalmap.gov serves ONE bare-earth ImageServer; TNM lists no CONUS
+  // DSM) and is deliberately NOT rewritten. What it cannot see is a SECOND host: Microsoft Planetary Computer
+  // publishes PDAL-derived rasters FROM the same 3DEP point clouds, keyless, as COGs — including a
+  // Height-Above-Ground surface. So "no national DSM−DTM" stays true of USGS and is FALSE of 3DEP.
+  { source: 'planetary-computer-3dep-hag', status: 'live-wired-fill-delaware',
+    evidence: 'planetarycomputer.microsoft.com/api/stac/v1/search?collections=3dep-lidar-hag&bbox=-75.0997,38.7720,-75.0797,38.7920 → HTTP 200 ' +
+      '44,515 B, 4 items USGS_LPC_DE_Snds_2013_LAS_2015 (2 m Float32 LERC COGs, EPSG:26918, GDAL_NODATA -9999; siblings 3dep-lidar-dsm / -dtm / ' +
+      '-returns / -classification); anonymous SAS /api/sas/v1/token/<collection> → HTTP 200. It READS HIGH against authority roof heights ' +
+      '(Boston BPDA: HAG P50 median Δ +1.71 m, USA Structures −0.40 m on the same 1,494 parts), so it is a FILL behind USA Structures, not a ' +
+      'tier above it (US_HEIGHT_TIER_ORDER). Wired in heights/us3depHag.mjs + us3depHagStamp.mjs, armed for delaware only (US_3DEP_HAG_BBOXES).' },
 ];
 
 /**
@@ -973,3 +984,73 @@ export const US_NATIONAL_MEASURED_ZERO_CELLS = [
   { place: 'rochester-ny', region: 'newyork', bbox: [-77.64, 43.14, -77.59, 43.18], heightCount: 0 },
   { place: 'pflugerville-tx', region: 'texas', bbox: [-97.6305, 30.4395, -97.6195, 30.4505], heightCount: 0 },
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §US-HEIGHT-PRECEDENCE (L-13314, 2026-09-11, lane DELAWARE-HEIGHTS) — THE ONE place the US chain decides
+// which height a footprint wears and which marker goes with it. heights/usasNationalStamp.mjs builds the
+// candidates (the resolved channel's match, the 3DEP HAG fill) and calls `usHeightDecision`; its
+// `applyUsHeightDecision` is the only property write. Nothing else in the chain may re-type the order.
+//
+// THE ORDER — and each step is a MEASUREMENT, not a preference:
+//   1. 'authority'      a city's own survey (NYC height_roof · SF hgt_maxcm · Boston BLDG_HGT_2010). Beats USA
+//                       Structures inside its own box (Midtown: 270.6 m vs 170.5 m, §USAS-NATIONAL-HEIGHTS).
+//   2. 'usas'           FEMA/ORNL USA Structures HEIGHT. Against the Boston BPDA authority, 1,494 roof parts
+//                       (2026-09-11): median Δ −0.40 m, median |Δ| 0.80 m; against NYC height_roof (1,580
+//                       buildings, Brooklyn): median Δ −1.20 m, |Δ| 1.40 m.
+//   3. '3dep-hag'       the USGS 3DEP LiDAR HAG fill (heights/us3depHag.mjs). Against the SAME Boston parts:
+//                       P50 median Δ +1.71 m, |Δ| 1.75 m (P90 +2.45 m). A real LiDAR measurement that reads
+//                       HIGH — so it FILLS where 1–2 left nothing and never replaces them.
+//   4. 'county-storeys' an authority storey COUNT (Sussex FLOORS · NCC NUM_STORIES · Chicago `stories`). NOT a
+//                       height: it becomes `building:levels`, which the client renders `derived-levels`
+//                       (opaque, the estimated grey) — never the measured marker (C58 §1.19 applied to context:
+//                       a number PRYZM did not measure may not wear the look of one it did). Kept BESIDE a
+//                       measured height when both exist (the founder's "store both"). ⚠ NO CHANNEL FEEDS IT
+//                       TODAY — Sussex FLOORS and NCC NUM_STORIES are WAF-blocked from every egress probed
+//                       (heights/us3depHag.mjs US_DELAWARE_HEIGHT_ASSESSED). The rung exists so that the day a
+//                       channel arrives it cannot be wired under the wrong marker.
+//   (then OSM `height` / `building:levels` as the client resolves them, then `assumed` 9 m.)
+// ⚠ THE LANE BRIEF ASKED FOR "measured nDSM > authority HEIGHT > USAS". That order presumed a 0.5 m 2023 QL1
+// nDSM. The nDSM that exists keylessly is the 2 m 2013 HAG, and it measured WORSE than USA Structures against
+// an authority; putting it first would have replaced 0.80 m-accurate heights with 1.75 m-accurate ones across
+// Wilmington. A better nDSM gets its own tier name, its own measurement, and its own place in this list.
+// ⛔ Storeys never overwrite an OSM `height` tag: the client ranks a tagged height above a storey-derived one,
+// and replacing a stated number with an estimate would be a downgrade in its own ladder.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const US_HEIGHT_TIER_ORDER = Object.freeze(['authority', 'usas', '3dep-hag', 'county-storeys']);
+const US_MEASURED_TIERS = new Set(['authority', 'usas', '3dep-hag']);
+/** A storey count above this is a unit error (a height in feet in a FLOORS column), never a building. */
+export const US_MAX_PLAUSIBLE_STOREYS = 200;
+
+/**
+ * ⭐ THE decision. `candidates` = `[{ tier, height?, levels?, heightSource?, levelsSource?, rule? }]` in any
+ * order, any subset. Returns null (the footprint keeps its own tags) or
+ *   `{ tier, measured: true, height, heightSource, rule, levels?, levelsSource? }` — a measured height won;
+ *   `{ tier: 'county-storeys', measured: false, levels, levelsSource, rule }`       — a storey count only.
+ * An unusable candidate (no finite positive height; a non-integer or out-of-range storey count) is IGNORED,
+ * never coerced into something usable. An unknown tier THROWS — a new tier is ranked here, deliberately,
+ * or it cannot be used at all.
+ */
+export function usHeightDecision(candidates) {
+  let best = null, bestRank = Infinity, storeys = null;
+  for (const c of candidates ?? []) {
+    if (!c) continue;
+    const rank = US_HEIGHT_TIER_ORDER.indexOf(c.tier);
+    if (rank < 0) throw new Error(`usHeightDecision: unknown tier "${c.tier}" — rank it in US_HEIGHT_TIER_ORDER deliberately`);
+    if (!US_MEASURED_TIERS.has(c.tier)) {
+      if (!storeys && Number.isInteger(c.levels) && c.levels >= 1 && c.levels <= US_MAX_PLAUSIBLE_STOREYS) storeys = c;
+      continue;
+    }
+    if (!(Number.isFinite(c.height) && c.height > 0)) continue;
+    if (rank < bestRank) { best = c; bestRank = rank; }
+  }
+  if (best) {
+    const d = { tier: best.tier, measured: true, height: best.height, heightSource: best.heightSource ?? best.tier, rule: best.rule ?? best.tier };
+    if (storeys) { d.levels = storeys.levels; d.levelsSource = storeys.levelsSource ?? 'county-storeys'; }
+    return d;
+  }
+  if (storeys) {
+    return { tier: 'county-storeys', measured: false, levels: storeys.levels, levelsSource: storeys.levelsSource ?? 'county-storeys', rule: storeys.rule ?? 'county-storeys' };
+  }
+  return null;
+}

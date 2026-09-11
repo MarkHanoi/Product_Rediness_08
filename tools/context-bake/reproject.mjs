@@ -54,6 +54,11 @@ export const PROJ_DEFS = {
   // kind 'terrarium-zxy'; E3a ADOPT verdict audit/europe-site-intel/2026-08-31/impl/e3a-mapterhorn-verdict.md §5).
   // Spherical mercator on the WGS-84 SPHERE (a=b=6378137) — horizontal only, as this whole file is.
   'EPSG:3857': '+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +no_defs',
+  // US Delaware — NAD83 / UTM zone 18N: the native grid of every USGS 3DEP HAG / returns COG Planetary Computer serves
+  // over Delaware (GeoKeys ProjectedCSTypeGeoKey 26918, "NAD83 / UTM zone 18N + NAVD88 height", probed 2026-09-11 on
+  // DE_Snds_2013 · SandySupp_2014 · DelawareValley_HD_2015 · NJ_SalemCo_2009 — heights/us3depHag.mjs §US-3DEP-HAG, L-13314).
+  // +datum=NAD83 ⇒ NAD83 ≈ WGS84 (~1 m horizontally), the SAME def the §HAG-VALIDATION numbers were measured with.
+  'EPSG:26918': '+proj=utm +zone=18 +datum=NAD83 +units=m +no_defs',
 };
 
 let _registered = false;
@@ -123,6 +128,9 @@ const CONTROL_POINTS = [
   // WebMercator: expected from the INDEPENDENT closed form X=R·lon, Y=R·ln(tan(π/4+lat/2)),
   // R=6378137 — computed by hand 2026-09-01, NOT copied from proj4 output (same point as 25831 row).
   ['EPSG:3857',   2.178, 41.362,  242454,  5065884, 5],   // Barcelona port  (WebMercator / terrarium-zxy)
+  // NAD83 / UTM 18N: expected from an INDEPENDENT Snyder (USGS Professional Paper 1395) transverse-Mercator series on
+  // GRS80, computed 2026-09-11 → 492205.12, 4292587.72 — NOT copied from proj4 output (§US-3DEP-HAG, L-13314).
+  ['EPSG:26918', -75.089744, 38.781987, 492205, 4292588, 5], // Lewes DE demo  (NAD83 UTM18N / 3DEP HAG COGs)
 ];
 
 /** Run the control-point + round-trip self-test. Returns { pass, rows }. */

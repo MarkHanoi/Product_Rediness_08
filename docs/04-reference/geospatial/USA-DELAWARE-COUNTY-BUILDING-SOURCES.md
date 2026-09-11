@@ -172,4 +172,98 @@ Stated so the research is not implemented literally as a second, rival pipeline
 
 ## MEASURED (lane DELAWARE-HEIGHTS, L-13314) — appended as the lane probes
 
-*(pending)*
+*Probed 2026-09-11 from three egresses (a residential curl, Node's own TLS client with full browser
+headers, and a US cloud fetcher). Every number below is an answer the lane received, not a reading of a
+schema. The code that carries them is `tools/context-bake/heights/us3depHag.mjs`
+(`US_DELAWARE_HEIGHT_ASSESSED`, `§HAG-VALIDATION`, `§CANOPY-GUARD`).*
+
+### ⭐ The verdict in one paragraph
+
+**None of the founder's county height sources is reachable, and two of the three "Delaware" AGOL layers
+are not in Delaware.** But the height gap at the demo site is still closable: Microsoft Planetary Computer
+publishes PDAL-derived **USGS 3DEP LiDAR Height-Above-Ground** rasters for the whole state (2013 Sandy
+delivery, 2 m), keyless. They are now a canopy-guarded **fill tier** inside the existing US chain
+(`heights/usasNationalStamp.mjs`), behind USA Structures. End-to-end through the real stamp, the demo ring
+goes from **0 of 36 measured to 9 of 36** — every refused footprint refused *by name*, the ten
+canopy-covered cabins kept at their OSM storey count instead of a measured 15 m lie.
+
+### 1 · Live probes, source by source
+
+| id | answer | verdict |
+|---|---|---|
+| **S1** State Parcels | HTTP 200 · fields `OBJECTID PIN ACRES COUNTY UPDATED` · maxRecordCount 2000 · **451,344** parcels statewide · **9** in the demo bbox | live; parcels only (no building attributes) |
+| **S2** LiDAR Index | HTTP 200 · demo point → tile **`22780088400`** (PAGENAME BL65) | live |
+| **S3** `DE_Lidar_DEM_2023` | HTTP 200 · **F32**, 0.5 m, min −2.05 / max 137.62 · "QL1 **Bare-Earth** DEM" | ground only — confirmed |
+| DSM? | every FirstMap imagery folder (12) and enterprise folder (14) listed: **no DSM / nDSM service exists** | — |
+| **S4** Building Permits | HTTP 200 · points, `PARCEL_ID R_UNITS NR_SF P_YEAR …` · **0** in the demo bbox | live; no heights |
+| **N2** NCC Structures | **HTTP 471** "Request Blocked … Link11 Web Application Security" (3,074 B) — all three egresses; `BaseMaps` folder likewise | **WAF-blocked** — `HEIGHT`/`NUM_STORIES` unread |
+| **N1** NCC tax map | same host (`gis.nccde.org`) | blocked (host-level) |
+| **SUS2** Sussex Building_Footprints | **HTTP 403** RedShield "blocked this request" via CloudFront — services root, folder, and `www.sussexcountyde.gov` (403 nginx) likewise, all three egresses | **WAF-blocked** — `FLOORS` unread |
+| **SUS1** Sussex parcels | same host | blocked (host-level) |
+| **K2** Kent Building Footprints | HTTP 200 · fields `OBJECTID_1 OBJECTID Id Shape_Leng AERIAL_YR HUNDRED CITY REVISED COMMENTS` · **106,470** features · 0 in the demo bbox | live; **no height, no storeys** (confirmed) |
+| round-1 "Building Footprints 2023" | item owner **`NorthFayetteTwp`**, extent −80.29,40.37→−80.17,40.46, SR 2272 | **North Fayette Township, PENNSYLVANIA** — not Delaware |
+| "Sussex County Building Footprints" (AGOL, the one search finds) | org hosts `NJDEP_Wildfire_Fuel_Sussex`, `WantageRivers`…; SR 3424; 9,544 features, `BLDGHEIGHT>0` → **0**, `NUMSTORIES>0` → **0** | **Sussex County, NEW JERSEY** — and empty |
+| USA Structures at the demo | bbox `where=1=1` → **41** · `HEIGHT IS NOT NULL` → **0** | the gap, re-measured |
+| **U2** 2023 QL1 point cloud | `usgs-lidar-public/DE_Statewide_1_B23/ept.json` HTTP 200 · **211,151,154,347** points · `laszip` · EPSG:3857 | real; needs a LAZ decoder (§4) |
+| **Planetary Computer 3DEP** | STAC `3dep-lidar-hag` over the delaware bbox → HTTP 200, **310** items in one page; `USGS_LPC_DE_Snds_2013_LAS_2015` = 119 items −75.843,38.402→−75.040,39.758; COGs **Float32 LERC, 2 m, EPSG:26918**, GDAL nodata −9999; anonymous SAS token HTTP 200 | **wired** (fill tier) |
+| PC `3dep-lidar-classification` | **0** class-6 (Building) cells over 1,519 Boston parts, 361 Wilmington buildings, 36 Lewes footprints | the 2013 delivery does not classify buildings |
+
+⛔ **Not probed:** K1, K3, U1, DVRPC BuildingFootprints2015 — none serves Sussex, where the gap is.
+
+### 2 · The fill tier — what it is allowed to claim
+
+Same sampler, three **independent** references:
+
+| where | reference | USA Structures | HAG P50 | HAG P90 |
+|---|---|---|---|---|
+| Boston South End (1,494 roof parts) | BPDA `BLDG_HGT_2010` (authority) | Δ **−0.40**, \|Δ\| 0.80 m, ≤3 m 86.9 % | Δ **+1.71**, \|Δ\| 1.75, ≤3 m 88.2 % | Δ +2.45, \|Δ\| 2.47, ≤3 m 66.4 % |
+| Brooklyn (1,580) | NYC `height_roof` (authority) | Δ −1.20, \|Δ\| 1.40, ≤3 m 89.1 % | nodata there (0 of 2,176) | — |
+| Wilmington (361) | USA Structures | — | Δ +1.42 | Δ +3.08 |
+
+⇒ **The HAG reads high** (a per-cell-maximum surface), so the tier stamps **P50**, not the repo's usual
+P90, and applies **no bias correction** (a number learned in Boston and subtracted in Delaware stops being a
+measurement). ⇒ **USA Structures is the better measurement where it exists**, so the HAG is a *fill*.
+
+**The canopy guard.** Unguarded, the ten `building=cabin` / `building:levels=1` footprints at Cape Henlopen
+read **4.2–16.2 m** — the pine canopy. The returns raster separates them: canopy interiors read
+NumberOfReturns 2–4 (single-return share **0.00–0.45**), clean roofs **0.72–1.00**. Guard **≥ 0.75**:
+
+| demo ring (36 OSM footprints) | admitted | heights |
+|---|---|---|
+| unguarded P50 | 31 | 3.8 … 23.0 m (canopy included) |
+| guard ≥ 0.5 | 14 | includes a 12.9 m "shed" (share 0.50) |
+| **guard ≥ 0.75 (shipped)** | **9** | **3.8 – 4.6 m**, every canopy cabin refused |
+
+### 3 · Precedence — ONE function (`usHeightDecision`, `heights/usOpenHeights.mjs`)
+
+`authority` (NYC/SF/Boston surveys) **>** `usas` **>** `3dep-hag` **>** `county-storeys` → `building:levels`
+**>** OSM tags **>** `assumed`. Written by ONE function (`applyUsHeightDecision`); a storey count never gets
+the measured marker and never overwrites an OSM `height`; a measured height and a storey count are **stored
+both**. ⚠ **This deviates from the lane brief** ("measured nDSM > authority HEIGHT > USAS"): that order
+presumed a 0.5 m 2023 QL1 nDSM; the one that exists keylessly measured *worse* than USA Structures against an
+authority, and ranking it first would have replaced 0.80 m-accurate heights with 1.75 m-accurate ones across
+Wilmington. The founder's own hierarchy ("NCC HEIGHT → validate against LiDAR") puts the authority first too.
+`county-storeys` is ranked but **fed by nothing** — both storey sources are WAF-blocked.
+
+### 4 · End-to-end, through the real stamp (live USA Structures + live Planetary Computer)
+
+| area | footprints | measured | via | solid fraction |
+|---|---|---|---|---|
+| **Lewes demo ring** | 36 | **9** | 3DEP HAG fill (DE_Snds_2013) | **0.000 → 0.250** |
+| — refused | | 22 canopy · 2 implausible (Fort Miles bunkers, P50 0 m) · 3 too-few · **0 failed** | | |
+| Wilmington cell | 149 | 141 | USA Structures (fill ran for the 8 unmatched: 3 canopy, 5 too-few) | **0.946 — unchanged** |
+
+**Expected on the shipped tiles after publish:** the probe's ±0.008° ring (48 footprints on the 2026-09-10
+tiles) should read `solidRenderFraction` ≈ **0.2–0.3**, up from **0.000**; Wilmington should stay ≈ 0.947.
+That is not Barcelona parity (0.958) at Lewes, and it cannot be on this source: the site is under forest.
+
+### 5 · What is still open, priced honestly
+
+- **County `FLOORS` / `HEIGHT` / `NUM_STORIES`** — needs the counties to allow-list a service account, or a
+  one-off file export mirrored to R2. The `county-storeys` rung is already in the precedence function.
+- **The founder's class-6-roof-P95 algorithm on the 2023 QL1 cloud** — a COPC/EPT reader plus a WASM LAZ
+  decoder (`laz-perf`), provisioned the way `geotiff` is in `context-bake.yml`. It would lift the canopy
+  cases the guard now refuses. *Estimate (not measured):* 3–5 lane-days, plus a one-off precompute job,
+  because the statewide cloud is 2.1 × 10¹¹ points and cannot be streamed inside a per-bake budget.
+- **A `lewes delaware 38.7820,-75.0897 <floor>` CITIES gate row** is now legitimate. It should be added
+  **after** the publish, with its floor set from the staged-probe count, never before.
