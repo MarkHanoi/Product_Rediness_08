@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // §US-3DEP-HAG (L-13314, 2026-09-11, lane DELAWARE-HEIGHTS) — the NETWORK + RASTER half of the US chain's
-// LiDAR FILL tier. Every DECISION lives in heights/us3depHag.mjs (pure, fixture-tested): which STAC item
-// serves a point, the SAS freshness, the pixel window, which pixels are inside the eroded footprint, the
-// canopy guard, the percentile, what is plausible. This file only searches STAC, keeps SAS tokens fresh,
-// opens COGs, reads windows and hands the samples to `hagDecision`.
+// LiDAR FILL tier. Every DECISION lives in heights/us3depHag.mjs (pure, fixture-tested): which STAC items
+// serve a point and in what order, the SAS freshness, the pixel window, which pixels are inside the eroded
+// footprint, the canopy guard, the percentile, what is plausible. This file only searches STAC, keeps SAS
+// tokens fresh, opens COGs, reads windows and hands the samples to `hagDecision`.
 //
 // ⛔ IT NEVER WRITES A FEATURE PROPERTY. heights/usasNationalStamp.mjs passes each result to the ONE
 // precedence function (`usHeightDecision`, usOpenHeights.mjs) and applies the marker in ONE place
@@ -14,6 +14,7 @@
 //   • SAS token refused                → sas.errors++ ; the window read fails → 'error'. A FAILURE.
 //   • COG open / window read threw     → windows.errors++ ; decision 'error'.            A FAILURE.
 //   • no item covers the point         → decision 'no-item'.                              An honest EMPTY.
+//   • every covering survey is nodata  → decision 'no-data' (§SURVEY-HOLE-FALLBACK).      An honest EMPTY.
 //   • 'canopy' / 'implausible' / 'too-few' / 'no-returns' — hagDecision's NAMED refusals. A REFUSAL.
 // Every one of them leaves the footprint with the chain's own result (its OSM tags), never a guess.
 //
@@ -24,8 +25,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { httpGetSafe } from '../heightSources.mjs';
 import {
-  US_3DEP_HAG, bboxOfRings, emptyHagStats, hagDecision, hagInteriorSamples, parse3depStacPage, parseSasToken,
-  pick3depItem, rasterWindow, sasIsFresh, signedHref, us3depHagAreasFor, us3depHagCovers, us3depStacSearchUrl,
+  US_3DEP_HAG, bboxOfRings, emptyHagStats, hagDecision, hagInteriorSampleSet, parse3depStacPage, parseSasToken,
+  pick3depItem, rank3depItems, rasterWindow, sasIsFresh, signedHref, us3depHagAreasFor, us3depHagCovers, us3depStacSearchUrl,
 } from './us3depHag.mjs';
 
 /** Race a promise against a timer; a hung COG range read must not stall the national sweep. */
@@ -168,7 +169,7 @@ export function createUs3depHagSampler(regionBbox, {
   /**
    * The tier's result for ONE CELL's worth of retained footprints (`{ ext, interiors, clon, clat }`, WGS84):
    * an Array aligned with `records`, each `null` (outside the working set) or a decision — a height from
-   * `hagDecision`, or a named refusal / failure. Grouped by HAG item so each item is read ONCE per cell.
+   * `hagDecision`, or a named refusal / failure.
    */
   async function heightsFor(records) {
     try {
@@ -182,69 +183,93 @@ export function createUs3depHagSampler(regionBbox, {
     }
   }
 
+  /**
+   * Sample ONE group (footprints that share a survey item this round) from that item. Returns the record
+   * indexes whose interior was NODATA in this survey (a §SURVEY-HOLE-FALLBACK candidate for the next
+   * round); every other record in the group is decided here.
+   */
+  async function sampleGroup(out, records, it, idxs) {
+    let proj;
+    let nat;
+    let hagWin;
+    try {
+      const head = await openImage('hag', it);
+      try { proj = await projectorFor(head.epsg); } catch {
+        for (const i of idxs) decide(out, i, { reject: 'crs-unsupported', epsg: head.epsg });
+        return [];
+      }
+      nat = idxs.map((i) => ({
+        ext: records[i].ext.map(([x, y]) => proj.forward(x, y)),
+        holes: (records[i].interiors ?? []).map((h) => h.map(([x, y]) => proj.forward(x, y))),
+      }));
+      hagWin = await readWindow('hag', it, bboxOfRings(nat.map((n) => n.ext)));
+    } catch (err) {
+      stats.windows.errors++;
+      for (const i of idxs) decide(out, i, { reject: 'error', reason: String(err?.message ?? err) });
+      return [];
+    }
+    if (!hagWin) return idxs;   // the item's raster does not reach these footprints at all — try the next survey
+
+    // The canopy guard's raster: the SAME 3DEP project's returns COG (its own 5 m grid), one read per
+    // returns item the group touches. A returns read that FAILS fails those footprints — it is never
+    // folded into 'no-returns', which is a refusal about the DATA, not about our request.
+    const byRet = new Map();
+    idxs.forEach((i, k) => {
+      const ri = pick3depItem(items.returns, records[i].clon, records[i].clat, { usgsId: it.usgsId });
+      const g = byRet.get(ri); if (g) g.push(k); else byRet.set(ri, [k]);
+    });
+    const retWinOf = new Map();
+    const retFailed = new Set();
+    for (const [ri, ks] of byRet) {
+      if (!ri) continue;
+      try {
+        const w = await readWindow('returns', ri, bboxOfRings(ks.map((k) => nat[k].ext)));
+        if (w && w.epsg === hagWin.epsg) for (const k of ks) retWinOf.set(k, w);
+      } catch {
+        stats.windows.errors++;
+        for (const k of ks) retFailed.add(k);
+      }
+    }
+    const holes = [];
+    idxs.forEach((i, k) => {
+      if (retFailed.has(k)) { decide(out, i, { reject: 'error', reason: 'returns window read failed' }); return; }
+      const { samples, nodataInside } = hagInteriorSampleSet(nat[k].ext, nat[k].holes, hagWin, retWinOf.get(k) ?? null, { erodeM: cfg.erodeM, nodata: hagWin.nodata });
+      // §SURVEY-HOLE-FALLBACK — pixels inside the eroded ring and NONE finite: this survey has a hole here.
+      if (samples.length === 0 && nodataInside > 0) { holes.push(i); return; }
+      decide(out, i, { ...hagDecision(samples, cfg), usgsId: it.usgsId, itemId: it.id });
+    });
+    return holes;
+  }
+
   async function heightsForUnsafe(records) {
     const out = records.map(() => null);
     if (!stats.armed || records.length === 0) return out;
     await ensureInit();
-    const groups = new Map();   // hag item → record indexes
+    const ranked = new Map();   // record index → covering items, newest first (rank3depItems)
     records.forEach((r, i) => {
       if (!us3depHagCovers(r.clon, r.clat, boxes)) return;
       if (stats.stac.status !== 'ok') { decide(out, i, { reject: 'error', reason: `STAC ${stats.stac.reason}` }); return; }
-      const it = pick3depItem(items.hag, r.clon, r.clat);
-      if (!it) { decide(out, i, { reject: 'no-item' }); return; }
-      // A survey delivered in feet would stamp a 12 m house as 39 "m": every Delaware item reads `metre`
-      // (verbatim fixture), and any other unit is refused BY NAME rather than converted on a guess.
-      if (it.unit && it.unit !== 'metre') { decide(out, i, { reject: 'crs-unsupported', reason: `HAG unit "${it.unit}"` }); return; }
-      const g = groups.get(it); if (g) g.push(i); else groups.set(it, [i]);
+      const cands = rank3depItems(items.hag, r.clon, r.clat);
+      if (!cands.length) { decide(out, i, { reject: 'no-item' }); return; }
+      ranked.set(i, cands);
     });
-    for (const [it, idxs] of groups) {
-      let proj;
-      let nat;
-      let hagWin;
-      try {
-        const head = await openImage('hag', it);
-        try { proj = await projectorFor(head.epsg); } catch {
-          for (const i of idxs) decide(out, i, { reject: 'crs-unsupported', epsg: head.epsg });
-          continue;
-        }
-        nat = idxs.map((i) => ({
-          ext: records[i].ext.map(([x, y]) => proj.forward(x, y)),
-          holes: (records[i].interiors ?? []).map((h) => h.map(([x, y]) => proj.forward(x, y))),
-        }));
-        hagWin = await readWindow('hag', it, bboxOfRings(nat.map((n) => n.ext)));
-      } catch (err) {
-        stats.windows.errors++;
-        for (const i of idxs) decide(out, i, { reject: 'error', reason: String(err?.message ?? err) });
-        continue;
+    let pending = [...ranked.keys()];
+    for (let round = 0; pending.length > 0 && round < cfg.maxSurveys; round++) {
+      const groups = new Map();   // this round's survey item → record indexes
+      for (const i of pending) {
+        const it = ranked.get(i)[round];
+        if (!it) { decide(out, i, { reject: 'no-data', reason: `all ${round} covering survey(s) hold no data inside this footprint` }); continue; }
+        // A survey delivered in feet would stamp a 12 m house as 39 "m": every Delaware item reads `metre`
+        // (verbatim fixture), and any other unit is refused BY NAME rather than converted on a guess.
+        if (it.unit && it.unit !== 'metre') { decide(out, i, { reject: 'crs-unsupported', reason: `HAG unit "${it.unit}"` }); continue; }
+        if (round > 0) stats.fallbacks++;
+        const g = groups.get(it); if (g) g.push(i); else groups.set(it, [i]);
       }
-      if (!hagWin) { for (const i of idxs) decide(out, i, { reject: 'no-item' }); continue; }
-
-      // The canopy guard's raster: the SAME 3DEP project's returns COG (its own 5 m grid), one read per
-      // returns item the group touches. A returns read that FAILS fails those footprints — it is never
-      // folded into 'no-returns', which is a refusal about the DATA, not about our request.
-      const byRet = new Map();
-      idxs.forEach((i, k) => {
-        const ri = pick3depItem(items.returns, records[i].clon, records[i].clat, { usgsId: it.usgsId });
-        const g = byRet.get(ri); if (g) g.push(k); else byRet.set(ri, [k]);
-      });
-      const retWinOf = new Map();
-      const retFailed = new Set();
-      for (const [ri, ks] of byRet) {
-        if (!ri) continue;
-        try {
-          const w = await readWindow('returns', ri, bboxOfRings(ks.map((k) => nat[k].ext)));
-          if (w && w.epsg === hagWin.epsg) for (const k of ks) retWinOf.set(k, w);
-        } catch {
-          stats.windows.errors++;
-          for (const k of ks) retFailed.add(k);
-        }
-      }
-      idxs.forEach((i, k) => {
-        if (retFailed.has(k)) { decide(out, i, { reject: 'error', reason: 'returns window read failed' }); return; }
-        const samples = hagInteriorSamples(nat[k].ext, nat[k].holes, hagWin, retWinOf.get(k) ?? null, { erodeM: cfg.erodeM, nodata: hagWin.nodata });
-        decide(out, i, { ...hagDecision(samples, cfg), usgsId: it.usgsId, itemId: it.id });
-      });
+      const next = [];
+      for (const [it, idxs] of groups) next.push(...await sampleGroup(out, records, it, idxs));
+      pending = next;
     }
+    for (const i of pending) decide(out, i, { reject: 'no-data', reason: `no data inside this footprint in the first ${cfg.maxSurveys} covering survey(s)` });
     return out;
   }
 

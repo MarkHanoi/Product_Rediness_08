@@ -76,6 +76,13 @@ describe('§US-3DEP-HAG — us3depHagStamp.mjs is network + raster only', () => 
         expect(hagStamp).not.toMatch(/MEASURED_HEIGHT_SRC/);
         expect(hagStamp).toMatch(/hagDecision\(samples, cfg\)/);
     });
+    it('§SURVEY-HOLE-FALLBACK: surveys are RANKED, and only a NODATA interior falls back (a small building does not)', () => {
+        expect(hagStamp).toMatch(/const cands = rank3depItems\(items\.hag, r\.clon, r\.clat\);/);
+        expect(hagStamp).toMatch(/if \(samples\.length === 0 && nodataInside > 0\) \{ holes\.push\(i\); return; \}/);
+        expect(hagStamp).toMatch(/for \(let round = 0; pending\.length > 0 && round < cfg\.maxSurveys; round\+\+\)/);
+        // …and a footprint that exhausts the budget is refused BY NAME, never left undecided.
+        expect(hagStamp).toMatch(/for \(const i of pending\) decide\(out, i, \{ reject: 'no-data'/);
+    });
     it('a non-metre survey is REFUSED by name, never converted on a guess', () => {
         expect(hagStamp).toMatch(/if \(it\.unit && it\.unit !== 'metre'\) \{ decide\(out, i, \{ reject: 'crs-unsupported'/);
     });

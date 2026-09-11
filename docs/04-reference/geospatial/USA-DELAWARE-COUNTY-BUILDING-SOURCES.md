@@ -267,3 +267,37 @@ That is not Barcelona parity (0.958) at Lewes, and it cannot be on this source: 
   because the statewide cloud is 2.1 × 10¹¹ points and cannot be streamed inside a per-bake budget.
 - **A `lewes delaware 38.7820,-75.0897 <floor>` CITIES gate row** is now legitimate. It should be added
   **after** the publish, with its floor set from the staged-probe count, never before.
+
+### 6 · The first statewide bake, measured on the STAGED bytes (before any publish)
+
+**Bake run `34589078643`** (`b692b21f`, `region=delaware layer=buildings stage=true` → `tiles-staging/delaware--buildings/`,
+`buildings.pmtiles` 17,925,901 B, 6 min 11 s): **40,231 of 112,354** footprints measured — **21,979** USA Structures
+(unchanged) + **18,252** HAG fill (18,247 from DE_Snds_2013). Refused: 47,072 canopy · 11,256 implausible · 12,540
+too-few · 239 no-returns · 1,016 no-item. **0 failed.** Gate `✔ delaware (usas): 40231/112354`; the Wilmington gate row
+reads `measured`. The layer-scoped slug supersedes the base set's buildings in the merge (`merge-tiles.mjs` supersede rule).
+
+`node tools/context-height-probe/sweep.mjs --points delaware --base <staged set>` — the same instrument, both archives
+**staged** (`tiles-staging/delaware/`, the 2026-09-09 bake, vs `tiles-staging/delaware--buildings/`):
+
+| point | BEFORE solid | AFTER solid | measured AFTER |
+|---|---|---|---|
+| wilmington | 0.947 | 0.951 | 1,231 / 1,295 |
+| newark-de | 0.000 | **0.000** ⛔ | 0 / 1,196 |
+| dover | 0.870 | 0.891 | 1,261 / 1,416 |
+| milford | 0.000 | 0.112 | 32 / 285 |
+| georgetown | 0.000 | 0.434 | 148 / 341 |
+| lewes-town | 0.000 | 0.159 | 185 / 1,166 |
+| **lewes-demo** ⭐ | **0.000** | **0.229** | **11 / 48** (median 4.2 m) |
+| rehoboth | 0.000 | 0.136 | 117 / 860 |
+| fenwick | 0.000 | 0.177 | 145 / 817 |
+
+Measured points: **2 of 9 → 8 of 9**.
+
+⛔ **Newark was a defect in the tier, not a source gap — `§SURVEY-HOLE-FALLBACK`.** The newest item whose *bbox* contains
+Newark, `USGS_LPC_MD_PA_SandySupp_2014_LAS_2016-hag-2m-16-7`, reads **0 finite / 160,000 nodata** over a 400 × 400
+window at the sweep point; `USGS_LPC_DE_Snds_2013_LAS_2015-hag-2m-7-21` over the same window reads **153,200 / 0**. A STAC
+bbox is an envelope, not a promise of data (Brooklyn had shown the same shape). Fixed: covering surveys are ranked
+newest-first (`rank3depItems`), and a footprint whose chosen survey has **nodata inside its eroded ring** is re-sampled
+from the next one (a footprint too *small* for the erosion is not a hole and never falls back). End-to-end through the
+real stamp at the Newark ring: **0.000 → 0.201** (195 / 971, 965 footprints re-sampled from DE_Snds_2013, 0 errors).
+The re-bake that carries it is recorded below as it lands.

@@ -27,8 +27,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
     US_3DEP_HAG, US_3DEP_HAG_BBOXES, US_DELAWARE_HEIGHT_ASSESSED,
-    bboxOfRings, emptyHagStats, formatHagSummary, hagDecision, hagInteriorSamples, parse3depStacPage, parseSasToken,
-    pick3depItem, rasterWindow, sasIsFresh, signedHref, us3depHagAreasFor, us3depHagCovers, us3depStacSearchUrl, windowValueAt,
+    bboxOfRings, emptyHagStats, formatHagSummary, hagDecision, hagInteriorSampleSet, hagInteriorSamples, parse3depStacPage, parseSasToken,
+    pick3depItem, rank3depItems, rasterWindow, sasIsFresh, signedHref, us3depHagAreasFor, us3depHagCovers, us3depStacSearchUrl, windowValueAt,
 } from '../heights/us3depHag.mjs';
 import { US_HEIGHT_TIER_ORDER, usHeightDecision } from '../heights/usOpenHeights.mjs';
 
@@ -56,6 +56,56 @@ function samplesOf(role: string) {
     const nodata = parseFloat(String(f.rasters.hag.nodata ?? US_3DEP_HAG.nodata));
     return hagInteriorSamples(f.ringNative, [], winOf(f.rasters.hag), winOf(f.rasters.returns), { erodeM: US_3DEP_HAG.erodeM, nodata });
 }
+
+// §SURVEY-HOLE-FALLBACK — the first statewide bake (run 34589078643) left Newark DE at 0 of 1,196 measured on the
+// staged tiles: the NEWEST item whose bbox contains Newark (SandySupp_2014) holds no data there. Both fixtures were
+// captured the same hour, verbatim: the STAC answer over the Newark sweep ring, and one real OSM footprint's windows
+// from the newest survey (a hole) and the next one (data).
+const NWK = parse3depStacPage(fixture('us-pc-3dep-hag-stac-newark-2026-09-11.json'))!;
+const HOLE = JSON.parse(fixture('us-pc-3dep-hag-newark-survey-hole-2026-09-11.json')).footprint;
+
+describe('§SURVEY-HOLE-FALLBACK — a STAC bbox is an envelope, not data (Newark DE)', () => {
+    it('ranks every covering survey newest-first, and pick3depItem is exactly rank[0] (ONE ordering rule)', () => {
+        const r = rank3depItems(NWK.items, -75.7497, 39.6837);
+        expect(r.map((i: { usgsId: string }) => i.usgsId)).toEqual(['USGS_LPC_MD_PA_SandySupp_2014_LAS_2016', 'USGS_LPC_DE_Snds_2013_LAS_2015']);
+        expect(pick3depItem(NWK.items, -75.7497, 39.6837)!.id).toBe(r[0]!.id);
+        expect(rank3depItems(WILM_HAG.items, ...WILMINGTON).map((i: { usgsId: string }) => i.usgsId))
+            .toEqual(['USGS_LPC_DE_Snds_2013_LAS_2015', 'NJ_SalemCo_2009']);
+        expect(HOLE.ranked).toEqual(rank3depItems(NWK.items, HOLE.clon, HOLE.clat).map((i: { id: string }) => i.id));
+    });
+    it('the newest survey is a HOLE over a real Newark footprint: pixels inside the ring, none of them finite', () => {
+        const set = hagInteriorSampleSet(HOLE.ringNative, [], winOf(HOLE.rasters.first.hag), null, { erodeM: US_3DEP_HAG.erodeM, nodata: US_3DEP_HAG.nodata });
+        expect(set.samples.length).toBe(0);
+        expect(set.nodataInside).toBeGreaterThan(100);
+        // Revert-sensitivity: without the fallback the footprint is decided from THIS survey — as 'too-few', which is
+        // exactly how 1,196 Newark footprints shipped at the fabricated 9 m on the first bake.
+        expect(hagDecision(set.samples).reject).toBe('too-few');
+    });
+    it('…and the next survey (DE_Snds_2013) measures the SAME footprint — a decision about the data, never "too few"', () => {
+        const set = hagInteriorSampleSet(HOLE.ringNative, [], winOf(HOLE.rasters.second.hag), winOf(HOLE.rasters.second.returns), { erodeM: US_3DEP_HAG.erodeM, nodata: US_3DEP_HAG.nodata });
+        expect(set.nodataInside).toBe(0);
+        expect(set.samples.length).toBeGreaterThan(100);
+        expect(['too-few', 'no-returns']).not.toContain(hagDecision(set.samples).reject);
+    });
+    it('a building too SMALL for the erosion is not a hole — no pixel inside at all, so it never falls back', () => {
+        const f = footprint('clean-cabin');
+        const set = hagInteriorSampleSet(f.ringNative, [], winOf(f.rasters.hag), winOf(f.rasters.returns), { erodeM: 50, nodata: US_3DEP_HAG.nodata });
+        expect(set.samples.length).toBe(0);
+        expect(set.nodataInside).toBe(0);
+    });
+    it('hagInteriorSamples is exactly the finite half of the sample set (one sampler, not two)', () => {
+        const f = footprint('clean-house');
+        const a = hagInteriorSamples(f.ringNative, [], winOf(f.rasters.hag), winOf(f.rasters.returns));
+        const b = hagInteriorSampleSet(f.ringNative, [], winOf(f.rasters.hag), winOf(f.rasters.returns)).samples;
+        expect(a).toEqual(b);
+        expect(a.length).toBeGreaterThan(0);
+    });
+    it('the survey budget is 3, and the no-data refusal and the fallbacks are both counted in the note', () => {
+        expect(US_3DEP_HAG.maxSurveys).toBe(3);
+        expect(emptyHagStats(true).decisions['no-data']).toBe(0);
+        expect(formatHagSummary({ ...emptyHagStats(true), fallbacks: 965 })).toMatch(/965 re-sampled from an older survey where the newest had a hole/);
+    });
+});
 
 describe('§US-3DEP-HAG — STAC search: URL, parse, and FAILURE kept apart from EMPTY', () => {
     it('builds the Planetary Computer /search GET URL, bbox lon-first (STAC is always CRS84)', () => {

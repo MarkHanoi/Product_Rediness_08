@@ -76,6 +76,19 @@
 // median Δ +1.71, ≤3 m 89.3 %, 291 of 1,494 admitted) — it trades COVERAGE for canopy safety, which is the
 // right trade for a fill tier. A footprint the guard refuses keeps its honest OSM tags: a cabin tagged
 // `building:levels=1` stays `derived-levels` 3.2 m, which is correct, instead of a measured 15 m lie.
+//
+// ── §SURVEY-HOLE-FALLBACK — a STAC bbox is a claim about an ENVELOPE, not about data ────────────────
+// The first statewide bake (run 34589078643, 2026-09-11) left Newark DE at 0 of 1,196 measured on the
+// staged tiles while every other Delaware town rose. Measured the same hour: over the Newark ring the
+// newest covering item is USGS_LPC_MD_PA_SandySupp_2014_LAS_2016-hag-2m-16-7 (2014-04-30), and a
+// 400 × 400 window at the Newark point reads 0 finite / 160,000 nodata — its bbox covers Newark, its
+// survey does not. USGS_LPC_DE_Snds_2013_LAS_2015-hag-2m-7-21 over the SAME window: 153,200 finite / 0
+// nodata. Brooklyn had shown the same shape (NJ_SdL5_2014). So the items covering a point are RANKED
+// (newest first, `rank3depItems`) and a footprint whose chosen survey has NODATA INSIDE IT — pixels in
+// the eroded ring, none of them finite — is re-sampled from the next survey, up to `maxSurveys`. That is
+// kept distinct from a footprint too SMALL for the erosion (no pixel inside at all), which stays
+// `too-few` and never falls back: the first is a gap in one survey, the second is a fact about the
+// building (fixtures/us-pc-3dep-hag-newark-survey-hole-2026-09-11.json).
 // ─────────────────────────────────────────────────────────────────────────────
 import { pointInRing } from './usOpenHeights.mjs';
 
@@ -92,6 +105,7 @@ export const US_3DEP_HAG = {
   singleReturnMinShare: 0.75,   // §CANOPY-GUARD
   minPlausibleM: 2.0,           // a 0.0 m "building" is an earth-covered bunker or a demolished footprint (Fort Miles: P50 0)
   maxPlausibleM: 300,           // admits anything real in the United States east of the Rockies; a 400 m reading is noise
+  maxSurveys: 3,                // §SURVEY-HOLE-FALLBACK — the newest survey plus up to two older ones
   sasRefreshMarginMs: 5 * 60_000,
   stacPageLimit: 500,
   heightSourceTag: 'us-3dep-hag-p50',
@@ -175,21 +189,29 @@ export function parse3depStacPage(text) {
 }
 
 /**
- * The item that serves (lon, lat): containing the point, optionally restricted to one 3DEP project, the
- * NEWEST `start_datetime` first (a 2013 survey outranks a 2009 one over the same ground — measured at
- * Wilmington, where DE_Snds_2013 and NJ_SalemCo_2009 overlap), ties by id so the choice is deterministic.
+ * EVERY item whose bbox contains (lon, lat), optionally restricted to one 3DEP project, RANKED: the NEWEST
+ * `start_datetime` first (a 2013 survey outranks a 2009 one over the same ground — Wilmington, where
+ * DE_Snds_2013 and NJ_SalemCo_2009 overlap), ties by id so the order is deterministic. The ranking is the
+ * §SURVEY-HOLE-FALLBACK order: a bbox is an envelope, so the caller walks down this list when the chosen
+ * survey turns out to hold no data inside a footprint.
  */
-export function pick3depItem(items, lon, lat, { usgsId = null } = {}) {
-  let best = null;
+export function rank3depItems(items, lon, lat, { usgsId = null } = {}) {
+  const hits = [];
   for (const it of items ?? []) {
     if (usgsId && it.usgsId !== usgsId) continue;
     const [w, s, e, n] = it.bbox;
-    if (!(lon >= w && lon <= e && lat >= s && lat <= n)) continue;
-    if (!best) { best = it; continue; }
-    const a = String(it.start ?? ''), b = String(best.start ?? '');
-    if (a > b || (a === b && it.id < best.id)) best = it;
+    if (lon >= w && lon <= e && lat >= s && lat <= n) hits.push(it);
   }
-  return best;
+  return hits.sort((a, b) => {
+    const sa = String(a.start ?? ''), sb = String(b.start ?? '');
+    if (sa !== sb) return sa > sb ? -1 : 1;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+}
+
+/** The first-ranked item that serves (lon, lat), or null. One ordering rule: this is `rank3depItems[0]`. */
+export function pick3depItem(items, lon, lat, opts = {}) {
+  return rank3depItems(items, lon, lat, opts)[0] ?? null;
 }
 
 /** SAS token body → `{ token, expiresAtMs }`, or null for anything else (a 429, an HTML page, a missing field). */
@@ -260,17 +282,22 @@ const distToRings = (x, y, rings) => {
 };
 
 /**
- * The interior samples of ONE footprint: every HAG pixel CENTRE inside the native exterior ring, outside
- * every hole and ≥ `erodeM` from any boundary (façade / eave / misregistration erosion), with its HAG value
- * (nodata and non-finite dropped) and the NumberOfReturns of the returns cell that contains it (NaN when
- * the returns window does not reach it). Pixel centres, not a bilinear blend: this is the sampler the
- * §HAG-VALIDATION numbers were measured with, and a bilinear step would blend canopy into roof at edges.
+ * The interior of ONE footprint, as the tier sees it: every HAG pixel CENTRE inside the native exterior
+ * ring, outside every hole and ≥ `erodeM` from any boundary (façade / eave / misregistration erosion).
+ * Returns `{ samples, nodataInside }` — `samples` are the finite ones with their HAG value and the
+ * NumberOfReturns of the returns cell that contains them (NaN when the returns window does not reach it);
+ * `nodataInside` counts interior pixels that ARE inside the eroded ring and hold NO measurement. The two
+ * zero-sample cases are therefore different values (§SURVEY-HOLE-FALLBACK): `nodataInside > 0` is a hole
+ * in THIS survey, `nodataInside === 0` is a building too small for the erosion.
+ * Pixel centres, not a bilinear blend: this is the sampler the §HAG-VALIDATION numbers were measured with,
+ * and a bilinear step would blend canopy into roof at edges.
  * ⚠ WHY NOT ndsmHeightForBuilding — the canopy guard needs a per-sample returns value, which the DK
  * sampler (DSM − DTM, bilinear, no third raster) cannot carry. Stated so nobody "de-duplicates" it back.
  */
-export function hagInteriorSamples(extNative, interiorsNative, hagWin, retWin, { erodeM = US_3DEP_HAG.erodeM, nodata = US_3DEP_HAG.nodata } = {}) {
-  const out = [];
-  if (!hagWin || !Array.isArray(extNative) || extNative.length < 4) return out;
+export function hagInteriorSampleSet(extNative, interiorsNative, hagWin, retWin, { erodeM = US_3DEP_HAG.erodeM, nodata = US_3DEP_HAG.nodata } = {}) {
+  const samples = [];
+  let nodataInside = 0;
+  if (!hagWin || !Array.isArray(extNative) || extNative.length < 4) return { samples, nodataInside };
   const holes = (interiorsNative ?? []).filter((h) => Array.isArray(h) && h.length >= 4);
   const rings = [extNative, ...holes];
   const [minX, minY, maxX, maxY] = bboxOfRings([extNative]);
@@ -288,12 +315,17 @@ export function hagInteriorSamples(extNative, interiorsNative, hagWin, retWin, {
       if (inHole) continue;
       if (distToRings(X, Y, rings) < erodeM) continue;
       const h = hagWin.values[py * hagWin.width + px];
-      if (!Number.isFinite(h) || h === nodata) continue;
+      if (!Number.isFinite(h) || h === nodata) { nodataInside++; continue; }
       const ret = windowValueAt(retWin, X, Y);
-      out.push({ h, ret: Number.isFinite(ret) && ret !== nodata ? ret : NaN });
+      samples.push({ h, ret: Number.isFinite(ret) && ret !== nodata ? ret : NaN });
     }
   }
-  return out;
+  return { samples, nodataInside };
+}
+
+/** The finite interior samples only — `hagInteriorSampleSet(...).samples`. */
+export function hagInteriorSamples(extNative, interiorsNative, hagWin, retWin, opts = {}) {
+  return hagInteriorSampleSet(extNative, interiorsNative, hagWin, retWin, opts).samples;
 }
 
 /**
@@ -329,7 +361,8 @@ export function emptyHagStats(armed) {
   return {
     armed, stac: { status: armed ? 'not-started' : 'not-armed', reason: null, hagItems: 0, returnsItems: 0, projects: {} },
     sas: { fetches: 0, errors: 0 }, windows: { hag: 0, returns: 0, errors: 0 },
-    decisions: { admitted: 0, canopy: 0, implausible: 0, 'too-few': 0, 'no-returns': 0, 'no-item': 0, 'crs-unsupported': 0, error: 0, 'channel-failed': 0 },
+    decisions: { admitted: 0, canopy: 0, implausible: 0, 'too-few': 0, 'no-returns': 0, 'no-data': 0, 'no-item': 0, 'crs-unsupported': 0, error: 0, 'channel-failed': 0 },
+    fallbacks: 0,
     perProject: {},
   };
 }
@@ -341,7 +374,8 @@ export function formatHagSummary(st, cfg = US_3DEP_HAG) {
   const projects = Object.entries(st.perProject).map(([k, v]) => `${k} ${v}`).join(', ') || 'none';
   return `3DEP HAG fill (${cfg.heightSourceTag}: P${cfg.percentile} over the ${cfg.erodeM} m-eroded interior, single-return ≥ ${cfg.singleReturnMinShare}) → ` +
     `${d.admitted} admitted [${projects}] · refused ${d.canopy} canopy / ${d.implausible} implausible / ${d['too-few']} too-few / ${d['no-returns']} no-returns / ` +
-    `${d['no-item']} no-item / ${d['crs-unsupported']} crs-unsupported · FAILED ${d.error} (window errors ${st.windows.errors}, SAS errors ${st.sas.errors}) · ` +
+    `${d['no-data']} no-data / ${d['no-item']} no-item / ${d['crs-unsupported']} crs-unsupported · ${st.fallbacks ?? 0} re-sampled from an older survey where the newest had a hole · ` +
+    `FAILED ${d.error} (window errors ${st.windows.errors}, SAS errors ${st.sas.errors}) · ` +
     `${d['channel-failed']} skipped because their channel page FAILED (precedence unknown) · STAC ${st.stac.status}` +
     `${st.stac.reason ? ` (${st.stac.reason})` : ''}, ${st.stac.hagItems} HAG / ${st.stac.returnsItems} returns item(s), ${st.windows.hag} + ${st.windows.returns} window read(s).`;
 }
@@ -370,8 +404,11 @@ export const US_DELAWARE_HEIGHT_ASSESSED = [
     evidence: 'ept.json HTTP 200: 211,151,154,347 points, dataType laszip, EPSG:3857. No LAZ decoder in tools/context-bake/node_modules (geotiff, lerc, proj4 only). The founder\'s class-6-roof-P95 algorithm is a COPC/EPT + laz-perf leg — priced, not half-built.' },
   { id: 'PC-CLASS', source: 'Planetary Computer 3dep-lidar-classification (DE_Snds_2013)', status: 'no-building-class',
     evidence: '0 class-6 cells over 1,519 Boston parts, 361 Wilmington buildings and 36 Lewes footprints; Lewes cabins read classes {1, 2, 17}. The 2013 Sandy deliveries do not classify buildings, so the class raster cannot guard canopy — the returns raster does (§CANOPY-GUARD).' },
+  { id: 'PC-SANDYSUPP-NEWARK', source: 'Planetary Computer 3dep-lidar-hag USGS_LPC_MD_PA_SandySupp_2014_LAS_2016 over Newark DE', status: 'survey-hole',
+    evidence: 'The newest item whose bbox contains Newark (…-hag-2m-16-7, 2014-04-30): a 400 × 400 window at 39.6837,-75.7497 reads 0 finite / 160,000 nodata; DE_Snds_2013 …-7-21 over the same window 153,200 finite / 0 nodata. The first statewide bake left Newark 0 of 1,196 measured because of it (§SURVEY-HOLE-FALLBACK).' },
   { id: 'PC-HAG', source: 'Planetary Computer 3dep-lidar-hag + 3dep-lidar-returns', status: 'wired-fill-delaware',
     evidence: 'STAC over the delaware bbox → HTTP 200, 310 HAG items in one page (DE_Snds_2013 = 119); 2 m Float32 LERC COGs, EPSG:26918. ' +
       'Boston BPDA: HAG P50 median Δ +1.71 m vs USA Structures −0.40 m (1,494 parts) ⇒ a FILL behind USAS. Lewes ring: guard ≥ 0.75 admits 9 of 33 at ' +
-      '3.8–4.6 m and refuses all 10 canopy cabins (§HAG-VALIDATION, §CANOPY-GUARD above).' },
+      '3.8–4.6 m and refuses all 10 canopy cabins (§HAG-VALIDATION, §CANOPY-GUARD above). First statewide bake (run 34589078643): 18,252 admitted, ' +
+      '47,072 canopy-refused, 0 failed.' },
 ];
