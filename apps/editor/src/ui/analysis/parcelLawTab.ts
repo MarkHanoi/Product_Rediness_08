@@ -198,6 +198,17 @@ import {
   claimPlotDisplayControls,
   releasePlotDisplayControls,
 } from '../site/plotDisplayControlsHost';
+// ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (founder ruling 2026-09-11 — Site-panel restructure, Section 1 ·
+// C115 §10 `C115-87`/`C115-88` · L-13315). The buildable envelope's SUMMARY — its confidence badge,
+// the four ceilings, their caveats and their source — is shown in question 1, *"What is this plot —
+// and what can I build here?"*, because it describes the plot, not a design choice. ⛔ This tab does
+// not render it: the envelope card still produces every byte in its own pass, and this tab CLAIMS
+// the job and seats the card's satellite in question 1 — the same claim shape as the SHOW ON THE
+// PLOT switches, through the same ONE arbiter.
+import {
+  claimEnvelopeSummary,
+  releaseEnvelopeSummary,
+} from '../site/envelopeSummaryHost';
 // §PL-LIVE-QUANTITIES (STR §25.7) — the live room/level/total figures and the adjustable cost
 // per m². It owns its own LIVE subscription to the space-envelope store's dirty channel — the
 // same channel the 3D scene renders from — so the panel and the scene cannot show different
@@ -365,6 +376,27 @@ export const PARCEL_LAW_PLOT_ROUTE_TESTID = 'analysis-parcel-law-plot-route';
 export const PARCEL_LAW_PLOT_DISPLAY_TESTID = 'analysis-parcel-law-plot-display';
 
 /**
+ * ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (founder ruling 2026-09-11 · L-13315) — `data-testid` on question
+ * 1's slot for the buildable envelope's SUMMARY: the envelope card's satellite (badge · four ceilings ·
+ * caveats · source), claimed into this slot while the tab is mounted. The card produces it; this tab
+ * only seats it — see `envelopeSummaryHost.ts`.
+ */
+export const PARCEL_LAW_ENVELOPE_SUMMARY_HOST_TESTID = 'analysis-parcel-law-envelope-summary-slot';
+
+/**
+ * ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 — C115-17: the stamp question 2 carries where the SETBACK
+ * REGISTER used to sit. The register itself (the same tab-owned slot, the same producer, the same
+ * disclosure memory) now answers in question 1, beside the envelope it constrains.
+ */
+export const PARCEL_LAW_SETBACKS_MOVED_TESTID = 'parcel-law-setbacks-moved-note';
+
+/** The sentence itself — it names the destination and says nothing was removed. */
+export const PARCEL_LAW_SETBACKS_MOVED_NOTE =
+  'The setbacks per edge moved to ① What is this plot — and what can I build here?, beside the '
+  + 'buildable envelope they belong to. Nothing was removed: every edge, its class, the rule that '
+  + 'produced its setback and its citation are there, and each edge still lights on the view.';
+
+/**
  * §STAGE-01-DENSITY (C115 §1.4 `C115-111` · §11 `C115-93`) — the summary of question 1's
  * *"View full parcel data"* disclosure. `C115-93` names the affordance in these words; they are
  * reproduced verbatim rather than paraphrased.
@@ -451,11 +483,14 @@ export const PARCEL_LAW_AUTHORING_MOVED_TESTID = 'parcel-law-authoring-moved-not
  * allowed.
  */
 export const PARCEL_LAW_AUTHORING_MOVED_NOTE =
-  'Creating the envelope moved to ② What can I build here? — it now sits directly under the '
-  + 'buildable envelope it is measured against, beside Massing options and Fit this on the ground '
-  + 'floor. Nothing was removed: the footprint ladder, the storey count, Create envelope, Discard '
-  + 'the drawn perimeter and the per-storey Edit perimeter rows are all there. This section is the '
-  + 'ledger of what you declared, beside what you are allowed.';
+  // ⭐ REWORDED 2026-09-11 (L-13315, C115-22 — a named sentence changes only in a PR that states the
+  // new wording): question 2 is now *"What can I build — and build it"*, and the buildable envelope
+  // the create block is measured against is stated in question 1, directly above it.
+  'Creating the envelope moved to ② What can I build — and build it — measured against the '
+  + 'buildable envelope stated in ①, beside Massing options and Fit this on the ground floor. '
+  + 'Nothing was removed: the footprint ladder, the storey count, Create envelope, Discard the drawn '
+  + 'perimeter and the per-storey Edit perimeter rows are all there. This section is the ledger of '
+  + 'what you declared, beside what you are allowed.';
 
 /**
  * The lede sentence. It names the ROUTE (the switcher and the producers) rather than the
@@ -721,6 +756,11 @@ export function mountParcelLawTab(
   let plotDisplaySlot: HTMLDivElement | null = null;
   /** The visibility-authority subscription that keeps those switches honest. Released on dispose. */
   let unsubPlotDisplay: (() => void) | null = null;
+  /**
+   * ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — question 1's slot for the buildable envelope's
+   * summary (the card's satellite). Claimed on mount, re-claimed on repaint, released on dispose.
+   */
+  let envelopeSummarySlot: HTMLDivElement | null = null;
   /** §PL-IA-Q — the seven question groups, by id, in the order STR §26.3 (+ C115-06) states them. */
   const groups = new Map<string, QuestionGroupHandle>();
 
@@ -787,9 +827,11 @@ export function mountParcelLawTab(
    * ruled the duplication out, and its OWNER is the singleton envelope card's *Full site & massing
    * data* fold, which sits in this same question and whose rows are the hyperlinks (rule 2).
    * ⚠ Nothing is re-derived and no refusal was deleted: the card's own refusal / absence arms
-   * (C58 §1.13 · L-13048) state those on the card, in this question. Question 2's tab-owned slot
+   * (C58 §1.13 · L-13048) state those on the card, in this question. The tab-owned `factsLawSlot`
    * now carries the SETBACK REGISTER (§26.6.2) — a figure the card does not have — and is stamped
    * with `PARCEL_LAW_DUPLICATE_REMOVED_ATTR` so the move is readable rather than inferable.
+   * ⭐ 2026-09-11 (L-13315): that slot now sits in QUESTION 1, beside the buildable envelope it
+   * constrains (founder's Site-panel restructure); question 2 carries the C115-17 stamp instead.
    */
   const renderFacts = (): void => {
     if (disposed) return;
@@ -1112,6 +1154,25 @@ export function mountParcelLawTab(
     // below owns that decision and re-asserts it after every render.
     placeRouteNote();
 
+    // ── ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (founder ruling 2026-09-11 · L-13315) — THE BUILDABLE
+    // ENVELOPE AND ITS SETBACKS, IN QUESTION 1, IN HIS MOCKUP'S ORDER ──────────────────────────────
+    //
+    // Founder 2026-09-11 (Site-panel restructure, Section 1): the cadastral facts, then the buildable
+    // envelope (the four ceilings), then the setbacks per edge — *"both moved here from the build step
+    // since they describe the plot rather than a design choice. Nothing from the original content was
+    // removed"* — then SHOW ON THE PLOT. Two slots, two owners, and neither is rendered by this tab:
+    //   · the SUMMARY slot receives the envelope card's satellite (`envelopeSummaryHost.ts`), claimed
+    //     the moment this body is in the DOM. The card still produces every byte in its own pass and
+    //     stamps its old place in question 2 (C115-17) — no copied renderer (C115-88 clause 2);
+    //   · the SETBACK REGISTER is this tab's own `factsLawSlot`, MOVED, not rebuilt: the same
+    //     producer, the same model read, the same carried disclosure state — collapsed by default,
+    //     exactly as his mockup shows it.
+    envelopeSummarySlot = document.createElement('div');
+    envelopeSummarySlot.className = 'anl-parcel-law-envelope-summary';
+    envelopeSummarySlot.setAttribute('data-testid', PARCEL_LAW_ENVELOPE_SUMMARY_HOST_TESTID);
+    bodyOf('plot').appendChild(envelopeSummarySlot);
+    bodyOf('plot').appendChild(factsLawSlot);
+
     // ── ⭐ SHOW ON THE PLOT — §PLOT-DISPLAY-CONTROLS-HOST (C115 §1.4 C115-151) ──────────────
     //
     // Founder 2026-09-07: these two switches belong in section ①. They were never in this tab at
@@ -1163,7 +1224,18 @@ export function mountParcelLawTab(
     // on dispose keep working exactly as this file's header describes them.
     const envelopeSlot = panel.envelopeSlot;
     if (envelopeSlot) bodyOf('law').appendChild(envelopeSlot);
-    bodyOf('law').appendChild(factsLawSlot);
+    // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — `factsLawSlot` (the SETBACK REGISTER) is no longer
+    // appended here: it answers in question 1 now, beside the envelope it constrains (appended above,
+    // before SHOW ON THE PLOT). ⛔ C115-17 — the place it LEFT carries a stamp and a sentence, so
+    // "the block moved" is readable, never inferred from its absence.
+    const setbacksMovedNote = document.createElement('p');
+    setbacksMovedNote.className = 'anl-parcel-law-note';
+    setbacksMovedNote.setAttribute('data-testid', PARCEL_LAW_SETBACKS_MOVED_TESTID);
+    setbacksMovedNote.setAttribute(PARCEL_LAW_RELOCATED_TO_ATTR, 'plot');
+    setbacksMovedNote.style.cssText = 'margin:4px 0 6px;font-size:10px;line-height:1.5;color:#8a83a0;';
+    // textContent — no HTML sink in this file (C08 §3.1)
+    setbacksMovedNote.textContent = PARCEL_LAW_SETBACKS_MOVED_NOTE;
+    bodyOf('law').appendChild(setbacksMovedNote);
 
     // ════════════════════════════════════════════════════════════════════════════════════════
     // ⭐⭐ §ENVELOPE-CREATION-IS-A-STAGE-02-VERB (L-13202) — THE CREATE BLOCK MOVES INTO QUESTION 2
@@ -1355,6 +1427,10 @@ export function mountParcelLawTab(
     // card ONE render, never the control. Synchronous, and therefore ahead of the microtask the
     // envelope card's own claim is scheduled on — so the card's first render already yields.
     if (plotDisplaySlot) claimPlotDisplayControls(plotDisplaySlot, 'analysis:parcel-law:question-1');
+    // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — the SAME moment, for the same reason: synchronous
+    // and in-DOM, so the envelope card's first render already sees the summary job as taken and never
+    // flashes the figures in question 2 first. Seating the card's satellite is part of the claim.
+    if (envelopeSummarySlot) claimEnvelopeSummary(envelopeSummarySlot, 'analysis:parcel-law:question-1');
     renderFacts();
     // §26.6 rule 2 — the cadastral card and the plot facts are in the DOM; wire their controls
     // now, and keep every control under this body painted from the ONE store from here on, so a
@@ -1508,6 +1584,9 @@ export function mountParcelLawTab(
       // re-attached (a tab switch away and back) would have let its claim go stale, and nothing
       // else would re-take it.
       if (plotDisplaySlot) claimPlotDisplayControls(plotDisplaySlot, 'analysis:parcel-law:question-1');
+      // §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — the same insurance for the summary: idempotent for
+      // the same element, and it re-seats the satellite if a re-attach left it anywhere else.
+      if (envelopeSummarySlot) claimEnvelopeSummary(envelopeSummarySlot, 'analysis:parcel-law:question-1');
       renderPlotDisplay();
       placeRouteNote();
       refreshDigests();
@@ -1531,6 +1610,14 @@ export function mountParcelLawTab(
         try { releasePlotDisplayControls(plotDisplaySlot); } catch { /* teardown is best-effort */ }
       }
       plotDisplaySlot = null;
+      // §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — hand the summary back BEFORE the card is handed
+      // back, for the same reason as the switches above: the card's next render must see the job as
+      // its own, or it would render once without its figures. Guarded on identity inside the arbiter,
+      // so a tab disposing after another surface has claimed the summary cannot evict it.
+      if (envelopeSummarySlot) {
+        try { releaseEnvelopeSummary(envelopeSummarySlot); } catch { /* teardown is best-effort */ }
+      }
+      envelopeSummarySlot = null;
       // §26.6 rule 2 — a highlight listener that outlived this body would repaint a detached tree.
       try { unsubHighlight?.(); } catch { /* teardown is best-effort */ }
       unsubHighlight = null;

@@ -39,6 +39,8 @@ import {
     PARCEL_LAW_PANEL_SLOT_TESTID,
     PARCEL_LAW_FACTS_PLOT_SLOT_TESTID,
     PARCEL_LAW_FACTS_LAW_SLOT_TESTID,
+    PARCEL_LAW_ENVELOPE_SUMMARY_HOST_TESTID,
+    PARCEL_LAW_SETBACKS_MOVED_TESTID,
     PARCEL_LAW_AUTHORING_HOST_TESTID,
     PARCEL_LAW_ROOM_PROGRAMME_HOST_TESTID,
     PARCEL_LAW_ALLOWANCE_HOST_TESTID,
@@ -114,9 +116,12 @@ describe('ARM A — the sequence is the PERSONA\'s (STR §26.3), not the model\'
 
         const questions = groups.map((g) => g.querySelector('.anl-plaw-q-title')?.textContent ?? '');
         expect(questions).toEqual([
-            'What is this plot?',
-            // §26.6.2 (L-13046) — renamed by the founder: *"What CAN I build here?"*, his words.
-            'What can I build here?',
+            // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (founder ruling 2026-09-11, Site-panel restructure) —
+            // his mockup's titles for 1 and 2, verbatim: 1 answers the plot AND what it permits, 2 is
+            // where you act on it. History: 'What is this plot?' (2026-09-06) and 'What can I build
+            // here?' (§26.6.2, L-13046, 2026-09-07) — each superseded by the founder's own words.
+            'What is this plot — and what can I build here?',
+            'What can I build — and build it',
             'What do I want to build?',
             // §STAGE-05-SECTION (C115-170) — the founder's "NEW SECTION 4". The title is
             // `C115-05`'s stage-05 question, transcribed verbatim rather than written to taste.
@@ -173,7 +178,14 @@ describe('ARM B — ⭐ NOTHING WAS DROPPED, and each section is in the question
     const INVENTORY: ReadonlyArray<readonly [string, string]> = [
         [PARCEL_LAW_PANEL_SLOT_TESTID, 'plot'],
         [PARCEL_LAW_FACTS_PLOT_SLOT_TESTID, 'plot'],
-        [PARCEL_LAW_FACTS_LAW_SLOT_TESTID, 'law'],
+        // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (founder ruling 2026-09-11 · L-13315) — the SETBACK
+        // REGISTER's slot MOVED to question 1, beside the envelope it constrains, and the envelope's
+        // summary has a question-1 slot of its own. ⛔ Both MOVED, neither was deleted — and the stamp
+        // question 2 now carries where the register used to be is its own row, so "moved" is checkable
+        // rather than inferred from an absence.
+        [PARCEL_LAW_FACTS_LAW_SLOT_TESTID, 'plot'],
+        [PARCEL_LAW_ENVELOPE_SUMMARY_HOST_TESTID, 'plot'],
+        [PARCEL_LAW_SETBACKS_MOVED_TESTID, 'law'],
         // ⭐ §ENVELOPE-CREATION-IS-A-STAGE-02-VERB (L-13202) — the create block's host, now in
         // question 2 rather than 3. Founder 2026-09-07: *"SECTION 3 SHALL HAVE ONLY THIS SCOPE"*
         // (the ledger), and of the create block *"THIS HAS BEEN DONE ALREADY ON SECTION 2."*

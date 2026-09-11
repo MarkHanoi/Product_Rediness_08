@@ -87,6 +87,12 @@ export interface DigestProbe {
     readonly attr?: string;
     /** Prepended to the mirrored text, e.g. `'≈ '`. Never replaces it. */
     readonly prefix?: string;
+    /**
+     * Appended to the mirrored text, e.g. `' buildable'`. Never replaces it.
+     * §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — question 1's second figure reads *"288,355 m²
+     * buildable"*, the founder's mockup wording; the figure itself is still mirrored, never composed.
+     */
+    readonly suffix?: string;
 }
 
 /**
@@ -112,6 +118,16 @@ export interface QuestionGroupSpec {
     readonly headlineProbes: readonly DigestProbe[];
     /** Probed in order; the first that resolves supplies the collapsed confidence. */
     readonly confidenceProbes: readonly DigestProbe[];
+    /**
+     * ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — an OPTIONAL second figure, probed on its own and
+     * joined to the headline with ` · `. Since the founder's 2026-09-11 restructure question 1 answers
+     * two questions — *"what is this plot"* AND *"what can I build here"* — and its collapsed row states
+     * one figure for each (*"74,403 m² · 288,355 m² buildable"*, his mockup). Mirrored like every probe:
+     * if the row is not in the body the second half is simply absent, never substituted or composed.
+     */
+    readonly headlineSecondaryProbes?: readonly DigestProbe[];
+    /** The same for the confidence line — each figure's standing, side by side (C58 §1.2). */
+    readonly confidenceSecondaryProbes?: readonly DigestProbe[];
     /** Stated when NO probe resolves. An honest absence, never a zero. */
     readonly emptyDigest: string;
 }
@@ -151,8 +167,12 @@ export const PARCEL_LAW_QUESTION_GROUPS: readonly QuestionGroupSpec[] = Object.f
     Object.freeze({
         id: 'plot',
         ordinal: 1,
-        question: 'What is this plot?',
-        hint: 'Reference, address, area, source and when it was retrieved.',
+        // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (founder ruling 2026-09-11 · Site-panel restructure,
+        // Section 1 · L-13315) — his mockup's title, verbatim: the cadastral facts and the buildable
+        // envelope they produce answer ONE question now, *"because they describe the plot rather
+        // than a design choice"*. The 2026-09-06 title, *"What is this plot?"*, is the first half.
+        question: 'What is this plot — and what can I build here?',
+        hint: 'Cadastral facts and the buildable envelope they produce, with sources and confidence.',
         open: true,
         // ⭐ L-13139 / C115 §15 D-10 — FIXED HERE, AND THE MECHANISM IS WORTH STATING.
         //
@@ -180,6 +200,31 @@ export const PARCEL_LAW_QUESTION_GROUPS: readonly QuestionGroupSpec[] = Object.f
             { selector: '[data-testid="parcel-source-attribution"]' },
             { selector: '[data-testid="parcel-law-geometry-absent"]', attr: 'data-absence' },
         ]),
+        // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — the SECOND figure: what can be built here.
+        // Scoped to the envelope card's satellite (`[data-testid="envelope-summary"]`) so a ceiling row
+        // anywhere else can never answer for it; `[data-derived="yes"]` exactly as question 2's probes
+        // carried it before the move (C115-100 — a probe moves WITH the rendering it mirrors), because
+        // a `not derived` row is a MISSING LOOKUP, never a figure (C58 §1.4). GFA first — his mockup
+        // reads *"288,355 m² buildable"* — then the other three in the headline's own order.
+        headlineSecondaryProbes: Object.freeze([
+            {
+                selector: '[data-testid="envelope-summary"] [data-ceiling="buildable"][data-derived="yes"] .anl-card-row-val',
+                suffix: ' buildable',
+            },
+            { selector: '[data-testid="envelope-summary"] [data-ceiling="levels"][data-derived="yes"] .anl-card-row-val', prefix: 'max levels ' },
+            { selector: '[data-testid="envelope-summary"] [data-ceiling="height"][data-derived="yes"] .anl-card-row-val', prefix: 'max height ' },
+            {
+                selector: '[data-testid="envelope-summary"] [data-ceiling="implantation"][data-derived="yes"] .anl-card-row-val',
+                prefix: 'max footprint ',
+            },
+        ]),
+        // C58 §1.2 — the envelope's standing beside the parcel's: the card's OWN badge text (six arms,
+        // weakest-wins, C58 §5.4a), then the headline's own derived count where no badge rendered.
+        // Both are mirrored; neither is composed here.
+        confidenceSecondaryProbes: Object.freeze([
+            { selector: '[data-testid="envelope-summary-badge"]' },
+            { selector: '[data-testid="envelope-summary"] [data-testid="envelope-ceiling-headline"]', attr: 'data-ceilings-derived' },
+        ]),
         emptyDigest: 'no plot committed',
     }),
     Object.freeze({
@@ -188,11 +233,14 @@ export const PARCEL_LAW_QUESTION_GROUPS: readonly QuestionGroupSpec[] = Object.f
         // §26.6.2 (L-13046, founder 2026-09-07): *"RENAME from 'What may I build here?' to 'What
         // CAN I build here?'"* — his words, verbatim. "Who says so" moves into the hint: it is
         // still the question's substance (the citations are C58 §1.3), it is no longer its title.
-        question: 'What can I build here?',
-        // §ENVELOPE-CREATION-IS-A-STAGE-02-VERB (L-13202, founder 2026-09-07) — the hint names the
-        // CREATE verb, because it is now in this question. See the note below.
-        hint: 'The buildable envelope, the setback per edge, its ordinance citations (who says so), '
-            + 'its confidence — and the controls that turn it into a massing envelope.',
+        // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (founder ruling 2026-09-11 · Site-panel restructure,
+        // Section 2 · L-13315) — his mockup's title, verbatim. The determination (*"what can I build
+        // here?"*) now answers in question 1, beside the plot it describes; THIS question is where you
+        // ACT on it — create an envelope, master-plan the blocks, compare massings — which is C115
+        // §2.2.1's standing ruling (02 is where you act) with the read-out lifted out of its way.
+        // The 2026-09-07 title *"What can I build here?"* (§26.6.2, L-13046) is kept here as history.
+        question: 'What can I build — and build it',
+        hint: 'Create envelopes, place them across the site, and compare massings. The main tool on this panel.',
         open: true,
         // ════════════════════════════════════════════════════════════════════════════════════════
         // ⭐⭐ §SECTION-2-MIRRORS-ITS-OWN-DETERMINATION (L-13202 · C115 §12.1 `C115-99`/`C115-100`)
@@ -228,6 +276,15 @@ export const PARCEL_LAW_QUESTION_GROUPS: readonly QuestionGroupSpec[] = Object.f
         // `[data-derived="yes"]` is load-bearing: without it a `not derived` row resolves first and
         // the digest would state *"not derived"* for a parcel whose other three ceilings are known.
         headlineProbes: Object.freeze([
+            // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315 · C115-100) — THE PROBES MOVED WITH THE
+            // RENDERING. The four ceilings answer in question 1 now (its `headlineSecondaryProbes`), so
+            // leaving them FIRST here would make this digest read nothing whenever the Parcel Law panel
+            // holds the summary — the D-10 shape the 2026-09-07 fix closed, re-opened by the move. This
+            // question's own headline is what you have DONE on the parcel, in his mockup's order: the
+            // master plan's roster verdict, then the single envelope's create status. The ceiling rows
+            // stay below, probed only where a host renders the card's summary INLINE (no claim held).
+            { selector: '[data-testid="site-master-plan-verdict"]' },
+            { selector: '[data-testid="parcel-law-authoring-status"]' },
             { selector: '[data-ceiling="levels"][data-derived="yes"] .anl-card-row-val', prefix: 'max levels ' },
             { selector: '[data-ceiling="height"][data-derived="yes"] .anl-card-row-val', prefix: 'max height ' },
             { selector: '[data-ceiling="implantation"][data-derived="yes"] .anl-card-row-val', prefix: 'max footprint ' },
@@ -254,7 +311,10 @@ export const PARCEL_LAW_QUESTION_GROUPS: readonly QuestionGroupSpec[] = Object.f
             { selector: '.anl-plaw-group-source' },
             { selector: '[data-testid="parcel-law-determined-at"]' },
         ]),
-        emptyDigest: 'no determination held',
+        // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — the determination answers in question 1 now, so
+        // an empty question 2 is not "no determination held" (that absence is question 1's to state, in
+        // its satellite's own sentence); it is that nothing has been created on the parcel yet.
+        emptyDigest: 'nothing created yet',
     }),
     Object.freeze({
         id: 'intent',
@@ -457,7 +517,8 @@ function probe(body: ParentNode, probes: readonly DigestProbe[]): string {
         const raw = p.attr ? (node.getAttribute(p.attr) ?? '') : (node.textContent ?? '');
         const text = raw.replace(/\s+/g, ' ').trim();
         if (text.length === 0) continue;
-        return p.prefix ? `${p.prefix}${text}` : text;
+        // Prefix and suffix frame the mirrored text; neither ever replaces it.
+        return `${p.prefix ?? ''}${text}${p.suffix ?? ''}`;
     }
     return '';
 }
@@ -539,8 +600,11 @@ export function buildQuestionGroup(spec: QuestionGroupSpec): QuestionGroupHandle
 
     const refreshDigest = (): void => {
         try {
-            const headline = probe(body, spec.headlineProbes);
-            const confidence = probe(body, spec.confidenceProbes);
+            // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — an optional SECOND figure, each half mirrored
+            // on its own and joined with ` · `. Either half may be absent; neither is ever composed.
+            const join = (a: string, b: string): string => [a, b].filter((s) => s.length > 0).join(' · ');
+            const headline = join(probe(body, spec.headlineProbes), probe(body, spec.headlineSecondaryProbes ?? []));
+            const confidence = join(probe(body, spec.confidenceProbes), probe(body, spec.confidenceSecondaryProbes ?? []));
             digestValue.textContent = headline.length > 0 ? clip(headline, 34) : spec.emptyDigest;
             // ⛔ A headline with no confidence beside it is the C58 §1.2 breach this digest
             // exists to avoid, so the absence is STATED rather than left blank.

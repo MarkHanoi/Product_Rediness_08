@@ -117,6 +117,18 @@ import {
     plotDisplayControlsClaimed,
     subscribePlotDisplayControlsHost,
 } from '../site/plotDisplayControlsHost';
+// ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (founder ruling 2026-09-11 · L-13315 · C115 §10 `C115-87`/`C115-88`)
+// — this card's SUMMARY (badge · four ceilings · caveats · source line) may be displayed by another
+// surface: the Parcel Law panel's question 1. The card still produces every byte in its own pass; it
+// asks only whether that job is TAKEN (never which host it is in), stamps its old place when it is,
+// and publishes into the satellite on EVERY arm so the satellite is never a vintage behind the card.
+// The subscription that repaints the card when a claim changes hands is the existing
+// `subscribePlotDisplayControlsHost` one below — it now fires for either job (one arbiter).
+import {
+    envelopeSummaryClaimed,
+    publishEnvelopeSummary,
+    ENVELOPE_SUMMARY_RELOCATED_HTML,
+} from '../site/envelopeSummaryHost';
 
 /** §L-676-B — scope name + audit-probe key for this file's per-project closure state. */
 const GIS_LAYOUT_SCOPE = 'gis.areaLayout';
@@ -4498,6 +4510,9 @@ function mountGISAreaImpl(props: GISMountProps, runtime: PryzmRuntime | null): G
         // missing without telling him how to get it, and the only route the copy did name
         // ("re-commit the parcel") is a GEOMETRY-touching action offered for a PROVENANCE gap.
         wireLegacyRecompute(panel);
+        // §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315 · C115-88 clause 3) — the REDUCED arm has no
+        // summary to move: it stays whole on this card, and the satellite says so in one line.
+        publishEnvelopeSummary({ arm: 'reduced' });
     };
 
     // ── §ENVELOPE-SITE-DATA (L-586) — the full parcel + massing read-out ─────────────────────
@@ -5283,6 +5298,9 @@ function mountGISAreaImpl(props: GISMountProps, runtime: PryzmRuntime | null): G
             `[gis][envelope-card] §ENVELOPE-NOT-A-GATE (C58 §1.20) no envelope → state="${kind}" `
             + `rendered (card KEPT; the parcel-law process is not gated on an envelope).`,
         );
+        // §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315 · C115-88 clause 3) — the ABSENCE arm has no summary
+        // to move: it stays whole on this card, and the satellite says so in one line (never a blank).
+        publishEnvelopeSummary({ arm: 'absence' });
     };
 
     /** Mount/refresh the "Estimated" facts card + on/off toggle (SPEC §2). */
@@ -5344,6 +5362,10 @@ function mountGISAreaImpl(props: GISMountProps, runtime: PryzmRuntime | null): G
             // does, which is what this branch used to do to every null envelope.
             if (envelopePanel?.parentElement) envelopePanel.parentElement.removeChild(envelopePanel);
             envelopePanel = null;
+            // §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — no card, so no summary: the satellite must not
+            // keep showing the last one it was handed. It states that nothing is rendered right now —
+            // a different fact from "no envelope", and never a stale figure.
+            publishEnvelopeSummary({ arm: 'not-rendered' });
             return;
         }
         if (!env || isNoneWithoutRefusal(env)) {
@@ -5722,6 +5744,10 @@ function mountGISAreaImpl(props: GISMountProps, runtime: PryzmRuntime | null): G
             // actually lands on with an old project (a stored `source-data-unavailable` from a
             // past session), and it was the one route out that the copy named but never wired.
             if (hydratedAtIso) wireStoredDeterminationRefresh(panel, hydratedAtIso);
+            // §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315 · C115-88 clause 3) — the REFUSAL arm has no
+            // summary to move: its reason, facts and citation stay whole on this card, and the satellite
+            // points at them in one line — a refusal is an answer, never a blank in question 1.
+            publishEnvelopeSummary({ arm: 'refusal' });
             return;
         }
         // §26.6.7 (L-13085) — the local `setback()` STOOD HERE and is gone: its only reader was the
@@ -6143,17 +6169,39 @@ function mountGISAreaImpl(props: GISMountProps, runtime: PryzmRuntime | null): G
         // would push the row under the cursor out of reach, which is the consequence the
         // founder was warned about when he ruled that every fold remembers.
         const envScrollBefore = panel.scrollTop;
-        panel.innerHTML =
-            `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:8px;cursor:grab;">
-               <span style="font-weight:600;font-size:var(--pryzm-panel-font-size-title);color:#6600FF;">Buildable envelope</span>${safeBadge}${safeCloseBtn}
-             </div>
-             ${safeHydratedLine}
+        // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (founder ruling 2026-09-11 · L-13315 · C115-87/88) — THE
+        // SUMMARY IS BUILT ONCE, HERE, FROM THIS PASS'S OWN LOCALS: the stored-determination line, the
+        // four ceilings (or the degenerate refusal, or the alignment rows), both upper-bound caveats and
+        // the source line — the same `safe*` strings, in the same order, as before this change. It
+        // renders INLINE exactly as it always has UNLESS another surface holds the summary job (the
+        // Parcel Law panel's question 1, *"What is this plot — and what can I build here?"*): then the
+        // C115-17 stamp takes its place here, and the provenance badge leaves this header WITH the
+        // figures it grades — C58 §1.2, a figure's confidence is part of the figure. ⛔ The card asks
+        // whether the job is TAKEN, never which host it is in (C115-88 clause 1), so the GIS rail PARCEL
+        // panel and the floating card — which never claim it — are byte-for-byte unchanged.
+        const safeSummaryBody =
+            `${safeHydratedLine}
              ${safeRows}
              ${safeUpperBoundBlock}
              ${safeZoneExtentBlock}
              <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;">
                ${safeSourceLine}
+             </div>`;
+        // The satellite's copy carries its own heading and the badge. The badge wrapper's testid is the
+        // `ENVELOPE_SUMMARY_BADGE_TESTID` literal — question 1's digest reads the badge text through it.
+        const safeSummaryHtml =
+            `<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:8px;">
+               <span style="font-weight:600;font-size:var(--pryzm-panel-font-size-title);color:#6600FF;">Buildable envelope</span><span data-testid="envelope-summary-badge">${safeBadge}</span>
              </div>
+             ${safeSummaryBody}`;
+        const summaryClaimed = envelopeSummaryClaimed();
+        // A static, author-written constant — hoisted into the `safe*` convention (§XSS-SINK-SCAN).
+        const safeSummaryRelocatedStamp = ENVELOPE_SUMMARY_RELOCATED_HTML;
+        panel.innerHTML =
+            `<div data-envelope-drag="1" title="Drag to move" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin-bottom:8px;cursor:grab;">
+               <span style="font-weight:600;font-size:var(--pryzm-panel-font-size-title);color:#6600FF;">Buildable envelope</span>${summaryClaimed ? '' : safeBadge}${safeCloseBtn}
+             </div>
+             ${summaryClaimed ? safeSummaryRelocatedStamp : safeSummaryBody}
              ${buildStagedSectionsHtml(sectionPlan, {
                  'designed-vs-permitted': safeCapacitySection,
                  'how-measured': safeMeasuredSection,
@@ -6172,6 +6220,11 @@ function mountGISAreaImpl(props: GISMountProps, runtime: PryzmRuntime | null): G
         restoreEnvelopeCardDisclosure(panel, envScrollBefore);
         wireSiteHighlightRows(panel);
         wireTargetAreaEntry(panel);
+        // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — published on EVERY pass, claimed or not, so the
+        // satellite is never a vintage behind the card that produced it. The satellite wires its own
+        // highlight controls (rule 2): `wireSiteHighlightRows(panel)` above cannot reach it once it has
+        // left the card.
+        publishEnvelopeSummary({ arm: 'full', safeHtml: safeSummaryHtml });
         // §RESI-ORCH-ADOPT — the CONFIRM step. Only ever wired when the button was rendered, and
         // it is rendered only when a LIVE proposal exists (`resolveLiveTargetFootprintProposal`).
         wireTargetAreaAdopt(panel);

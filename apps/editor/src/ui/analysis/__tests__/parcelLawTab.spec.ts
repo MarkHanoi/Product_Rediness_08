@@ -36,6 +36,9 @@ import {
     PARCEL_LAW_AUTHORING_MOVED_TESTID,
     PARCEL_LAW_RELOCATED_TO_ATTR,
     PARCEL_LAW_INTENT_HOST_TESTID,
+    PARCEL_LAW_ENVELOPE_SUMMARY_HOST_TESTID,
+    PARCEL_LAW_SETBACKS_MOVED_TESTID,
+    PARCEL_LAW_SETBACKS_MOVED_NOTE,
     ENVELOPE_CARD_TESTID,
     type ParcelLawTabDeps,
     type ParcelLawCapabilityHost,
@@ -58,6 +61,12 @@ import {
     plotDisplayControlsClaimed,
     __resetPlotDisplayControlsHostForTests,
 } from '../../site/plotDisplayControlsHost';
+// §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — the card's satellite and its claim, read at their ONE owner.
+import {
+    envelopeSummaryClaimed,
+    getEnvelopeSummaryElement,
+    ENVELOPE_SUMMARY_TESTID,
+} from '../../site/envelopeSummaryHost';
 import { VIEW_SEGMENT_SWITCHER_TESTID, VIEW_SEGMENT_ATTR, VIEW_SEGMENTS } from '../../site/viewSegmentSwitcher';
 import { VIEW_SWITCHER_ON_VIEW_TESTID, VIEW_SWITCHER_SPLIT_TESTID } from '../../site/viewSwitcherOnView';
 import { buildParcelLawModel } from '../../site/parcel/parcelLawModel';
@@ -646,15 +655,21 @@ describe('§26.6.6 — every refusal the spec quotes is STILL PRESENT: rendered 
 describe('§26.6.2 — question 2 is RENAMED, the × is withheld on this host, and the four figures are NAMED as he names them', () => {
     const src = (rel: string): string => readFileSync(resolve(__dirname, rel), 'utf8');
 
-    it('the question reads "What can I build here?" — the founder\'s words', async () => {
+    it('questions 1 and 2 read the founder\'s 2026-09-11 titles — his mockup\'s words (L-13315)', async () => {
+        // ⚠ REWRITTEN 2026-09-11 (§ENVELOPE-SUMMARY-IN-QUESTION-1). This asserted question 2 read
+        // "What can I build here?" (§26.6.2, 2026-09-07). The founder's Site-panel restructure moved
+        // the determination into question 1 — "What is this plot — and what can I build here?" — and
+        // made question 2 the place you act: "What can I build — and build it". Both are his words.
         const seam = fakeEnvelopeSeam();
         const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
         const hostEl = document.createElement('div');
         document.body.appendChild(hostEl);
         const h = mountParcelLawTab(hostEl, deps);
         await tick();
+        const q1 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}plot"]`)!;
+        expect(q1.querySelector('.anl-plaw-q-title')!.textContent).toBe('What is this plot — and what can I build here?');
         const q2 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}law"]`)!;
-        expect(q2.querySelector('.anl-plaw-q-title')!.textContent).toBe('What can I build here?');
+        expect(q2.querySelector('.anl-plaw-q-title')!.textContent).toBe('What can I build — and build it');
         h.dispose();
         hostEl.remove();
         seam.restore();
@@ -757,8 +772,8 @@ describe('§26.6.2 — question 2 is RENAMED, the × is withheld on this host, a
     });
 });
 
-describe('§26.6.2 — THE SETBACK REGISTER lands in question 2, per edge, each edge a link the tab wires', () => {
-    it('one row per edge in question 2, its class stated per edge, and every edge link wired with the rest', async () => {
+describe('§26.6.2 — THE SETBACK REGISTER lands in question 1, per edge, each edge a link the tab wires', () => {
+    it('one row per edge in question 1, its class stated per edge, and every edge link wired with the rest', async () => {
         const seam = fakeEnvelopeSeam();
         const runtime = fakeRuntime(SITE);
         const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime };
@@ -766,9 +781,11 @@ describe('§26.6.2 — THE SETBACK REGISTER lands in question 2, per edge, each 
         document.body.appendChild(hostEl);
         const h = mountParcelLawTab(hostEl, deps);
         await tick();
-        const q2 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}law"]`)!;
-        const register = q2.querySelector<HTMLDetailsElement>(`[data-testid="${SETBACK_REGISTER_TESTID}"]`)!;
-        expect(register, 'the register is not in question 2').not.toBeNull();
+        // ⚠ 2026-09-11 (L-13315) — the register moved to question 1 WITH the ceilings it qualifies: the
+        // founder's Site-panel ruling reads *"Buildable envelope · Setbacks per edge"* under ①.
+        const q1 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}plot"]`)!;
+        const register = q1.querySelector<HTMLDetailsElement>(`[data-testid="${SETBACK_REGISTER_TESTID}"]`)!;
+        expect(register, 'the register is not in question 1').not.toBeNull();
         expect(register.tagName).toBe('DETAILS');
         const rows = register.querySelectorAll(`[data-testid^="${SETBACK_REGISTER_ROW_PREFIX}"]`);
         expect(rows).toHaveLength(SITE.parcel.boundary.polygon.length);
@@ -846,7 +863,8 @@ describe('§ENVELOPE-CREATION-IS-A-STAGE-02-VERB (L-13202) — question 3 is the
         const moved = q3.querySelector(`[data-testid="${PARCEL_LAW_AUTHORING_MOVED_TESTID}"]`);
         expect(moved, 'question 3 lost a control and left no pointer').not.toBeNull();
         expect(moved!.getAttribute(PARCEL_LAW_RELOCATED_TO_ATTR)).toBe('law');
-        expect(moved!.textContent).toContain('What can I build here?');
+        // ⭐ 2026-09-11 (L-13315) — the pointer names question 2 by its NEW title, the founder's words.
+        expect(moved!.textContent).toContain('What can I build — and build it');
 
         // ⛔ `C115-130` — STAGE 02 MUST NOT GATE STAGE 03. The ledger renders its own state with
         // no envelope in the project; the note is additive, never a branch that skips the section.
@@ -857,7 +875,104 @@ describe('§ENVELOPE-CREATION-IS-A-STAGE-02-VERB (L-13202) — question 3 is the
         seam.restore();
     });
 
-    it('inside question 2 the create block sits AFTER the determination it is measured against', async () => {
+    it('the determination and its setbacks are read in question 1 BEFORE question 2\'s create block acts on them', async () => {
+        // ⚠ REWRITTEN 2026-09-11 (L-13315). This read *"inside question 2 the create block sits AFTER the
+        // determination it is measured against"*. The founder's Site-panel ruling moved the determination
+        // and its setback register to question 1, so the invariant — read the ceiling and its setbacks,
+        // THEN act on them — is asserted ACROSS the ladder.
+        const seam = fakeEnvelopeSeam();
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+        const order = [...h.element.querySelectorAll('[data-testid]')].map((e) => e.getAttribute('data-testid'));
+        const create = order.indexOf(PARCEL_LAW_AUTHORING_HOST_TESTID);
+        expect(create, 'the create block is gone').toBeGreaterThanOrEqual(0);
+        for (const read of [PARCEL_LAW_ENVELOPE_SUMMARY_HOST_TESTID, PARCEL_LAW_FACTS_LAW_SLOT_TESTID]) {
+            expect(order.indexOf(read), `${read} is gone`).toBeGreaterThanOrEqual(0);
+            expect(order.indexOf(read), `${read} is read AFTER the create block`).toBeLessThan(create);
+        }
+        // Inside question 2 the card still comes first: the design-stage strip's massing pill targets
+        // the card, so a create block placed above it would leave the pill jumping past the control it
+        // is meant to lead to. The setbacks stamp sits directly under the card, so it pins that order.
+        const q2 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}law"]`)!;
+        const q2Order = [...q2.querySelectorAll('[data-testid]')].map((e) => e.getAttribute('data-testid'));
+        expect(q2Order.indexOf(PARCEL_LAW_SETBACKS_MOVED_TESTID)).toBeGreaterThanOrEqual(0);
+        expect(q2Order.indexOf(PARCEL_LAW_SETBACKS_MOVED_TESTID))
+            .toBeLessThan(q2Order.indexOf(PARCEL_LAW_AUTHORING_HOST_TESTID));
+        h.dispose();
+        hostEl.remove();
+        seam.restore();
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (founder ruling 2026-09-11 · Site-panel restructure, Section 1
+// · L-13315 · C115 §10 `C115-87`/`C115-88` · C115-17). The buildable envelope's SUMMARY — badge,
+// four ceilings, caveats, source line — answers in question 1, and the setback register moved with
+// it. These arms drive the MOUNTED tab: the seat exists, the satellite is IN it, the claim lives
+// exactly as long as the tab, and question 2 states where the setbacks went instead of losing them.
+// ═══════════════════════════════════════════════════════════════════════════════════════
+describe('§ENVELOPE-SUMMARY-IN-QUESTION-1 — the buildable envelope answers in question 1, and nothing was removed', () => {
+    afterEach(() => {
+        __resetPlotDisplayControlsHostForTests(); // resets the whole card-job arbiter — both jobs
+        resetQuestionGroupOpenState();
+    });
+
+    it('⭐ question 1 seats the summary between the cadastral card and the setbacks — and question 2 keeps no copy', async () => {
+        const seam = fakeEnvelopeSeam();
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+
+        const q1 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}plot"]`)!;
+        const slot = q1.querySelector(`[data-testid="${PARCEL_LAW_ENVELOPE_SUMMARY_HOST_TESTID}"]`);
+        expect(slot, 'the buildable envelope has no seat in question 1').not.toBeNull();
+        // ⛔ The satellite itself — the ONE element the card publishes into — never a copy of its markup.
+        expect(slot!.querySelector(`[data-testid="${ENVELOPE_SUMMARY_TESTID}"]`)).toBe(getEnvelopeSummaryElement());
+        // His mockup's order inside ①: the plot, the envelope it produces, the setbacks that shape it.
+        const order = [...q1.querySelectorAll('[data-testid]')].map((e) => e.getAttribute('data-testid'));
+        const plot = order.indexOf(PARCEL_LAW_PANEL_SLOT_TESTID);
+        const summary = order.indexOf(PARCEL_LAW_ENVELOPE_SUMMARY_HOST_TESTID);
+        const setbacks = order.indexOf(PARCEL_LAW_FACTS_LAW_SLOT_TESTID);
+        expect(plot, 'the cadastral card left question 1').toBeGreaterThanOrEqual(0);
+        expect(plot).toBeLessThan(summary);
+        expect(summary).toBeLessThan(setbacks);
+
+        // ⛔ C115-11 — a MOVE, not a copy: question 2 carries neither the summary nor the register.
+        const q2 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}law"]`)!;
+        expect(q2.querySelector(`[data-testid="${ENVELOPE_SUMMARY_TESTID}"]`)).toBeNull();
+        expect(q2.querySelector(`[data-testid="${SETBACK_REGISTER_TESTID}"]`)).toBeNull();
+
+        h.dispose(); hostEl.remove(); seam.restore();
+    });
+
+    it('⛔ the summary job is CLAIMED while the tab is mounted, and dispose hands it back with the satellite', async () => {
+        __resetPlotDisplayControlsHostForTests();
+        expect(envelopeSummaryClaimed()).toBe(false);
+        const seam = fakeEnvelopeSeam();
+        const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
+        const hostEl = document.createElement('div');
+        document.body.appendChild(hostEl);
+        const h = mountParcelLawTab(hostEl, deps);
+        await tick();
+        expect(envelopeSummaryClaimed(), 'question 1 must hold the summary while it is on screen').toBe(true);
+        const slot = h.element.querySelector(`[data-testid="${PARCEL_LAW_ENVELOPE_SUMMARY_HOST_TESTID}"]`)!;
+        expect(slot.contains(getEnvelopeSummaryElement())).toBe(true);
+
+        h.dispose();
+        // ⛔ AND IT MUST COME BACK. A tab that kept the claim after teardown would leave the viewport
+        // card stamping "moved to question 1" over a panel that is no longer on screen — the summary
+        // LOST, which is strictly worse than the placement this restructure started from.
+        expect(envelopeSummaryClaimed()).toBe(false);
+        expect(slot.contains(getEnvelopeSummaryElement())).toBe(false);
+        hostEl.remove(); seam.restore();
+    });
+
+    it('C115-17 — question 2 states where the setback register went, in words AND in the machine-readable half', async () => {
         const seam = fakeEnvelopeSeam();
         const deps: ParcelLawTabDeps = { ...defaultParcelLawTabDeps(), capabilityHost: seam.host, runtime: fakeRuntime(SITE) };
         const hostEl = document.createElement('div');
@@ -865,15 +980,11 @@ describe('§ENVELOPE-CREATION-IS-A-STAGE-02-VERB (L-13202) — question 3 is the
         const h = mountParcelLawTab(hostEl, deps);
         await tick();
         const q2 = h.element.querySelector(`[data-testid="${QUESTION_GROUP_TESTID_PREFIX}law"]`)!;
-        const order = [...q2.querySelectorAll('[data-testid]')].map((e) => e.getAttribute('data-testid'));
-        // Read the ceiling and its setbacks, THEN act on them. The design-stage strip's massing
-        // pill targets the card, so a create block placed above it would leave the pill jumping
-        // past the control it is meant to lead to.
-        expect(order.indexOf(PARCEL_LAW_FACTS_LAW_SLOT_TESTID))
-            .toBeLessThan(order.indexOf(PARCEL_LAW_AUTHORING_HOST_TESTID));
-        h.dispose();
-        hostEl.remove();
-        seam.restore();
+        const moved = q2.querySelector(`[data-testid="${PARCEL_LAW_SETBACKS_MOVED_TESTID}"]`);
+        expect(moved, 'question 2 lost the setback register and left no pointer').not.toBeNull();
+        expect(moved!.getAttribute(PARCEL_LAW_RELOCATED_TO_ATTR)).toBe('plot');
+        expect(moved!.textContent).toBe(PARCEL_LAW_SETBACKS_MOVED_NOTE);
+        h.dispose(); hostEl.remove(); seam.restore();
     });
 });
 

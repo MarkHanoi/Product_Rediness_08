@@ -21,11 +21,13 @@
  * ═════════════════════════════════════════════════════════════════════════════════════════════
  *   ARM 1 — the digest mirrors a DETERMINED body. Fails on the shipped code (it read
  *           "no determination held" against the founder's own numbers). Fails again if a lane
- *           re-points the probes at anything question 2 does not render.
- *   ARM 2 — ⭐ THE REGRESSION HE REPORTED: **author an envelope, and question 2 STILL reports its
- *           determination.** The create block now lives in question 2, so this drives the REAL
- *           block, in the REAL group body, through a REAL dispatch, and re-reads the digest after.
- *   ARM 3 — ⛔ NOT VACUOUS. An UNDETERMINED body still reads "no determination held", and a
+ *           re-points the probes at anything the question does not render. ⭐ Since 2026-09-11
+ *           (L-13315) the determination answers in QUESTION 1, inside the envelope card's
+ *           satellite, and its probes moved with it (C115-100).
+ *   ARM 2 — ⭐ THE REGRESSION HE REPORTED: **author an envelope, and the determination is STILL
+ *           reported.** The create block lives in question 2 and the determination in question 1,
+ *           so this drives the REAL block through a REAL dispatch and re-reads BOTH digests after.
+ *   ARM 3 — ⛔ NOT VACUOUS. An UNDETERMINED satellite still reads as an absence, and a
  *           `not derived` ceiling is never mistaken for a value. Without this arm, a digest
  *           hard-coded to any non-empty string would pass ARMs 1 and 2.
  *   ARM 4 — question 3's digest moved with the rendering it mirrors (`C115-100`): it reads the
@@ -90,7 +92,7 @@ const AVAIL = describeSiteHighlightAvailability({
     gfaM2: 2711,
 });
 
-/** The card's ceiling headline, as question 2's body actually renders it. */
+/** The card's ceiling headline, as the card actually renders it (in question 1's satellite since L-13315). */
 function determinedHeadlineHtml(): string {
     return buildCeilingHeadlineHtml({
         maxFloors: 6,
@@ -112,6 +114,27 @@ function undeterminedHeadlineHtml(): string {
         avail: AVAIL,
         active: null,
     });
+}
+
+/**
+ * ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (L-13315) — the envelope card's SATELLITE exactly as
+ * `GISAreaLayout` fills it: an optional badge wrapper, then the REAL headline markup. Question 1's
+ * secondary probes are scoped to this testid, so a fixture without it could not reach them.
+ */
+function summarySatellite(headlineHtml: string, badgeText: string | null): HTMLElement {
+    const sat = document.createElement('div');
+    sat.setAttribute('data-testid', 'envelope-summary');
+    sat.setAttribute('data-arm', 'full');
+    if (badgeText !== null) {
+        const badge = document.createElement('span');
+        badge.setAttribute('data-testid', 'envelope-summary-badge');
+        badge.textContent = badgeText;
+        sat.appendChild(badge);
+    }
+    const rows = document.createElement('div');
+    rows.innerHTML = headlineHtml;
+    sat.appendChild(rows);
+    return sat;
 }
 
 const specOf = (id: string): QuestionGroupSpec => {
@@ -278,25 +301,47 @@ describe('ARM 0 — ⛔ THE PROOF THAT THE FIX WAS A FIX: the OLD probes cannot 
 });
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════
-describe('ARM 1 — question 2\'s digest states the determination its own body holds', () => {
-    it('mirrors the founder\'s numbers instead of "no determination held"', () => {
-        const g = buildQuestionGroup(specOf('law'));
+describe('ARM 1 — ⭐ the determination\'s digest MOVED WITH IT: question 1 states the ceiling its satellite holds (L-13315)', () => {
+    // ⭐ §ENVELOPE-SUMMARY-IN-QUESTION-1 (founder ruling 2026-09-11, Site-panel restructure). The four
+    // ceilings answer in QUESTION 1 now, inside the envelope card's satellite, beside the plot they
+    // describe. `C115-100`: a probe moves WITH the rendering it mirrors. So this file's founding
+    // guarantee — *a section never reports EMPTY while holding a real determination* (D-10) — is
+    // asserted where the determination now lives, with the badge that grades it beside it.
+    it('mirrors the founder\'s GFA and the badge beside it, instead of an empty digest', () => {
+        const g = buildQuestionGroup(specOf('plot'));
         document.body.appendChild(g.element);
-        // Exactly what the envelope card puts in this body — the REAL producer, not a stand-in.
-        const card = document.createElement('div');
-        card.innerHTML = determinedHeadlineHtml();
-        g.body.appendChild(card);
+        g.body.appendChild(summarySatellite(determinedHeadlineHtml(), 'Estimated'));
         g.refreshDigest();
 
-        const digest = digestOf(g.element, 'law');
-        // ⛔ THE ASSERTION THE SHIPPED CODE FAILED. This is the founder's screenshot, in words.
-        expect(digest, 'question 2 is reporting EMPTY while holding a real determination')
-            .not.toContain('no determination held');
-        expect(digest).toContain('max levels');
-        expect(digest).toContain('6');
-        // C58 §1.2 — the figure and its confidence travel together, never one without the other.
-        expect(digest).toContain('4 of 4 derived');
+        const digest = digestOf(g.element, 'plot');
+        // ⛔ THE ASSERTION THE D-10 CODE FAILED, re-homed: a determination in the body is never "empty".
+        expect(digest, 'question 1 is reporting EMPTY while holding a real determination')
+            .not.toContain('no plot committed');
+        expect(digest).toContain('2,711 m² buildable');
+        // C58 §1.2 — the figure and its standing travel together: the card's OWN badge text.
+        expect(g.element.getAttribute(QUESTION_GROUP_CONFIDENCE_ATTR)).toBe('Estimated');
+        g.dispose();
+    });
+
+    it('with no badge rendered, the confidence falls to the headline\'s own derived count — never blank', () => {
+        const g = buildQuestionGroup(specOf('plot'));
+        document.body.appendChild(g.element);
+        g.body.appendChild(summarySatellite(determinedHeadlineHtml(), null));
+        g.refreshDigest();
         expect(g.element.getAttribute(QUESTION_GROUP_CONFIDENCE_ATTR)).toBe('4 of 4 derived');
+        g.dispose();
+    });
+
+    it('⛔ a ceiling OUTSIDE the satellite cannot answer for question 1 — the probe is scoped', () => {
+        // A headline row anywhere else in question 1 (a stray copy, a future section) must never be
+        // mistaken for the determination's figure — which is why the probe names the satellite.
+        const g = buildQuestionGroup(specOf('plot'));
+        document.body.appendChild(g.element);
+        const loose = document.createElement('div');
+        loose.innerHTML = determinedHeadlineHtml();
+        g.body.appendChild(loose);
+        g.refreshDigest();
+        expect(digestOf(g.element, 'plot')).not.toContain('buildable');
         g.dispose();
     });
 
@@ -314,25 +359,29 @@ describe('ARM 1 — question 2\'s digest states the determination its own body h
 });
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════
-describe('ARM 2 — ⭐ AUTHORING AN ENVELOPE DOES NOT COST QUESTION 2 ITS DETERMINATION', () => {
-    it('creates 3 storeys from inside question 2 and the digest still states the ceiling', () => {
-        const g = buildQuestionGroup(specOf('law'));
-        document.body.appendChild(g.element);
-        const card = document.createElement('div');
-        card.innerHTML = determinedHeadlineHtml();
-        g.body.appendChild(card);
+describe('ARM 2 — ⭐ AUTHORING AN ENVELOPE IN QUESTION 2 DOES NOT COST QUESTION 1 ITS DETERMINATION', () => {
+    it('creates 3 storeys from inside question 2; question 1 still states the ceiling, question 2 states the act', () => {
+        // ⚠ REWRITTEN 2026-09-11 (L-13315 · §ENVELOPE-SUMMARY-IN-QUESTION-1). This arm used to put the
+        // determination and the create block in ONE group. The founder's Site-panel ruling split them —
+        // the determination answers in question 1, the verb lives in question 2 — so the guarantee is
+        // asserted ACROSS the two groups, which is strictly harder: a create that blanked question 1's
+        // satellite fails here, and so does a question 2 still reading "nothing created yet" after a create.
+        const q1 = buildQuestionGroup(specOf('plot'));
+        const q2 = buildQuestionGroup(specOf('law'));
+        document.body.append(q1.element, q2.element);
+        q1.body.appendChild(summarySatellite(determinedHeadlineHtml(), 'Estimated'));
 
-        // ⭐ THE RELOCATED BLOCK, IN THE GROUP THAT NOW HOSTS IT. The founder's report was
-        // "after having created the massing envelope", so the gesture happens HERE, beside the
-        // determination, exactly as it now does on his screen.
+        // ⭐ THE RELOCATED BLOCK, IN THE GROUP THAT HOSTS IT. The founder's report was "after having
+        // created the massing envelope", so the gesture happens in question 2, exactly as on his screen.
         const authoringHost = document.createElement('div');
-        g.body.appendChild(authoringHost);
+        q2.body.appendChild(authoringHost);
         const h = authoringHarness();
         const authoring = mountParcelLawEnvelopeAuthoring(authoringHost, h.deps);
 
-        g.refreshDigest();
-        const before = digestOf(g.element, 'law');
-        expect(before).toContain('max levels');
+        q1.refreshDigest();
+        q2.refreshDigest();
+        const before = digestOf(q1.element, 'plot');
+        expect(before).toContain('2,711 m² buildable');
 
         const input = authoringHost
             .querySelector<HTMLInputElement>(`[data-testid="${AUTHORING_STOREYS_INPUT_TESTID}"]`)!;
@@ -352,50 +401,78 @@ describe('ARM 2 — ⭐ AUTHORING AN ENVELOPE DOES NOT COST QUESTION 2 ITS DETER
         // a generator destroying authored work; the inverse holds exactly as hard — an AUTHORED
         // envelope (C114, `confidence: 'authored'`) may not erase the SOLVED determination (C58).
         // They are two different facts about one parcel and both must survive.
-        g.refreshDigest();
-        const after = digestOf(g.element, 'law');
-        expect(after, 'authoring an envelope blanked question 2\'s determination')
-            .not.toContain('no determination held');
+        q1.refreshDigest();
+        q2.refreshDigest();
+        const after = digestOf(q1.element, 'plot');
+        expect(after, 'authoring an envelope blanked question 1\'s determination')
+            .not.toContain('no plot committed');
         expect(after).toBe(before);
-        expect(g.body.querySelector(`[data-testid="${CEILING_HEADLINE_TESTID}"]`)).not.toBeNull();
+        expect(q1.element.getAttribute(QUESTION_GROUP_CONFIDENCE_ATTR)).toBe('Estimated');
+        expect(q1.body.querySelector(`[data-testid="${CEILING_HEADLINE_TESTID}"]`)).not.toBeNull();
+
+        // ⭐ …and question 2 now states what was DONE, mirrored from the block's own status line.
+        const statusText = (status.textContent ?? '').replace(/\s+/g, ' ').trim();
+        expect(statusText.length, 'the create block confirmed nothing').toBeGreaterThan(0);
+        const q2Digest = digestOf(q2.element, 'law');
+        expect(q2Digest).not.toContain('nothing created yet');
+        expect(q2Digest).toContain(statusText.slice(0, 20));
 
         authoring.dispose();
-        g.dispose();
+        q1.dispose();
+        q2.dispose();
     });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════
 describe('ARM 3 — ⛔ THE ARM THAT PROVES ARMS 1 AND 2 CAN FAIL', () => {
-    it('an EMPTY body still says "no determination held"', () => {
-        const g = buildQuestionGroup(specOf('law'));
-        document.body.appendChild(g.element);
-        g.refreshDigest();
-        expect(digestOf(g.element, 'law')).toContain('no determination held');
-        // ⛔ …and it states NO confidence, rather than inventing one for a figure it does not have.
-        expect(g.element.getAttribute(QUESTION_GROUP_CONFIDENCE_ATTR)).toBe('none');
-        g.dispose();
+    it('an EMPTY question 1 says "no plot committed", an EMPTY question 2 "nothing created yet"', () => {
+        // ⚠ REWRITTEN 2026-09-11 (L-13315). Question 2's empty state was "no determination held";
+        // the determination answers in question 1 now, so an empty question 2 means nothing has been
+        // CREATED on the parcel — and each states NO confidence rather than inventing one.
+        for (const [id, empty] of [['plot', 'no plot committed'], ['law', 'nothing created yet']] as const) {
+            const g = buildQuestionGroup(specOf(id));
+            document.body.appendChild(g.element);
+            g.refreshDigest();
+            expect(digestOf(g.element, id)).toContain(empty);
+            expect(g.element.getAttribute(QUESTION_GROUP_CONFIDENCE_ATTR)).toBe('none');
+            g.dispose();
+        }
     });
 
-    it('a body whose four ceilings are all "not derived" is an ABSENCE, never a value', () => {
-        // ⭐ THE TRAP THE `[data-derived="yes"]` PREDICATE EXISTS TO AVOID. Without it the first
-        // row resolves and the digest reads *"max levels not derived"* — a sentence that looks
-        // like an answer. `not derived` is a MISSING LOOKUP, not a finding about the land
-        // (C58 §1.4), and the two demand opposite next actions from a reader.
-        const g = buildQuestionGroup(specOf('law'));
+    it('a satellite whose four ceilings are all "not derived" is an ABSENCE, never a value', () => {
+        // ⭐ THE TRAP THE `[data-derived="yes"]` PREDICATE EXISTS TO AVOID — it moved with the probes.
+        // Without it the first row resolves and the digest reads *"max levels not derived"*, a sentence
+        // that looks like an answer. `not derived` is a MISSING LOOKUP (C58 §1.4).
+        const g = buildQuestionGroup(specOf('plot'));
         document.body.appendChild(g.element);
-        const card = document.createElement('div');
-        card.innerHTML = undeterminedHeadlineHtml();
-        g.body.appendChild(card);
+        g.body.appendChild(summarySatellite(undeterminedHeadlineHtml(), null));
         g.refreshDigest();
-        const digest = digestOf(g.element, 'law');
+        const digest = digestOf(g.element, 'plot');
         expect(digest).not.toContain('not derived');
-        expect(digest).toContain('no determination held');
+        expect(digest).toContain('no plot committed');
         // The confidence half still reports what the headline knows: nothing was derived.
         expect(g.element.getAttribute(QUESTION_GROUP_CONFIDENCE_ATTR)).toBe('0 of 4 derived');
         g.dispose();
     });
 
     it('a PARTLY derived parcel states the first ceiling that IS derived, in the body\'s own order', () => {
+        const g = buildQuestionGroup(specOf('plot'));
+        document.body.appendChild(g.element);
+        g.body.appendChild(summarySatellite(buildCeilingHeadlineHtml({
+            maxFloors: null, maxHeightM: 22.4, footprintM2: 452, gfaM2: null,
+            avail: AVAIL, active: null,
+        }), null));
+        g.refreshDigest();
+        expect(digestOf(g.element, 'plot')).toContain('max height 22.4 m');
+        expect(g.element.getAttribute(QUESTION_GROUP_CONFIDENCE_ATTR)).toBe('2 of 4 derived');
+        g.dispose();
+    });
+
+    it('⭐ a host that renders the summary INLINE in question 2 (no claim held) is still mirrored there', () => {
+        // The Parcel Law tab always holds the claim, so in production question 2 never carries the
+        // ceilings. But the card is a re-homed singleton: were the claim ever not held, its summary
+        // renders INLINE — and question 2's fallback probes must still mirror it rather than calling
+        // a determined body empty (the D-10 shape, from the other side of the move).
         const g = buildQuestionGroup(specOf('law'));
         document.body.appendChild(g.element);
         const card = document.createElement('div');

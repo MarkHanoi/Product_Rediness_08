@@ -347,6 +347,47 @@ no longer describes the panel arm precisely, and §3 is outside this lane's owne
 only). `C115-19` requires a register row to move in the commit that changes it; this amendment
 therefore records the discrepancy rather than leaving it silent, and it is logged as **L-13235**.
 
+#### §1.4.3 — ⭐⭐ THE BUILDABLE ENVELOPE ANSWERS IN STAGE 01 (FOUNDER RULING, 2026-09-11 · `L-13315`)
+
+> ⭐ **FOUNDER, 2026-09-11 (Site-panel restructure, Section 1, with a mockup):** the cadastral card and
+> the buildable envelope answer ONE question — *"What is this plot — and what can I build here?"* —
+> *"because they describe the plot rather than a design choice"*, with the setbacks per edge beside
+> them and the detail collapsed by default. Question 2 becomes *"What can I build — and build it"*,
+> the place you ACT. ⛔ *"DON'T DELETE ANY INFORMATION — IT IS A RESHUFFLE."*
+
+`C115-177` Stage 01 **MUST** display the buildable envelope's SUMMARY — the provenance badge, the
+four-ceiling headline (`C115-121`), its caveats and its source line — while the Parcel Law panel is
+mounted, between the cadastral card and the setback register. ⛔ **The summary is NOT re-derived and
+NOT re-rendered here** (C19 §5.6 clause 1, `C115-88` clause 2): the envelope card's ONE full-arm pass
+writes it, from its one model read, into a **satellite element** (`data-testid="envelope-summary"`,
+`apps/editor/src/ui/site/envelopeSummaryHost.ts`) that lives OUTSIDE the card's `innerHTML`, so a
+card repaint neither destroys it nor copies it.
+
+`C115-178` The satellite is seated by a **claim** on the SAME keyed host arbiter as `C115-151`'s
+plot-display job (`apps/editor/src/ui/site/envelopeCardJobHost.ts` — jobs `plot-display` and
+`envelope-summary`; `plotDisplayControlsHost.ts` keeps its API as a wrapper): held by element so it
+self-heals, last claimer wins, release guarded on identity, and the card asks only *"is this job
+taken?"* — the `C115-154` shape, never a host branch. While the job is taken the card's own body
+carries the relocation stamp (`envelope-summary-relocated`, `data-relocated-to="plot"`, *"… Nothing
+was removed"*, `C115-17`) and its header drops the badge WITH the figures it grades (C58 §1.2). When
+no surface holds the job, the card renders its summary inline, exactly as before this ruling.
+
+`C115-179` ⛔ **EVERY CARD ARM STATES ITSELF IN THE SATELLITE (`C115-88` clause 3).** The full arm
+publishes the summary; the absence, refusal and reduced arms, and the card's removal, each publish ONE
+pointer sentence and clear the previous pass's figures — a stale ceiling beneath a refusal would be a
+lie, and a blank box an unstated absence (`C115-39`). A satellite nobody has published into says
+*not rendered*.
+
+`C115-180` The per-edge setback register (`C115-126`) lands in Stage 01 with the ceilings it
+qualifies, still a closed disclosure (the Details layer of §2.3(b)); question 2 keeps a stamp
+(`parcel-law-setbacks-moved-note`, `data-relocated-to="plot"`) naming where it went. Whatever the
+card's staged folds carry about setbacks stays in Stage 02 with the rest of the card.
+
+⚠ **What this does NOT do, so nobody reads more into it:** the card's staged sections are still joined
+as strings (`C115-88` clause 5 stays NOT-YET-TRUE for them — only the summary job is separately
+mounted); `C115-89` (two hosts open at once) still stands; `C115-125`'s law-scope restoration is
+untouched; and **nothing here has been seen in a browser** (§14.14).
+
 #### §1.4.2 — ⭐ THE STAGE-01 FACE/FOLD MAPPING (NORMATIVE — THE PRESERVATION PROOF)
 
 `C115-155` **"Smaller" never means "fewer facts".** A PR that changes what is on Stage 01's face
@@ -377,6 +418,11 @@ names where it is and, when it moved, the one interaction that reveals it.
 | `PARCEL_LAW_GEOMETRY_ABSENT_TEXT` | face | **face** | — (`C115-39` clause 3) |
 | `Select parcel on the 2D map` button (parcel-less arms) | face | **face** | — (§4.4 clause 4 · L-942) |
 | **SHOW ON THE PLOT** `Volume` / `Footprint` + caption | Stage **02** (inside the envelope card) | Stage **01** | — (`C115-151`; it is not folded) |
+| ⭐ Buildable-envelope provenance badge (six arms, weakest-wins) | Stage **02** (the card's header) | Stage **01** (the envelope summary) | — (`C115-177`; C58 §1.2 — it travels WITH the figures it grades) |
+| ⭐ The four ceilings — **Maximum buildable area · implantation · height · levels** (highlight controls, rule 2) | Stage **02** (the card's face) | Stage **01** (the envelope summary — still WIRED controls) | — (`C115-177`, `C115-121`; `C115-116` survives the move) |
+| ⭐ The summary's hydrated line, upper-bound block, zone-extent block and source line | Stage **02** (the card's face) | Stage **01** (the envelope summary) | — (`C115-177`) |
+| ⭐ Per-edge setback register | Stage **02** (a closed disclosure) | Stage **01** (still a closed disclosure) | click the register's own summary (`C115-180`) |
+| ⭐ Relocation stamps (2026-09-11) | — | card body `envelope-summary-relocated`; question 2 `parcel-law-setbacks-moved-note` | — (`C115-17`) |
 
 `C115-156` ⛔ **THE FOLD KEEPS THE CONTROLS ITS ROWS ARE.** `C115-113` F-2 / F-3 / F-4 are
 unchanged by the move: perimeter, bounding box and boundary edges are still real highlight controls
@@ -464,6 +510,13 @@ STR §26.6.2, the founder's own names for them: **Maximum buildable area** (all 
 ⭐ *"The requirement is that the four are NAMED and PRESENT as rows, not that they are filled."*
 A `not derived` row is the answer; an absent row is an overstatement (§4.1, PR-E-17).
 
+> ⭐ **AMENDED 2026-09-11 (`L-13315`, founder ruling — §1.4.3).** The four named ceilings, the
+> envelope's provenance badge, its caveats and its source line are now DISPLAYED in Stage 01, in the
+> envelope summary the card writes there (`C115-177`); the per-edge setback register moved with them
+> (`C115-180`). `C115-119`'s other rows stay in Stage 02, in the card's staged folds. Every obligation
+> in this section — present-whether-or-not-filled (`C115-121`), the per-row shape (`C115-122`), no
+> re-derivation (`C115-120`) — binds those rows WHERE THEY RENDER, and the move copied nothing.
+
 #### §1.5.1 — ⛔ THE PER-ROW SHAPE IS A MUST, NOT A STYLE PREFERENCE
 
 `C115-122` ⛔ **EVERY REGULATORY ROW IN STAGE 02 MUST CARRY FOUR THINGS, IN THIS ORDER, ON THE ROW
@@ -495,7 +548,9 @@ nothing mounts.
 #### §1.5.2 — The setback register lands here, and it is the largest single addition
 
 `C115-126` The per-edge setback register (`apps/editor/src/ui/site/setbackRegisterModel.ts` +
-`apps/editor/src/ui/site/setbackRegisterSection.ts`, PR-A-12) **MUST** be hosted by Stage 02, as the
+`apps/editor/src/ui/site/setbackRegisterSection.ts`, PR-A-12) **MUST** be hosted by Stage **01**
+(⭐ amended 2026-09-11 by the founder's Site-panel ruling, `C115-180` / `L-13315` — it read
+*"Stage 02"*; it moved WITH the ceilings it qualifies), as the
 **Details** layer of §2.3(b)'s Summary → Details → Evidence ladder. `C115-127` Each row **MUST** keep
 its edge length, edge class, verdict arm (6, PR-C-03) and per-edge citation, and `C115-128` ⛔ **where
 an edge's class is unknown the register MUST SAY SO PER EDGE and MUST NOT infer one** — C19 §2.3
@@ -597,14 +652,14 @@ other rendering becomes; it never states "delete".
 | Bounding box (+ its caveat sentence) | **01 PARCEL** | reference | ⛔ YES — caveat byte-for-byte duplicated across two files |
 | Boundary edges + frontage clause (+ its caveat) | **01 PARCEL** | reference | ⛔ YES — same shape |
 | Full technical parcel detail | **01 → "View full parcel data"** | — | ⚠ the control does not exist yet (§3, PR-A-04) |
-| Max implantation / footprint | **02 BUILDABILITY** (ceiling headline) | summary in 04's *Maximum permitted* column | no — already single |
-| Max GFA | **02** | summary in 04 | no |
-| Max height | **02** | summary in 04 | ⚠ ONE VALUE, TWO LABELS — *Maximum height* in the headline, *Max height* in the evidence fold |
-| Max levels / storeys | **02** | summary in 04 | ⚠ ONE VALUE, TWO LABELS — *Maximum levels* vs *Storeys* |
+| Max implantation / footprint | **01** (ceiling headline, in the envelope summary — founder ruling 2026-09-11, `C115-177`; was **02 BUILDABILITY**) | summary in 04's *Maximum permitted* column | no — already single; the move copied nothing |
+| Max GFA | **01** (ceiling headline, `C115-177`; was **02**) | summary in 04 | no |
+| Max height | **01** (ceiling headline, `C115-177`; was **02**) | summary in 04 | ⚠ ONE VALUE, TWO LABELS — *Maximum height* in the headline, *Max height* in the evidence fold (still **02**) |
+| Max levels / storeys | **01** (ceiling headline, `C115-177`; was **02**) | summary in 04 | ⚠ ONE VALUE, TWO LABELS — *Maximum levels* vs *Storeys* |
 | **Buildable depth** | **02** | expandable detail in the evidence layer | ⛔⛔ **YES — headline AND fold AND evidence row**, all gated on the same `alignment.depth` derivation row; a fourth copy sits in the unreachable law-scope renderer |
 | Alignment offset | **02** | expandable detail | ⛔ YES — headline and evidence row |
 | Max FAR · Max site coverage | **02** | expandable detail | ⛔ YES — identical labels, same card, two folds |
-| Setbacks (front/side/rear) | **02** summary triple → **per-edge register** (details) → evidence row | ⭐ NOT a duplication — see §2.3(b) | three legitimate layers, currently three unconnected blocks |
+| Setbacks (front/side/rear) | summary triple → **per-edge register** (details) → evidence row — ⭐ the register is in **01** since 2026-09-11 (`C115-180`); the triple and the evidence row travel with the card rendering that carries them (summary → **01**, folds → **02**) | ⭐ NOT a duplication — see §2.3(b) | three legitimate layers, currently three unconnected blocks |
 | Legal derivation, article text, calculation, citations | **the "Why?" affordance on the value's own row** | — | ⚠ exists only as ONE card-level aggregate fold, not per value |
 | Massing assumptions | **03 → "Massing details"** | compact card face keeps label + display | — |
 | Design quantities (intended per-storey areas, totals, room rows) | **04 FEASIBILITY** | reference/summary | ⛔⛔ **YES — FOUR simultaneous renderings** from one producer, one of which repaints on an event list carrying no space-envelope signal and can print a STALE number above three live ones |
@@ -1661,6 +1716,16 @@ never a copied renderer"*).
 `C115-89` ⚠ **NOT-YET-TRUE:** two hosts open at once is a **named, unfixed** property today. The
 arbiter does not fix it and **MUST NOT** be described as fixing it.
 
+> ⭐ **2026-09-11 — the arbiter's SECOND job is built (`L-13315`, §1.4.3).** `envelope-summary` joins
+> `plot-display` on one keyed arbiter (`apps/editor/src/ui/site/envelopeCardJobHost.ts`). Against the
+> eight clauses of `C115-88`: **1 ✅** (the card asks *"is this job taken?"*) · **2 ✅** (one
+> `buildCeilingHeadlineHtml(` call — pinned by a source-read arm) · **3 ✅** (all four arms and the
+> removal path publish) · **4 — not extended**: the summary is the card's FACE, not one of its nine
+> staged sections, so the job key names it · **5 ✅ for this job only** (a persistent satellite element
+> outside the card's `innerHTML`) — `buildStagedSectionsHtml` still joins strings · **6 n/a** (the
+> summary has no fold) · **7 ✅** (one model read per pass) · **8 ✅** (identity-guarded release,
+> self-healing claim). `C115-89` is unchanged.
+
 ---
 
 ## §11 — THE DISCLOSURE PRIMITIVE: ONE, REUSED
@@ -1973,6 +2038,29 @@ them; it does not log them.
 ---
 
 ## §17 — STATUS (living record — appended, never rewritten)
+
+### 2026-09-11 · Site-panel restructure, Section 1 · §1.4.3 ADDED — THE BUILDABLE ENVELOPE ANSWERS IN QUESTION 1 — `L-13315`
+The founder's mockup merged the cadastral card with the buildable envelope as ONE question, *"What is
+this plot — and what can I build here?"*, and renamed question 2 *"What can I build — and build it"*.
+**Built as a MOVE, not a copy:** the envelope card's one full-arm pass writes its summary (badge ·
+four ceilings · caveats · source line) into a satellite element seated in question 1 by a claim on
+the SAME keyed arbiter as SHOW ON THE PLOT (`envelopeCardJobHost.ts`, jobs `plot-display` +
+`envelope-summary`). One producer, one model read, one `buildCeilingHeadlineHtml(` call. All four
+card arms and the card-removal path publish; the setback register moved with the ceilings; both
+departures leave `C115-17` stamps. Question 1's digest gained a SECOND figure (scoped to the
+satellite, `[data-derived="yes"]` kept — `C115-100`); question 2's headline now mirrors what was
+DONE (the master-plan verdict, then the create status), its empty state reads *"nothing created
+yet"*, and its ceiling probes stay as fallbacks for a host that renders the summary inline.
+**Clauses minted:** `C115-177` … `C115-180`. **Clauses amended:** `C115-126` (Stage 02 → 01), §1.4.2's
+table (five rows), §2.2's four ceiling rows and its setbacks row, a note under `C115-121`, and a
+clause-by-clause note under `C115-89`. **0 data points lost** — walked against §1.4.2, not asserted.
+**Measured:** 8 spec files · 193 tests green (`parcelLawTab`, `parcelLawQuestionGroups`,
+`parcelLawSectionTwoIntact`, `parcelLawPlotDigest`, `envelopeSummaryHost` (new),
+`envelopeVisibilityControl`, `ceilingHeadline`, `envelopeCardSections`); `check-zoning-fidelity-label`
+PASS. ⚠ `check-xss-guards` reads **RC=3 on 15 files this change did not touch** (e.g. `FloorTool.ts`
+4→5, `initUI.ts` 21→24; `GISAreaLayout.ts`'s five findings sit on the determination notices,
+`buildStagedSectionsHtml` and an SVG literal — none on a line in this diff): recorded, not fixed here.
+Sections 3, 5, 6 and 7 of the mockup were not touched. ⛔ **NOT SEEN IN A BROWSER** — §14.14 stands.
 
 ### 2026-09-07 · lane SECTION-4-ROOMS · §8.1 ADDED — STAGE 05 IS QUESTION 4 — `L-13237` · `L-13238`
 `C115-06`'s split is **DONE**: the room programme and `Rooms per level` left question 3 and became
