@@ -300,4 +300,34 @@ bbox is an envelope, not a promise of data (Brooklyn had shown the same shape). 
 newest-first (`rank3depItems`), and a footprint whose chosen survey has **nodata inside its eroded ring** is re-sampled
 from the next one (a footprint too *small* for the erosion is not a hole and never falls back). End-to-end through the
 real stamp at the Newark ring: **0.000 → 0.201** (195 / 971, 965 footprints re-sampled from DE_Snds_2013, 0 errors).
-The re-bake that carries it is recorded below as it lands.
+
+### 7 · The re-bake that carries the fix — what the buildings publish will ship
+
+**Bake run `34591395711`** (`26d6c66f`, same slug `tiles-staging/delaware--buildings/`, `buildings.pmtiles` 18,001,071 B,
+staged manifest `bakeRunId 34591395711`, 7 min 41 s): **41,485 of 112,354** measured — 21,979 USA Structures + **19,506**
+HAG fill (19,501 DE_Snds_2013). **6,542** footprints re-sampled from an older survey where the newest had a hole. Refused:
+51,155 canopy · 11,687 implausible · 6,135 too-few · 265 no-returns · 1,449 no-data · 177 no-item. **0 failed.** One USA
+Structures cell answered a page error this run; its footprints keep OSM and the fill skipped the 1 whose channel failed
+(precedence unknown) — named in the note, not hidden. Gate `✔ delaware (usas): 41485/112354`.
+
+Same sweep, staged bytes (`delaware--buildings`, run `34591395711`):
+
+| point | 2026-09-09 staged | this re-bake | measured |
+|---|---|---|---|
+| wilmington | 0.947 | 0.951 | 1,231 / 1,295 |
+| **newark-de** | 0.000 | **0.200** | 239 / 1,196 |
+| dover | 0.870 | 0.891 | 1,261 / 1,416 |
+| milford | 0.000 | 0.112 | 32 / 285 |
+| georgetown | 0.000 | 0.434 | 148 / 341 |
+| lewes-town | 0.000 | 0.159 | 185 / 1,166 |
+| **lewes-demo** ⭐ | **0.000** | **0.229** | **11 / 48** (median 4.2 m) |
+| rehoboth | 0.000 | 0.136 | 117 / 860 |
+| fenwick | 0.000 | 0.177 | 145 / 817 |
+
+**9 of 9 points measured** (was 2 of 9) · min 0.112 · median 0.200 · max 0.951. The spread is still > 0.5, and honestly
+so: New Castle and Kent carry USA Structures; Sussex carries a canopy-guarded 2013 LiDAR fill that refuses every
+footprint it cannot see clearly.
+
+**Publish state at the time of writing:** roads merge `34582615395` in `tile-join` (started 09:18Z); the **buildings merge
+`34590342430` is queued as the group's single pending run** and downloads the staged bytes when it starts, i.e. these.
+`CONTEXT_TILESET_VERSION` moves only after that publish succeeds, never on dispatch.
