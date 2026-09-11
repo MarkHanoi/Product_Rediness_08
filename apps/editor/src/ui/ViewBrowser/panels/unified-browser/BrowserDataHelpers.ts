@@ -32,6 +32,14 @@
  */
 
 import type { PryzmRuntime } from '@pryzm/runtime-composer/types';
+// §BROWSER-ONE-BUILDING-RULE (L-13311) — the ELEMENTS card's envelope sub-types ARE the Envelopes
+// node's building index; see `categorySubTypeResolver`.
+import {
+    readEnvelopeTree,
+    UNFILED_ENVELOPES_KEY,
+    UNFILED_ENVELOPES_LABEL,
+    type EnvelopeTreeGroup,
+} from './envelopeTreeModel';
 
 // ── Shared state bag ──────────────────────────────────────────────────────────
 
@@ -65,6 +73,9 @@ export interface UBPBag {
     catTypeExpanded: Map<string, Set<string>>;
     catVisible:      Map<string, boolean>;
     catTypeVisible:  Map<string, boolean>;
+    /** §BROWSER-LISTS-ENVELOPES (L-13311) — explicit open/closed choices on the PROJECT card's
+     *  Envelopes node, keyed by node; an absent key takes the node's default. */
+    envelopeNodeOpen: Map<string, boolean>;
 
     // Core UI callbacks (implemented in shell)
     refresh():    void;
@@ -196,6 +207,11 @@ export function getAllStores(bag: UBPBag): any[] {
         // Nothing was lost — they were simply never named as belonging anywhere.
         window.stairRailingStore, // TODO(TASK-08)
         window.liftStore,         // TODO(TASK-08)
+        // §BROWSER-LISTS-ENVELOPES (L-13311) — the AUTHORED envelopes, off the LIVE runtime store
+        // (the family has no window global, C114 §2a), adapted to this list's `getAll()` shape. Every
+        // consumer of the list then sees them: each storey lists its envelopes, and — the §L-12084
+        // shape again — the ISOLATE id set stops hiding every envelope in the model.
+        { getAll: () => _authoredEnvelopes(bag) },
     ];
 }
 
@@ -467,7 +483,12 @@ export function determineCategoryElements(
     // would tell the user the label names no known store, when in fact the store
     // exists and is simply not a global. ⚠ Grow this set only for categories whose
     // store is genuinely reachable another way — never to silence a real unknown.
-    if (!storeKey && catLabel !== 'Roofs' && catLabel !== 'Lifts') {
+    // ⛔ §BROWSER-LISTS-ENVELOPES (L-13311) — THE TWO ENVELOPE LABELS BELONG IN THIS SET, and their
+    // absence was the second reason the founder saw nothing: L-13252 added the envelope readiness arm
+    // BELOW, but this guard returned "does not name a known store" FIRST, so both rows were "—" even
+    // with a live runtime. Its spec called `determineCategoryElements` on a label it never reached.
+    if (!storeKey && catLabel !== 'Roofs' && catLabel !== 'Lifts'
+        && catLabel !== 'Level envelopes' && catLabel !== 'Room envelopes') {
         return {
             kind: 'undetermined', scope, reason: 'RELATIONSHIP_NOT_READABLE',
             detail: `"${catLabel}" does not name a known store, so its contents were never read`,
@@ -550,8 +571,24 @@ export function categoryCountOrUnknown(bag: UBPBag, catLabel: string): number | 
  * ⛔ AND IT IS NOT `window.liftStore`, which is the LOD-200 MASSING lift (C104 §1).
  */
 function _liftCompoundStore(bag: UBPBag): { getState?(): Map<string, any> } | undefined {
-    const stores = bag.runtime?.stores as unknown as Record<string, unknown> | undefined;
-    return stores?.['lift'] as { getState?(): Map<string, any> } | undefined;
+    return _runtimeStores(bag)?.['lift'] as { getState?(): Map<string, any> } | undefined;
+}
+
+/**
+ * ⭐ §BROWSER-READS-THE-LIVE-RUNTIME (L-13311) — the composed stores bag, resolved PER CALL.
+ *
+ * ⛔ NEVER `bag.runtime` ALONE. That is the handle captured when the panel was CONSTRUCTED, and
+ * production constructs it with `null`: `initUI.ts` calls `createMainLayout(props, null)`, and
+ * `ProjectBrowserPanel` threads that null into this bag. So the `Lifts` (L-11342) and both
+ * envelope rows (L-13252) read a null runtime on every render and printed "—" with no rows,
+ * while their specs — which hand the bag a runtime — stayed green. That is §L-12916 exactly
+ * (a card that read the null runtime prop), and why the founder still reported *"Envelopes they
+ * dont appear on the project browser"* after L-13252 shipped. The live handle is the published
+ * `window.runtime`; the prop wins only when a caller really threaded one.
+ */
+function _runtimeStores(bag: UBPBag): Record<string, unknown> | undefined {
+    const stores = bag.runtime?.stores ?? window.runtime?.stores;
+    return stores as unknown as Record<string, unknown> | undefined;
 }
 
 /**
@@ -566,15 +603,43 @@ function _liftCompoundStore(bag: UBPBag): { getState?(): Map<string, any> } | un
  * so it follows the `Lifts` precedent above — read off the runtime bag — for exactly the reason
  * that row records. `role` then splits ONE store into the two categories an architect sees.
  */
-function _spaceEnvelopeStore(bag: UBPBag): { getState?(): Map<string, any> } | undefined {
-    const stores = bag.runtime?.stores as unknown as Record<string, unknown> | undefined;
-    return stores?.['spaceEnvelope'] as { getState?(): Map<string, any> } | undefined;
+function _spaceEnvelopeStore(bag: UBPBag): BrowserSpaceEnvelopeStore | undefined {
+    return _runtimeStores(bag)?.['spaceEnvelope'] as BrowserSpaceEnvelopeStore | undefined;
+}
+
+/**
+ * The structural slice of `runtime.stores.spaceEnvelope` this panel reads. `subscribeDirty` is the
+ * SAME channel `attachSpaceEnvelopeRender` draws the prisms from — it fires on execute, undo and
+ * redo alike, and on the project-switch `clear()` — so the rail and the viewport cannot disagree
+ * about which envelopes exist.
+ */
+export interface BrowserSpaceEnvelopeStore {
+    getState?(): ReadonlyMap<string, any>;
+    subscribeDirty?(listener: () => void): (() => void) | void;
+}
+
+/**
+ * §BROWSER-LISTS-ENVELOPES (L-13311) — the envelope store every surface of this panel reads, off
+ * the LIVE runtime (see `_runtimeStores`). Exported so the PROJECT tree's Envelopes node and the
+ * panel's live subscription resolve the ONE handle the ELEMENTS card counts from.
+ */
+export function resolveSpaceEnvelopeStore(bag: UBPBag): BrowserSpaceEnvelopeStore | undefined {
+    return _spaceEnvelopeStore(bag);
 }
 
 /** The records of ONE envelope role, in store order. */
 function _envelopesOfRole(bag: UBPBag, role: 'level' | 'room'): any[] {
     const all = [...(_spaceEnvelopeStore(bag)?.getState?.()?.values() ?? [])];
     return all.filter((r) => (r as { role?: unknown } | null)?.role === role);
+}
+
+/**
+ * §BROWSER-LISTS-ENVELOPES (L-13311) — every AUTHORED envelope (`level` + `room`), the exact union
+ * of the two ELEMENTS categories. The buildable `maximumBuildable` study is excluded for the reason
+ * L-13252 records beside those rows: it is one solved volume per parcel, not a listable instance.
+ */
+function _authoredEnvelopes(bag: UBPBag): any[] {
+    return [..._envelopesOfRole(bag, 'level'), ..._envelopesOfRole(bag, 'room')];
 }
 
 /**
@@ -629,7 +694,62 @@ export function getCategoryElements(bag: UBPBag, catLabel: string): any[] {
     return d.kind === 'determined' ? d.elements : [];
 }
 
-export function getSubType(catLabel: string, el: any): string {
+/**
+ * One sub-type bucket of an ELEMENTS category. `key` tells buckets apart (expand state, visibility,
+ * isolate); `label` is what the row prints. For every record-local category the two are one string.
+ */
+export interface CategorySubType {
+    readonly key: string;
+    readonly label: string;
+    /** The `getTypeIcon` key for the bucket's glyph. */
+    readonly iconKey: string;
+    /** Display order among the category's buckets; ties keep first-seen (store) order. */
+    readonly order: number;
+}
+
+const ENVELOPE_CATEGORY_LABELS: ReadonlySet<string> = new Set(['Level envelopes', 'Room envelopes']);
+
+/**
+ * ⭐ §BROWSER-ONE-BUILDING-RULE (L-13311) — THE sub-type partitioner for one ELEMENTS category, and the
+ * only exported one: the card body, the type row's eye and the AI `type-in-category` command all call
+ * it, so a bucket cannot be drawn by one rule and toggled by another.
+ *
+ * Envelope categories are partitioned by BUILDING, and a building is not a field of the record: a room
+ * sits in the building of the level envelope its `withinId` names, and two groups may share a label.
+ * The first pass read `readMassingGroupRef(el)?.label` per record, so the ELEMENTS card filed such a
+ * room under "Ungrouped envelopes" while the PROJECT card filed it under "Block A", and merged two
+ * same-label groups into one row. The answer is now the Envelopes node's own `buildingOf` index, read
+ * once per call and keyed by `group:<id>`, never by label (C84 EI-9). Other categories are unchanged.
+ */
+export function categorySubTypeResolver(bag: UBPBag, catLabel: string): (el: any) => CategorySubType {
+    if (ENVELOPE_CATEGORY_LABELS.has(catLabel)) {
+        const model = readEnvelopeTree(_spaceEnvelopeStore(bag), getLevels());
+        const buildingOf: ReadonlyMap<string, EnvelopeTreeGroup> = model.readable ? model.buildingOf : new Map();
+        const orderOf = new Map<string, number>();
+        if (model.readable) model.groups.forEach((g, i) => orderOf.set(g.key, i));
+        return (el: any): CategorySubType => {
+            const g = buildingOf.get(String(el?.id ?? ''));
+            // Not in the model: the Envelopes node files it nowhere either, so say that, not a guess.
+            if (g === undefined) {
+                return {
+                    key: UNFILED_ENVELOPES_KEY, label: UNFILED_ENVELOPES_LABEL,
+                    iconKey: 'envelope', order: Number.MAX_SAFE_INTEGER,
+                };
+            }
+            return { key: g.key, label: g.label, iconKey: 'envelope', order: orderOf.get(g.key) ?? 0 };
+        };
+    }
+    return (el: any): CategorySubType => {
+        const st = _recordSubType(catLabel, el);
+        return { key: st, label: st, iconKey: st, order: 0 };
+    };
+}
+
+/**
+ * The record-local sub-type (a field of the record). PRIVATE since L-13311: callers go through
+ * `categorySubTypeResolver`, which answers the envelope categories from the building index instead.
+ */
+function _recordSubType(catLabel: string, el: any): string {
     switch (catLabel) {
         case 'Walls':             return el.wallType        || el.type || 'Standard';
         case 'Curtain Walls':     return el.systemType      || el.type || 'Standard';
@@ -648,8 +768,9 @@ export function getSubType(catLabel: string, el: any): string {
         // the field a user would group by. `liftTypeId` is the catalogue reference
         // (C104 §6's 6-person default), preferred when set.
         case 'Lifts':             return el.liftTypeId      || el.enclosureType || 'Standard';
-        case 'Level envelopes':
-        case 'Room envelopes':    return el.occupancy || el.name || 'Envelope';
+        // ⛔ 'Level envelopes' / 'Room envelopes' have NO arm here (L-13311): their sub-type is the
+        // building, which is not a field of the record. `categorySubTypeResolver` answers them from
+        // the Envelopes node's index before this switch is reached.
         case 'Handrails':         return el.handrailType    || el.type || 'Standard';
         case 'Columns':           return el.columnType      || el.type || 'Standard';
         case 'Beams':             return el.beamType        || el.type || 'Standard';
@@ -685,6 +806,9 @@ export function getActiveLevelName(): string {
 
 export function getTypeIcon(typeName: string): string {
     const t = typeName.toLowerCase();
+    // §BROWSER-LISTS-ENVELOPES (L-13311) — the envelope glyph (stacked plates) for the Envelopes node
+    // and the per-storey `spaceEnvelope` group; tested first so it cannot fall to the generic square.
+    if (t.includes('envelope'))  return `<svg width="12" height="12" viewBox="0 0 13 13" fill="none"><path d="M6.5 1.5l5 2.5-5 2.5-5-2.5 5-2.5z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="M1.5 6.5l5 2.5 5-2.5" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/><path d="M1.5 9l5 2.5 5-2.5" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg>`;
     // §TREE134 — `curtain` is tested BEFORE `wall`, and the order is the whole point:
     // `'curtain-wall'` (the builders' `userData.elementType`, now the Inspect tree's
     // icon key) contains 'wall', so the generic wall glyph won the match and a curtain

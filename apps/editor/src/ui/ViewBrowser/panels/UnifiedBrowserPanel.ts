@@ -60,7 +60,11 @@ import {
     // own copy of `el.type ?? el.elementType ?? 'Unknown'`, so auto-expand aimed at a
     // group name the tree no longer files that element under.
     elementTypeName,
+    // §BROWSER-LISTS-ENVELOPES (L-13311) — the ONE envelope-store handle the whole panel reads.
+    resolveSpaceEnvelopeStore,
+    type BrowserSpaceEnvelopeStore,
 } from './unified-browser/BrowserDataHelpers';
+import { envelopeTreeKeysFor } from './unified-browser/EnvelopeTreeSection';
 
 // ── Internal proxy ────────────────────────────────────────────────────────────
 
@@ -111,6 +115,12 @@ export class UnifiedBrowserPanel {
     private _catTypeExpanded: Map<string, Set<string>> = new Map();
     private _catVisible:      Map<string, boolean> = new Map();
     private _catTypeVisible:  Map<string, boolean> = new Map();
+
+    // §BROWSER-LISTS-ENVELOPES (L-13311) — the Envelopes node's open/closed choices, and the live
+    // subscription to the envelope store (see `_ensureEnvelopeSubscription`).
+    private _envelopeNodeOpen: Map<string, boolean> = new Map();
+    private _envelopeSub: { readonly store: BrowserSpaceEnvelopeStore; readonly off: () => void } | null = null;
+    private _envelopeRefreshQueued = false;
 
     public readonly runtime: import('@pryzm/runtime-composer/types').PryzmRuntime | null;
 
@@ -199,11 +209,14 @@ export class UnifiedBrowserPanel {
             catTypeExpanded: this._catTypeExpanded,
             catVisible:      this._catVisible,
             catTypeVisible:  this._catTypeVisible,
+            envelopeNodeOpen: this._envelopeNodeOpen,
 
             refresh: () => self._proxy.refreshIfActive(self._sectionId),
             makeVisBtn: (visible, onChange) => self._makeVisBtn(visible, onChange),
             makeIsoBtn: (key, getElemIds)   => self._makeIsoBtn(key, getElemIds),
         } as UBPBag;
+
+        this._ensureEnvelopeSubscription();
     }
 
     setRoofStore(store: { getAll(): any[] }): void {
@@ -211,10 +224,53 @@ export class UnifiedBrowserPanel {
         this._bag.roofStore  = store;
     }
 
+    /**
+     * ⭐ §BROWSER-LISTS-ENVELOPES (L-13311) — re-render on the envelope store's OWN dirty channel.
+     *
+     * Every other family reaches this panel through a `bim-*-added/removed` window event (the list in
+     * the constructor). The envelope family publishes none: its only change signal is
+     * `Store.subscribeDirty`, the channel `attachSpaceEnvelopeRender` draws the prisms from, which fires
+     * on execute, undo, redo and the project-switch `clear()` alike. So a create, a delete or a Ctrl+Z
+     * moved the model and the viewport while this rail kept showing the old list.
+     *
+     * ⛔ RESOLVED LAZILY AND RE-CHECKED ON EVERY BUILD, never captured once: this panel is constructed
+     * before the runtime is published (it is handed `null`, §L-12916), and a recomposed runtime brings a
+     * NEW store instance. A handle taken at construction would go deaf the first time either happened;
+     * `build()` re-resolves and moves the subscription.
+     */
+    private _ensureEnvelopeSubscription(): void {
+        const store = resolveSpaceEnvelopeStore(this._bag);
+        if (this._envelopeSub !== null && this._envelopeSub.store === store) return;
+        if (this._envelopeSub !== null) {
+            try { this._envelopeSub.off(); } catch { /* defensive — a dead store must not break the rail */ }
+            this._envelopeSub = null;
+        }
+        if (!store || typeof store.subscribeDirty !== 'function') return;
+        const off = store.subscribeDirty(() => this._queueEnvelopeRefresh());
+        this._envelopeSub = { store, off: typeof off === 'function' ? off : () => {} };
+    }
+
+    /** One re-render per burst — a project load can notify several times in one task. Coalesced on a
+     *  microtask; never a rAF (P3). */
+    private _queueEnvelopeRefresh(): void {
+        if (this._envelopeRefreshQueued) return;
+        this._envelopeRefreshQueued = true;
+        queueMicrotask(() => {
+            this._envelopeRefreshQueued = false;
+            this._proxy.refreshIfActive(this._sectionId);
+        });
+    }
+
     // ── Auto-expand to a selected element ─────────────────────────────────────
 
     private _expandToElement(elemId: string): void {
         const bag = this._bag;
+        // §BROWSER-LISTS-ENVELOPES (L-13311) — a canvas-selected envelope opens its building's node,
+        // even one the user folded; the row then renders with its selected highlight.
+        if (elemId.startsWith('spaceEnvelope_')) {
+            for (const key of envelopeTreeKeysFor(bag, elemId)) bag.envelopeNodeOpen.set(key, true);
+            return;
+        }
         const stores = [bag.roofStore];
         for (const store of stores) {
             if (!store?.getAll) continue;
@@ -236,6 +292,9 @@ export class UnifiedBrowserPanel {
     // ── build ─────────────────────────────────────────────────────────────────
 
     build(): HTMLElement {
+        // §BROWSER-LISTS-ENVELOPES (L-13311) — follow the LIVE envelope store (see the method).
+        this._ensureEnvelopeSubscription();
+
         const root = document.createElement('div');
         root.className = 'pb-ubp-shell';
 

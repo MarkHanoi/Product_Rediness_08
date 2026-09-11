@@ -42,6 +42,8 @@ import {
     selectElements,
 } from './ProjectVisibilitySection';
 import { selectionBus }     from '@pryzm/core-app-model';
+// §BROWSER-LISTS-ENVELOPES (L-13311) — the Envelopes node (Envelopes → building → envelope).
+import { buildEnvelopeTreeNode } from './EnvelopeTreeSection';
 // §OI-055 fix (2026-05-27): AddLevelCommand import removed — the bus dispatch
 // pattern is `executeCommand('level.add', { levelId, name, elevation, height })`,
 // not `executeCommand(cmd.type, cmd)`. The handler registered in
@@ -69,6 +71,11 @@ export function buildProjectCard(bag: UBPBag): HTMLElement {
         <span>Site</span>
     `;
     tree.appendChild(siteRow);
+
+    // §BROWSER-LISTS-ENVELOPES (L-13311) — founder: *"Envelopes they dont appear on the project
+    // browser."* The master-plan buildings sit on the SITE, beside (not inside) the one "Building"
+    // below, so the node is mounted here: Envelopes → building (massing group) → envelope.
+    tree.appendChild(buildEnvelopeTreeNode(bag));
 
     // ── Building row ──────────────────────────────────────────────────────────
     const buildingRow = document.createElement('div');

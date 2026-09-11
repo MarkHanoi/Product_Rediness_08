@@ -10,7 +10,8 @@ import type { UBPBag }                  from './BrowserDataHelpers';
 // §C78-U-INV-4 — the count shown beside a category is a CLAIM about the model.
 // `determineCategoryElements` is what makes "this project has no walls" and
 // "the wall store is not ready" different values; see BrowserDataHelpers.ts.
-import { determineCategoryElements, getSubType, getLevels, getTypeIcon } from './BrowserDataHelpers';
+import { determineCategoryElements, categorySubTypeResolver, getLevels, getTypeIcon } from './BrowserDataHelpers';
+import type { CategorySubType } from './BrowserDataHelpers';
 import {
     applyElementVisibility,
     applyCategoryVisibility,
@@ -205,11 +206,16 @@ export function populateCategoryBody(
 ): void {
     body.innerHTML = '';
 
-    const typeMap = new Map<string, any[]>();
+    // §BROWSER-ONE-BUILDING-RULE (L-13311) — bucketed by the sub-type KEY, displayed by its label: for
+    // envelopes the key is the building (`group:<id>`), so two buildings sharing a label stay two rows,
+    // in the PROJECT card's order.
+    const subTypeOf = categorySubTypeResolver(bag, catLabel);
+    const typeMap = new Map<string, { subType: CategorySubType; elements: any[] }>();
     for (const el of elements) {
-        const st = getSubType(catLabel, el);
-        if (!typeMap.has(st)) typeMap.set(st, []);
-        typeMap.get(st)!.push(el);
+        const st = subTypeOf(el);
+        const bucket = typeMap.get(st.key);
+        if (bucket) bucket.elements.push(el);
+        else typeMap.set(st.key, { subType: st, elements: [el] });
     }
 
     if (typeMap.size === 0) {
@@ -220,8 +226,9 @@ export function populateCategoryBody(
         return;
     }
 
-    for (const [typeName, typeElems] of typeMap) {
-        body.appendChild(buildCategoryTypeGroup(bag, catLabel, typeName, typeElems));
+    const buckets = [...typeMap.entries()].sort((a, b) => a[1].subType.order - b[1].subType.order);
+    for (const [typeKey, { subType, elements: typeElems }] of buckets) {
+        body.appendChild(buildCategoryTypeGroup(bag, catLabel, typeKey, typeElems, subType));
     }
 }
 
@@ -232,12 +239,17 @@ export function buildCategoryTypeGroup(
     catLabel: string,
     typeName: string,
     elements: any[],
+    /** §BROWSER-ONE-BUILDING-RULE (L-13311) — how the bucket reads, when its key is not its label
+     *  (an envelope building's key is `group:<id>`). Absent ⇒ the key is printed, as before. */
+    display?: Pick<CategorySubType, 'label' | 'iconKey'>,
 ): HTMLElement {
     const typeKey    = `${catLabel}:${typeName}`;
     const isExpanded = bag.catTypeExpanded.get(catLabel)?.has(typeName) ?? false;
     const typeVis    = bag.catTypeVisible.get(typeKey) ?? true;
+    const iconKey    = display?.iconKey ?? typeName;
 
     const group = document.createElement('div');
+    group.setAttribute('data-subtype-key', typeName);
 
     const typeHdr = document.createElement('div');
     typeHdr.className = 'pb-ubp-ec-type-hdr';
@@ -248,11 +260,11 @@ export function buildCategoryTypeGroup(
 
     const typeIconEl = document.createElement('span');
     typeIconEl.className = 'pb-ubp-ec-type-icon';
-    typeIconEl.innerHTML = getTypeIcon(typeName);
+    typeIconEl.innerHTML = getTypeIcon(iconKey);
 
     const typeNameEl = document.createElement('span');
     typeNameEl.className   = 'pb-ubp-ec-type-name';
-    typeNameEl.textContent = typeName;
+    typeNameEl.textContent = display?.label ?? typeName;
 
     const typeCountEl = document.createElement('span');
     typeCountEl.className   = 'pb-ubp-ec-type-count';
@@ -326,6 +338,7 @@ export function populateInstanceBody(
 
         const instRow = document.createElement('div');
         instRow.className = 'pb-ubp-ec-inst-row' + (isSel ? ' pb-ubp-ec-inst-row--selected' : '');
+        instRow.setAttribute('data-elem-id', id);
 
         const dot = document.createElement('span');
         dot.className = 'pb-ubp-ec-inst-dot';

@@ -13,7 +13,7 @@ import {
     normalizeStoreyName,
     getLevels,
     getCategoryElements,
-    getSubType,
+    categorySubTypeResolver,
     getElementsForLevel,
     getAllElementIds,
 } from './BrowserDataHelpers';
@@ -302,8 +302,11 @@ export function applyCategoryTypeVisibility(
 ): void {
     const key = `${catLabel}:${typeName}`;
     bag.catTypeVisible.set(key, visible);
+    // §BROWSER-ONE-BUILDING-RULE (L-13311) — `typeName` is the bucket KEY the row was drawn with, so
+    // the eye hides exactly that row's elements (one building, even when another shares its label).
+    const subTypeOf = categorySubTypeResolver(bag, catLabel);
     for (const el of getCategoryElements(bag, catLabel)) {
-        if (getSubType(catLabel, el) === typeName) {
+        if (subTypeOf(el).key === typeName) {
             const id = String(el.id);
             bag.elemVisible.set(id, visible);
             applyElementVisibility(bag, id, visible);
@@ -353,8 +356,15 @@ export function handleVisibilityCommand(bag: UBPBag, detail: any): void {
         }
 
     } else if (target === 'type-in-category') {
-        let elements = getCategoryElements(bag, value)
-            .filter(el => getSubType(value, el).toLowerCase() === subType.toLowerCase());
+        // §BROWSER-ONE-BUILDING-RULE (L-13311) — the AI names a sub-type by what the row PRINTS (or its
+        // key); the hide below then goes per matched bucket KEY, since two buildings may share a name.
+        const subTypeOf = categorySubTypeResolver(bag, value);
+        const wanted    = subType.toLowerCase();
+        const ofType    = getCategoryElements(bag, value).filter(el => {
+            const st = subTypeOf(el);
+            return st.key.toLowerCase() === wanted || st.label.toLowerCase() === wanted;
+        });
+        let elements = ofType;
         if (minHeight > 0) {
             elements = elements.filter(el => {
                 const h = el.height ?? el.properties?.height ?? el.dimensions?.height ?? 0;
@@ -363,7 +373,9 @@ export function handleVisibilityCommand(bag: UBPBag, detail: any): void {
         }
         const ids = elements.map(el => String(el.id));
         if (action === 'hide') {
-            applyCategoryTypeVisibility(bag, value, subType, false);
+            for (const key of new Set(ofType.map(el => subTypeOf(el).key))) {
+                applyCategoryTypeVisibility(bag, value, key, false);
+            }
         } else if (action === 'isolate') {
             applyIsolate(bag, `cat-type:${value}:${subType}`, () => ids);
         } else if (action === 'highlight') {
